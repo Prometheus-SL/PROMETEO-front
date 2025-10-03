@@ -32,9 +32,8 @@ export function useAuth() {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "https://prometeo.miguelprez.es",
-                    "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, DELETE",
-                    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                    "Origin": "https://prometeo.miguelprez.es",
+                    "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, DELETE"
                 },
                 body: JSON.stringify({ username, password }),
             });
