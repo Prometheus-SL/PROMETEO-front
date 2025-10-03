@@ -30,7 +30,12 @@ export function useAuth() {
         try {
             const res = await fetch(`${API_URL}/auth/login`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "https://prometeo.miguelprez.es",
+                    "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, DELETE",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                },
                 body: JSON.stringify({ username, password }),
             });
             if (!res.ok) throw new Error("Credenciales incorrectas");

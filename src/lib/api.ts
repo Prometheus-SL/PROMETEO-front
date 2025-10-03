@@ -7,6 +7,9 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
         ...(options.headers || {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "https://prometeo.miguelprez.es",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, DELETE",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
     };
     const res = await fetch(`${API_URL}${endpoint}`, {
         ...options,
