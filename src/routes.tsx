@@ -1,11 +1,16 @@
+import { PrivateRoute } from "./routes/PrivateRoute";
 import LoginPage from "@/pages/LoginPage";
 import HomePage from "@/pages/HomePage";
-import { PrivateRoute } from "./routes/PrivateRoute";
+import RegisterPage from "./pages/RegisterPage";
 
 export const appRoutes = [
   {
     path: "/login",
     element: <LoginPage />,
+  },
+  {
+    path: "/register",
+    element: <RegisterPage />,
   },
   {
     path: "/",

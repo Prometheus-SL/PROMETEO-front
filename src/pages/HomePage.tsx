@@ -1,4 +1,4 @@
-import { useAuthContext } from "@/components/AuthProvider";
+import { useAuthContext } from "@/providers/AuthProvider";
 
 export default function HomePage() {
   const { user, logout } = useAuthContext();

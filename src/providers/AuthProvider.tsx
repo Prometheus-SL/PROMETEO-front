@@ -7,6 +7,14 @@ interface AuthContextProps {
   user: AuthUser | null;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
+  register: (
+    username: string,
+    email: string,
+    password: string,
+    name: string,
+    surname: string,
+    birthday: string
+  ) => Promise<void>;
   loading: boolean;
   error: string | null;
 }

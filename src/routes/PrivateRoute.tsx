@@ -1,4 +1,4 @@
-import { useAuthContext } from "@/components/AuthProvider";
+import { useAuthContext } from "@/providers/AuthProvider";
 import { Navigate, useLocation } from "react-router-dom";
 
 export function PrivateRoute({ children }: { children: React.ReactNode }) {

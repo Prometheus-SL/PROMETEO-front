@@ -1,14 +1,25 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { useAuthContext } from "@/components/AuthProvider";
+import { useAuthContext } from "@/providers/AuthProvider";
 
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
+import { Field, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field";
+import Background from "@/components/background";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import { EyeClosedIcon, EyeIcon } from "lucide-react";
 
 export default function LoginPage() {
   const { login, loading, error, accessToken } = useAuthContext();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   // Logo definition
@@ -30,8 +41,8 @@ export default function LoginPage() {
   };
 
   return (
-    <section className="bg-muted h-screen">
-      <div className="flex h-full items-center justify-center">
+    <Background>
+      <div className="flex h-screen w-screen items-center justify-center">
         {/* Logo */}
         <div className="flex flex-col items-center gap-6 lg:justify-start">
           <a href={logo.url}>
@@ -43,47 +54,90 @@ export default function LoginPage() {
             />
           </a>
           <div className="min-w-sm border-muted bg-background flex w-full max-w-sm flex-col items-center gap-y-4 rounded-md border px-6 py-8 shadow-md">
-            <h1 className="text-xl font-semibold">Welcome Back</h1>
-            <Input
-              type="email"
-              placeholder="Email"
-              className="text-sm"
-              required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoFocus
-            />
-            <Input
-              type="password"
-              placeholder="Password"
-              className="text-sm"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleSubmit();
-                }
-              }}
-            />
-            <Button
-              type="submit"
-              className="w-full"
-              onClick={handleSubmit}
-              disabled={loading}
-            >
-              {loading ? "Loading..." : "Login"}
-            </Button>
-            {error && <div className="text-sm text-red-600">{error}</div>}
+            <h1 className="text-xl font-semibold">Welcome to Prometeo</h1>
+
+            <div className="w-full max-w-md">
+              <FieldSet>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="email">Email</FieldLabel>
+                    <Input
+                      type="email"
+                      placeholder="Email"
+                      className="text-sm"
+                      required
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleSubmit();
+                        }
+                      }}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="password">Password</FieldLabel>
+
+                    <InputGroup>
+                      <InputGroupInput
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Password"
+                        className="text-sm"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleSubmit();
+                          }
+                        }}
+                      />
+                      <InputGroupAddon align="inline-end">
+                        <InputGroupButton
+                          onClick={() => setShowPassword(!showPassword)}
+                          size="icon-xs"
+                        >
+                          {showPassword ? (
+                            <EyeIcon className="h-4 w-4" />
+                          ) : (
+                            <EyeClosedIcon className="h-4 w-4" />
+                          )}
+                        </InputGroupButton>
+                      </InputGroupAddon>
+                    </InputGroup>
+                  </Field>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    onClick={handleSubmit}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <Spinner />
+                        Loading...
+                      </>
+                    ) : (
+                      "Login"
+                    )}
+                  </Button>
+                  {error && <div className="text-sm text-red-600">{error}</div>}
+                </FieldGroup>
+              </FieldSet>
+            </div>
           </div>
           <div className="text-muted-foreground flex justify-center gap-1 text-sm">
             <p>Don't have an account?</p>
-            <a href={"#"} className="text-primary font-medium hover:underline">
+            <Link
+              to="/register"
+              className="text-primary font-medium hover:underline"
+            >
               Sign up
-            </a>
+            </Link>
           </div>
         </div>
       </div>
-    </section>
+    </Background>
   );
 }

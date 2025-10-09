@@ -57,6 +57,34 @@ export function useAuth() {
         }
     };
 
+    const register = async (username: string, email: string, password: string, name: string, surname: string, birthday: string) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch(`${API_URL}/auth/register`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Origin": "https://prometeo.miguelprez.es",
+                    "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, DELETE"
+                },
+                body: JSON.stringify({ username, email, password, name, surname, birthday }),
+            });
+            if (!res.ok) throw new Error("Error al registrar usuario");
+            const data = await res.json();
+            if (!data.success) throw new Error(data.message || "Error al registrar usuario");
+            await login(username, password);
+        } catch (e: unknown) {
+            if (e instanceof Error) {
+                setError(e.message);
+            } else {
+                setError("Error de registro");
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const logout = () => {
         localStorage.removeItem(ACCESS_TOKEN_KEY);
         localStorage.removeItem(REFRESH_TOKEN_KEY);
@@ -66,5 +94,5 @@ export function useAuth() {
         setUser(null);
     };
 
-    return { accessToken, refreshToken, user, login, logout, loading, error };
+    return { accessToken, refreshToken, user, login, logout, loading, error, register };
 }
