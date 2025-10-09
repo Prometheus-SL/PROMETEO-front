@@ -12,7 +12,8 @@ export interface AuthUser {
     role: string;
     name: string;
     surname: string;
-    lastLogin?: string;
+    lastLogin: string;
+    birthday: string;
 }
 
 export function useAuth() {

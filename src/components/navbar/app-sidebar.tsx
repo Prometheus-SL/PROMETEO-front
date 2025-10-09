@@ -33,14 +33,6 @@ export function AppSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar> & { sections?: Section[] }) {
   const { user } = useAuthContext();
-  const displayUser = {
-    name: user?.name ?? "Usuario",
-    email: user?.email ?? "",
-    role: user?.role ?? "Member",
-    nickname: user?.username ?? "Usuario",
-    surname: user?.surname ?? "Usuario",
-    avatar: "/avatars/shadcn.jpg",
-  };
   const isAdmin = (user?.role || "").toLowerCase().includes("admin");
   const visibleSections = sections
     .filter((s) => !s.adminOnly || isAdmin)
@@ -72,7 +64,7 @@ export function AppSidebar({
         <NavMain sections={visibleSections} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={displayUser} />
+        <NavUser/>
       </SidebarFooter>
     </Sidebar>
   );

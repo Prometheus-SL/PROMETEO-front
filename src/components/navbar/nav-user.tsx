@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,24 +18,32 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { AdminBadge } from "../admin-badge";
+import { ConfettiButton } from "../ui/confetti";
 
-export function NavUser({
-  user,
-}: {
-  user: {
-    nickname: string;
-    email: string;
-    avatar: string;
-    name: string;
-    surname: string;
-    role?: string;
-  };
-}) {
+export function NavUser() {
   const { isMobile } = useSidebar();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+
+  if (!user) return null;
 
   return (
     <SidebarMenu>
+      {user.birthday &&
+        (() => {
+          const birthday = new Date(user.birthday);
+          const today = new Date();
+          const isToday =
+            birthday.getDate() === today.getDate() &&
+            birthday.getMonth() === today.getMonth();
+          return isToday ? (
+            <div className="text-xs text-center text-muted-foreground mb-1">
+              <ConfettiButton className="w-full">
+                🎂 Happy Birthday, {user.name}!
+              </ConfettiButton>
+            </div>
+          ) : null;
+        })()}
+
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -44,18 +52,15 @@ export function NavUser({
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg grayscale">
-                <AvatarImage src={user.avatar} alt={user.nickname} />
                 <AvatarFallback className="rounded-lg">
                   {user.name.charAt(0) + user.surname.charAt(0)}
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                  <div className="flex items-center gap-1">
-                    <span className="truncate font-medium">
-                      {user.nickname}
-                    </span>{" "}
-                    {user.role == "admin" && <AdminBadge className="ml-auto" />}
-                  </div>
+                <div className="flex items-center gap-1">
+                  <span className="truncate font-medium">{user.username}</span>{" "}
+                  {user.role == "admin" && <AdminBadge className="ml-auto" />}
+                </div>
                 <span className="text-muted-foreground truncate text-xs">
                   {user.email}
                 </span>
@@ -71,7 +76,6 @@ export function NavUser({
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user.avatar} alt={user.nickname} />
                   <AvatarFallback className="rounded-lg">
                     {user.name.charAt(0) + user.surname.charAt(0)}
                   </AvatarFallback>
@@ -79,7 +83,7 @@ export function NavUser({
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <div className="flex items-center gap-1">
                     <span className="truncate font-medium">
-                      {user.nickname}
+                      {user.username}
                     </span>{" "}
                     {user.role == "admin" && <AdminBadge className="ml-auto" />}
                   </div>
