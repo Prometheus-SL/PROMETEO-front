@@ -13,6 +13,7 @@ import { useEffect } from "react";
 import Background from "@/components/background";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { BorderBeam } from "@/components/ui/border-beam";
 
 export default function LoginPage() {
   const { accessToken, register, loading, error } = useAuthContext();
@@ -66,8 +67,10 @@ export default function LoginPage() {
               className="h-10 dark:invert"
             />
           </a>
-          <div className="border-muted bg-background flex w-full max-w-sm md:max-w-3xl flex-col items-center gap-y-4 rounded-md border px-1 py-6 md:px-6 md:py-8 shadow-md transition-all">
-            <h1 className="text-xl font-semibold md:text-3xl">Create your account</h1>
+          <div className="relative border-muted bg-background flex w-full max-w-sm md:max-w-3xl flex-col items-center gap-y-4 rounded-md border px-1 py-6 md:px-6 md:py-8 shadow-md transition-all">
+            <h1 className="text-xl font-semibold md:text-3xl">
+              Create your account
+            </h1>
             <div className="w-3xl max-w-sm md:max-w-3xl px-2 md:px-6">
               <FieldSet>
                 <FieldGroup className="grid grid-cols-1 md:grid-cols-2 gap-7">
@@ -147,6 +150,7 @@ export default function LoginPage() {
                 </FieldGroup>
               </FieldSet>
             </div>
+            <BorderBeam duration={8} size={100} />
           </div>
           <div className="text-muted-foreground flex justify-center gap-1 text-sm">
             <p>You have an account?</p>

@@ -16,7 +16,7 @@ export function SiteHeader({ title = "Home" }: { title?: string }) {
         <h1 className="text-base font-medium">{title}</h1>
         <div className="ml-auto flex items-center gap-2">
           <RainbowButton>Go to Client</RainbowButton>
-          <Separator orientation="vertical" className="mx-2" />
+          <Separator orientation="vertical" className="mx-2 hidden sm:flex" />
           <Button variant="ghost" asChild size="sm" className="hidden sm:flex">
             <a
               href="https://github.com/Prometheus-SL"
@@ -27,8 +27,8 @@ export function SiteHeader({ title = "Home" }: { title?: string }) {
               GitHub
             </a>
           </Button>
-          <Separator orientation="vertical" className="mx-2" />
-          <AnimatedThemeToggler />
+          <Separator orientation="vertical" className="mx-2 hidden sm:flex" />
+          <AnimatedThemeToggler className="hidden sm:flex" />
         </div>
       </div>
     </header>

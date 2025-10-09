@@ -14,6 +14,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { EyeClosedIcon, EyeIcon } from "lucide-react";
+import { BorderBeam } from "@/components/ui/border-beam";
 
 export default function LoginPage() {
   const { login, loading, error, accessToken } = useAuthContext();
@@ -53,7 +54,7 @@ export default function LoginPage() {
               className="h-10 dark:invert"
             />
           </a>
-          <div className="min-w-sm border-muted bg-background flex w-full max-w-sm flex-col items-center gap-y-4 rounded-md border px-6 py-8 shadow-md">
+          <div className="relative min-w-sm border-muted bg-background flex w-full max-w-sm flex-col items-center gap-y-4 rounded-md border px-6 py-8 shadow-md">
             <h1 className="text-xl font-semibold">Welcome to Prometeo</h1>
 
             <div className="w-full max-w-md">
@@ -126,6 +127,7 @@ export default function LoginPage() {
                 </FieldGroup>
               </FieldSet>
             </div>
+            <BorderBeam duration={8} size={100} />
           </div>
           <div className="text-muted-foreground flex justify-center gap-1 text-sm">
             <p>Don't have an account?</p>
