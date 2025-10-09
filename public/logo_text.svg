@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="Prometheus logo minimal">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 240" width="900" height="240" role="img" aria-label="Prometheus logo minimal">
   <!-- Ícono llama -->
-  <g transform="translate(15,10)">
+  <g transform="translate(40,20)">
     <path d="M100 38
              C84 68, 62 88, 60 120
              C58 155, 86 176, 106 190
@@ -15,5 +15,12 @@
              C92 130, 98 118, 112 106
              C122 96, 112 86, 112 86 Z"
           fill="white"/>
+  </g>
+
+  <!-- Texto -->
+  <g transform="translate(280,140)">
+    <text x="0" y="0" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="64" fill="black">
+      PROMETHEUS
+    </text>
   </g>
 </svg>

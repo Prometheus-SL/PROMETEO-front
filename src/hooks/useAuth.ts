@@ -10,6 +10,8 @@ export interface AuthUser {
     username: string;
     email: string;
     role: string;
+    name: string;
+    surname: string;
     lastLogin?: string;
 }
 
@@ -92,6 +94,7 @@ export function useAuth() {
         setAccessToken(null);
         setRefreshToken(null);
         setUser(null);
+        window.location.replace("/login");
     };
 
     return { accessToken, refreshToken, user, login, logout, loading, error, register };
