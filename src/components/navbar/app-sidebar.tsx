@@ -15,7 +15,11 @@ import { NavUser } from "./nav-user";
 import { Link } from "react-router-dom";
 import { useAuthContext } from "@/providers/AuthProvider";
 
-type NavItem = { title: string; url: string };
+type Section = {
+  title: string;
+  routes: { title: string; url: string }[];
+  adminOnly?: boolean;
+};
 
 const logo = {
   url: "/",
@@ -25,9 +29,9 @@ const logo = {
 };
 
 export function AppSidebar({
-  items = [],
+  sections = [],
   ...props
-}: React.ComponentProps<typeof Sidebar> & { items?: NavItem[] }) {
+}: React.ComponentProps<typeof Sidebar> & { sections?: Section[] }) {
   const { user } = useAuthContext();
   const displayUser = {
     name: user?.name ?? "Usuario",
@@ -37,6 +41,11 @@ export function AppSidebar({
     surname: user?.surname ?? "Usuario",
     avatar: "/avatars/shadcn.jpg",
   };
+  const isAdmin = (user?.role || "").toLowerCase().includes("admin");
+  const visibleSections = sections
+    .filter((s) => !s.adminOnly || isAdmin)
+    .map((s) => ({ ...s, routes: s.routes || [] }))
+    .filter((s) => s.routes.length > 0 || !s.adminOnly); // evita grupos vacíos solo si serían admin-only
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -60,7 +69,7 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={items} />
+        <NavMain sections={visibleSections} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={displayUser} />

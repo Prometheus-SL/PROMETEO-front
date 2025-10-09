@@ -3,40 +3,44 @@
 import {
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Link, useLocation } from "react-router-dom";
 
-export function NavMain({
-  items,
-}: {
-  items: {
-    title: string;
-    url: string;
-  }[];
-}) {
+type Section = {
+  title: string;
+  routes: { title: string; url: string }[];
+};
+
+export function NavMain({ sections }: { sections: Section[] }) {
   const location = useLocation();
   return (
-    <SidebarGroup>
-      <SidebarGroupContent className="flex flex-col gap-2">
-        <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton
-                tooltip={item.title}
-                asChild
-                isActive={location.pathname === item.url}
-              >
-                <Link to={item.url}>
-                  <span>{item.title}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
+    <div className="flex flex-col gap-2">
+      {sections.map((section) => (
+        <SidebarGroup key={section.title}>
+          <SidebarGroupLabel>{section.title}</SidebarGroupLabel>
+          <SidebarGroupContent className="flex flex-col gap-2">
+            <SidebarMenu>
+              {section.routes.map((route) => (
+                <SidebarMenuItem key={`${section.title}-${route.title}`}>
+                  <SidebarMenuButton
+                    tooltip={route.title}
+                    asChild
+                    isActive={location.pathname === route.url}
+                  >
+                    <Link to={route.url}>
+                      <span>{route.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      ))}
+    </div>
   );
 }

@@ -42,12 +42,10 @@ export default function LoginPage() {
       document.getElementById("password_repeat") as HTMLInputElement
     ).value;
     const name = (document.getElementById("name") as HTMLInputElement).value;
-    const surname = (
-      document.getElementById("surname") as HTMLInputElement
-    ).value;
-    const birthday = (
-      document.getElementById("birthday") as HTMLInputElement
-    ).value;
+    const surname = (document.getElementById("surname") as HTMLInputElement)
+      .value;
+    const birthday = (document.getElementById("birthday") as HTMLInputElement)
+      .value;
     if (password !== passwordRepeat) {
       alert("Passwords do not match");
       return;
@@ -57,7 +55,7 @@ export default function LoginPage() {
 
   return (
     <Background>
-      <div className="flex h-screen w-screen items-center justify-center">
+      <div className="flex h-screen w-screen items-center justify-center my-16 md:my-0">
         {/* Logo */}
         <div className="flex flex-col items-center gap-4 lg:justify-start">
           <a href={logo.url}>
@@ -68,26 +66,18 @@ export default function LoginPage() {
               className="h-10 dark:invert"
             />
           </a>
-          <div className="min-w-sm border-muted bg-background flex w-full max-w-sm flex-col items-center gap-y-4 rounded-md border px-6 py-8 shadow-md">
-            <h1 className="text-xl font-semibold m">Create your account</h1>
-            <div className="w-full max-w-md">
+          <div className="border-muted bg-background flex w-full max-w-sm md:max-w-3xl flex-col items-center gap-y-4 rounded-md border px-1 py-6 md:px-6 md:py-8 shadow-md transition-all">
+            <h1 className="text-xl font-semibold md:text-3xl">Create your account</h1>
+            <div className="w-3xl max-w-sm md:max-w-3xl px-2 md:px-6">
               <FieldSet>
-                <FieldGroup>
+                <FieldGroup className="grid grid-cols-1 md:grid-cols-2 gap-7">
                   <Field>
                     <FieldLabel htmlFor="name">Name</FieldLabel>
-                    <Input
-                      id="name"
-                      type="text"
-                      placeholder="Scott"
-                    />
+                    <Input id="name" type="text" placeholder="Scott" />
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="surname">Surname</FieldLabel>
-                    <Input
-                      id="surname"
-                      type="text"
-                      placeholder="Tiger"
-                    />
+                    <Input id="surname" type="text" placeholder="Tiger" />
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="username">Username</FieldLabel>
@@ -110,13 +100,9 @@ export default function LoginPage() {
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="birthday">Birthday</FieldLabel>
-                    <Input
-                      id="birthday"
-                      type="date"
-                      placeholder="01/01/1970"
-                    />
+                    <Input id="birthday" type="date" placeholder="01/01/1970" />
                   </Field>
-                  <Field>
+                  <Field className="md:col-span-2">
                     <FieldLabel htmlFor="password">Password</FieldLabel>
                     <FieldDescription>
                       Must be at least 8 characters long.
@@ -133,14 +119,14 @@ export default function LoginPage() {
                       placeholder="********"
                     />
                   </Field>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground md:col-span-2">
                     By clicking "Register", you agree to our Terms of Service
                     and Privacy Policy.
                   </p>
                   {/* Submit Button */}
                   <Button
                     type="submit"
-                    className="w-full"
+                    className="w-full md:col-span-2"
                     onClick={handleSubmit}
                     disabled={loading}
                   >
@@ -153,7 +139,11 @@ export default function LoginPage() {
                       "Register"
                     )}
                   </Button>
-                  {error && <div className="text-sm text-red-600">{error}</div>}
+                  {error && (
+                    <div className="text-sm text-red-600 md:col-span-2">
+                      {error}
+                    </div>
+                  )}
                 </FieldGroup>
               </FieldSet>
             </div>

@@ -3,6 +3,7 @@ import LoginPage from "@/pages/LoginPage";
 import HomePage from "@/pages/HomePage";
 import RegisterPage from "./pages/RegisterPage";
 import AppLayout from "./layouts/AppLayout";
+import NotFoundPage from "@/pages/404Page";
 
 export const appRoutes = [
   {
@@ -20,19 +21,29 @@ export const appRoutes = [
         <AppLayout />
       </PrivateRoute>
     ),
-    handle: {
-      // Menú por defecto del layout
-      navMain: [
-        { title: "Home", url: "/" },
-      ],
-    },
+    handle: [
+      {
+        routes: [{ title: "Home", url: "/" }],
+        adminOnly: false,
+        title: "Principal",
+      },
+      {
+        title: "Administración",
+        routes: [{ title: "Users", url: "/admin/users" }],
+        adminOnly: true,
+      },
+    ],
     children: [
       {
         index: true,
         element: <HomePage />,
         handle: { title: "Home" },
-      }
+      },
     ],
   },
   // Puedes añadir más rutas aquí
+  {
+    path: "*",
+    element: <NotFoundPage />,
+  },
 ];

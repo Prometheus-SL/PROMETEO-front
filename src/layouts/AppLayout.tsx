@@ -3,27 +3,32 @@ import { AppSidebar } from "@/components/navbar/app-sidebar";
 import { SiteHeader } from "@/components/navbar/site-bar";
 import { SidebarInset } from "@/components/ui/sidebar";
 
-type NavItem = { title: string; url: string };
+type Section = {
+  title: string;
+  routes: { title: string; url: string }[];
+  adminOnly?: boolean;
+};
 
 export default function AppLayout() {
-  // Leemos metadatos (handle) de la ruta activa para título y menú
+  // Leemos metadatos (handle) de la ruta activa para título y secciones de la sidebar
   const matches = useMatches();
-  const activeHandle = matches[matches.length - 1]?.handle as
-    | { title?: string; navMain?: NavItem[] }
+
+  // Título de la página desde el último match si define { title }
+  const lastHandle = matches[matches.length - 1]?.handle as
+    | { title?: string }
     | undefined;
+  const title = lastHandle?.title ?? "Home";
 
-  // Buscamos el primer handle en la jerarquía que defina navMain
-  const navHandle = [...matches]
-    .reverse()
-    .find((m) => (m.handle as { navMain?: NavItem[] } | undefined)?.navMain)
-    ?.handle as { navMain?: NavItem[] } | undefined;
-
-  const title = activeHandle?.title ?? "Home";
-  const items: NavItem[] = navHandle?.navMain ?? [{ title: "Home", url: "/" }];
+  // Buscamos en la jerarquía el primer handle que sea un array de secciones
+  const sections =
+    [...matches]
+      .reverse()
+      .map((m) => m.handle)
+      .find((h): h is Section[] => Array.isArray(h)) ?? [];
 
   return (
     <>
-      <AppSidebar items={items} variant="inset" />
+      <AppSidebar sections={sections} variant="inset" />
       <SidebarInset>
         <SiteHeader title={title} />
         <div className="p-4 lg:p-6">
