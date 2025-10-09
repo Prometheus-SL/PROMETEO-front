@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
-import Background from "@/components/background";
+import Background from "@/components/common/background";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { BorderBeam } from "@/components/ui/border-beam";

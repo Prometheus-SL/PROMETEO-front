@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
-import { useAuth, type AuthUser } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
+import type { AuthUser } from "@/services/auth";
 
 interface AuthContextProps {
   accessToken: string | null;

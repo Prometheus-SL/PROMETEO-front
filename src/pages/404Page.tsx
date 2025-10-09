@@ -14,7 +14,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Home, LogIn } from "lucide-react";
-import Background from "@/components/background";
+import Background from "@/components/common/background";
 import { Meteors } from "@/components/ui/meteors";
 
 export default function NotFoundPage() {

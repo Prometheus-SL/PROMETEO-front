@@ -6,7 +6,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Field, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field";
-import Background from "@/components/background";
+import Background from "@/components/common/background";
 import {
   InputGroup,
   InputGroupAddon,

@@ -4,6 +4,7 @@ import HomePage from "@/pages/HomePage";
 import RegisterPage from "./pages/RegisterPage";
 import AppLayout from "./layouts/AppLayout";
 import NotFoundPage from "@/pages/404Page";
+import UsersPage from "./pages/admin/UsersPage";
 
 export const appRoutes = [
   {
@@ -38,6 +39,11 @@ export const appRoutes = [
         index: true,
         element: <HomePage />,
         handle: { title: "Home" },
+      },
+      {
+        path: "/admin/users",
+        element: <UsersPage />,
+        handle: { title: "Users" },
       },
     ],
   },

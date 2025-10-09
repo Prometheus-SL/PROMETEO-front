@@ -17,7 +17,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
-import { AdminBadge } from "../admin-badge";
+import { AdminBadge } from "../admin/admin-badge";
 import { ConfettiButton } from "../ui/confetti";
 
 export function NavUser() {

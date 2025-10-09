@@ -2,6 +2,7 @@ import { Outlet, useMatches } from "react-router-dom";
 import { AppSidebar } from "@/components/navbar/app-sidebar";
 import { SiteHeader } from "@/components/navbar/site-bar";
 import { SidebarInset } from "@/components/ui/sidebar";
+import { Toaster } from "@/components/ui/sonner";
 
 type Section = {
   title: string;
@@ -35,6 +36,7 @@ export default function AppLayout() {
           <Outlet />
         </div>
       </SidebarInset>
+      <Toaster />
     </>
   );
 }
