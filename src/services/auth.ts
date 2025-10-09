@@ -5,11 +5,9 @@ export const REFRESH_TOKEN_KEY = "auth_refresh_token";
 export const USER_KEY = "auth_user";
 
 export type Tokens = {
-    tokens: {
-        accessToken: string;
-        refreshToken: string;
-        expiresIn?: number;
-    }
+    accessToken: string;
+    refreshToken: string;
+    expiresIn?: number;
 };
 
 export type AuthUser = {
@@ -63,8 +61,8 @@ export const authService = {
             );
             if (!res || ("success" in res && !res.success)) return false;
             const data = (res as ApiSuccess<Tokens>).data;
-            localStorage.setItem(ACCESS_TOKEN_KEY, data.tokens.accessToken);
-            localStorage.setItem(REFRESH_TOKEN_KEY, data.tokens.refreshToken);
+            localStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
+            localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
             return true;
         } catch {
             return false;

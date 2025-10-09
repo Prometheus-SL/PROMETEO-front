@@ -13,7 +13,6 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { MoreHorizontal } from "lucide-react";
 import { AdminBadge } from "../admin-badge";
 import { toast } from "sonner";
-import { ApiError } from "@/lib/api";
 
 type ColumnActions = {
   onUserUpdated?: (user: Partial<User> & { _id: string }) => void;
