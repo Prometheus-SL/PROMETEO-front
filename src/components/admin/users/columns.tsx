@@ -13,6 +13,11 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { MoreHorizontal } from "lucide-react";
 import { AdminBadge } from "../admin-badge";
 import { toast } from "sonner";
+import { UserEditDialog } from "./user-edit-dialog";
+import { UserRoleDialog } from "./user-role-dialog";
+import { UserResetPasswordDialog } from "./user-reset-password-dialog";
+import { UserDeleteDialog } from "./user-delete-dialog";
+import { UserRevokeTokensDialog } from "./user-revoke-tokens-dialog";
 
 type ColumnActions = {
   onUserUpdated?: (user: Partial<User> & { _id: string }) => void;
@@ -99,15 +104,6 @@ export const buildColumns = (
     cell: ({ row }) => {
       const user = row.original;
 
-      const handleDelete = async () => {
-        try {
-          await usersService.delete(user._id);
-          actions.onUserDeleted?.(user._id);
-        } catch (err) {
-          console.error("No se pudo eliminar el usuario", err);
-        }
-      };
-
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -117,13 +113,44 @@ export const buildColumns = (
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>Edit</DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={handleDelete}
-              className="bg-red-400 hover:bg-red-600 text-white"
+            <UserEditDialog
+              user={user}
+              onSaved={(partial) =>
+                actions.onUserUpdated?.({ _id: user._id, ...partial })
+              }
             >
-              Delete
-            </DropdownMenuItem>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                Edit
+              </DropdownMenuItem>
+            </UserEditDialog>
+            <UserRoleDialog
+              user={user}
+              onSaved={(partial) =>
+                actions.onUserUpdated?.({ _id: user._id, ...partial })
+              }
+            >
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                Change role
+              </DropdownMenuItem>
+            </UserRoleDialog>
+            <UserResetPasswordDialog user={user}>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                Reset password
+              </DropdownMenuItem>
+            </UserResetPasswordDialog>
+            <UserRevokeTokensDialog user={user}>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                Revoke tokens
+              </DropdownMenuItem>
+            </UserRevokeTokensDialog>
+            <UserDeleteDialog user={user} onDeleted={(id) => actions.onUserDeleted?.(id)}>
+              <DropdownMenuItem
+                onSelect={(e) => e.preventDefault()}
+                className="bg-red-400 hover:bg-red-600 text-white"
+              >
+                Delete
+              </DropdownMenuItem>
+            </UserDeleteDialog>
           </DropdownMenuContent>
         </DropdownMenu>
       );

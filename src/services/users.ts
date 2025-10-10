@@ -59,15 +59,15 @@ export const usersService = {
         }
         return (res as ApiSuccess<User>).data.users;
     },
-    async updateProfile(userId: string, profile: { email?: string; name?: string; surname?: string; birthday?: string; }): Promise<void> {
-        const res = await api.put<ApiSuccess<null> | ApiFailure>(`/api/v1/users/${userId}`, profile);
+    async updateProfile(userId: string, profile: { email?: string; name?: string; surname?: string; birthday?: string; isActive?: boolean; }): Promise<void> {
+        const res = await api.patch<ApiSuccess<null> | ApiFailure>(`/api/v1/users/${userId}`, profile);
         if (!res || ("success" in res && !res.success)) {
             const msg = (res as ApiFailure)?.message || "No se pudo actualizar el perfil del usuario";
             throw new Error(msg);
         }
     },
-    async resetPassword(userId: string, newPassword: string): Promise<void> {
-        const res = await api.post<ApiSuccess<null> | ApiFailure>(`/api/v1/users/${userId}/reset-password`, { newPassword });
+    async resetPassword(userId: string, password: string): Promise<void> {
+        const res = await api.post<ApiSuccess<null> | ApiFailure>(`/api/v1/users/${userId}/reset-password`, { password });
         if (!res || ("success" in res && !res.success)) {
             const msg = (res as ApiFailure)?.message || "No se pudo cambiar la contraseña del usuario";
             throw new Error(msg);
