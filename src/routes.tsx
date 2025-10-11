@@ -5,6 +5,7 @@ import RegisterPage from "./pages/RegisterPage";
 import AppLayout from "./layouts/AppLayout";
 import NotFoundPage from "@/pages/404Page";
 import UsersPage from "./pages/admin/UsersPage";
+import MarketplacePage from "@/pages/MarketplacePage";
 
 export const appRoutes = [
   {
@@ -33,12 +34,22 @@ export const appRoutes = [
         routes: [{ title: "Users", url: "/admin/users" }],
         adminOnly: true,
       },
+      {
+        title: "Marketplace",
+        routes: [{ title: "Marketplace", url: "/marketplace" }],
+        adminOnly: false,
+      },
     ],
     children: [
       {
         index: true,
         element: <HomePage />,
         handle: { title: "Home" },
+      },
+      {
+        path: "/marketplace",
+        element: <MarketplacePage />,
+        handle: { title: "Marketplace" },
       },
       {
         path: "/admin/users",
