@@ -7,8 +7,8 @@ type GridCell = { x: number; y: number; w: number; h: number };
 
 interface GridManagerProps {
   installed: InstalledModule[];
-  onRemove?: (id: string) => void;
-  onMove?: (id: string, pos: GridCell) => void;
+  onRemove?: (id: string) => void; // id de instancia (_id) o meta.id si no existe
+  onMove?: (id: string, pos: GridCell) => void; // id de instancia (_id) o meta.id si no existe
 }
 
 // Tamaño del lienzo: 4 columnas x 5 filas
@@ -155,8 +155,9 @@ export function GridManager({ installed, onRemove, onMove }: GridManagerProps) {
     setPositions((prev) => {
       const next = { ...prev };
       for (const i of installed) {
+        const key = i._id ?? i.meta.id;
         const desired = getDesiredSize(i);
-        const current = next[i.meta.id];
+        const current = next[key];
         // Partimos de la posición guardada o de un hueco nuevo, pero siempre con el tamaño deseado
         let candidate: GridCell = clampToGrid({
           ...(i.position ??
@@ -165,11 +166,11 @@ export function GridManager({ installed, onRemove, onMove }: GridManagerProps) {
           h: desired.h,
         });
         // Si colisiona, buscamos un hueco libre con ese tamaño
-        const others = occupied(next, i.meta.id);
+        const others = occupied(next, key);
         if (others.some((p) => collides(p, candidate))) {
           candidate = findFirstFree(next, desired.w, desired.h);
         }
-        next[i.meta.id] = candidate;
+        next[key] = candidate;
       }
       return next;
     });
@@ -234,8 +235,10 @@ export function GridManager({ installed, onRemove, onMove }: GridManagerProps) {
   // Orden de render por fila/columna
   const items = useMemo(() => {
     return [...installed].sort((a, b) => {
-      const pa = positions[a.meta.id] ?? { x: 0, y: 0, w: 1, h: 1 };
-      const pb = positions[b.meta.id] ?? { x: 0, y: 0, w: 1, h: 1 };
+      const ka = a._id ?? a.meta.id;
+      const kb = b._id ?? b.meta.id;
+      const pa = positions[ka] ?? { x: 0, y: 0, w: 1, h: 1 };
+      const pb = positions[kb] ?? { x: 0, y: 0, w: 1, h: 1 };
       return pa.y - pb.y || pa.x - pb.x;
     });
   }, [installed, positions]);
@@ -268,11 +271,12 @@ export function GridManager({ installed, onRemove, onMove }: GridManagerProps) {
 
       {/* Widgets posicionados absolutamente */}
       {items.map((i) => {
-        const pos = positions[i.meta.id] ?? { x: 0, y: 0, w: 1, h: 1 };
+        const key = i._id ?? i.meta.id;
+        const pos = positions[key] ?? { x: 0, y: 0, w: 1, h: 1 };
         const Def = defs[i.meta.id]?.Component;
         return (
           <div
-            key={i.meta.id}
+            key={key}
             className="absolute p-2"
             style={{
               left: `calc(${pos.x} / ${COLS} * 100%)`,
@@ -283,7 +287,7 @@ export function GridManager({ installed, onRemove, onMove }: GridManagerProps) {
           >
             <div
               className="h-full w-full rounded-md border bg-background shadow-sm overflow-hidden group relative"
-              data-widget-id={i.meta.id}
+              data-widget-id={key}
             >
               {/* Barra de acciones */}
               <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-10">
@@ -295,7 +299,7 @@ export function GridManager({ installed, onRemove, onMove }: GridManagerProps) {
                   onPointerDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    handlePointerDown(e, i.meta.id);
+                    handlePointerDown(e, key);
                   }}
                 >
                   ≡
@@ -307,7 +311,7 @@ export function GridManager({ installed, onRemove, onMove }: GridManagerProps) {
                   title="Eliminar"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onRemove?.(i.meta.id);
+                    onRemove?.(key);
                   }}
                 >
                   ×

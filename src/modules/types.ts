@@ -17,6 +17,8 @@ export interface ModuleMeta {
 }
 
 export interface InstalledModule {
+    // _id de Instancia en backend (para actualizaciones/eliminaciones)
+    _id?: string
     meta: ModuleMeta
     config: Record<string, unknown>
     position?: { x: number; y: number; w: number; h: number }
@@ -46,4 +48,23 @@ export interface MarketplaceFilters {
     query: string
     categories: string[]
     sizes: ModuleSize[]
+}
+
+// Page (dashboard) según backend
+export interface Page {
+    _id: string
+    name: string
+    slug: string
+    description?: string
+    style?: Record<string, unknown>
+    active: boolean
+    order: number
+    modules: InstalledModule[]
+    createdAt?: string
+    updatedAt?: string
+}
+
+export interface PageOrderItem {
+    id: string
+    order: number
 }

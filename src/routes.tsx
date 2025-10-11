@@ -6,6 +6,7 @@ import AppLayout from "./layouts/AppLayout";
 import NotFoundPage from "@/pages/404Page";
 import UsersPage from "./pages/admin/UsersPage";
 import MarketplacePage from "@/pages/MarketplacePage";
+import DashboardsPage from "./pages/DashboardsPage";
 
 export const appRoutes = [
   {
@@ -25,7 +26,9 @@ export const appRoutes = [
     ),
     handle: [
       {
-        routes: [{ title: "Home", url: "/" }],
+        routes: [{ title: "Home", url: "/" },
+          { title: "Dashboards", url: "/dashboard" }
+        ],
         adminOnly: false,
         title: "Principal",
       },
@@ -45,6 +48,11 @@ export const appRoutes = [
         index: true,
         element: <HomePage />,
         handle: { title: "Home" },
+      },
+      {
+        path: "/dashboard",
+        element: <DashboardsPage />,
+        handle: { title: "Edit Dashboards" },
       },
       {
         path: "/marketplace",

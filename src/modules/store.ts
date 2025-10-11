@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from "react"
 import type { InstalledModule, MarketplaceFilters, ModuleMeta } from "./types"
 import { loadModulesIndex } from "./loader"
+import { dashboardService } from "@/services/dashboards"
+import type { Page } from "./types"
 
-// Persistencia simple en localStorage (puede reemplazarse por API/DB)
-const STORAGE_KEY = "prometeo.installedModules.v1"
 
 export interface MarketplaceState {
     modules: ModuleMeta[]
     loading: boolean
     error?: string
     filters: MarketplaceFilters
-    installed: InstalledModule[]
+    pages: Page[]
+    currentPageId?: string
+    installed: InstalledModule[] // alias del dashboard actual para compatibilidad con UI existente
 }
 
 export function useMarketplaceStore() {
@@ -18,16 +20,31 @@ export function useMarketplaceStore() {
         modules: [],
         loading: true,
         filters: { query: "", categories: [], sizes: [] },
-        installed: loadFromStorage(),
+        pages: [],
+        currentPageId: undefined,
+        installed: [],
     })
 
     useEffect(() => {
         let cancelled = false
             ; (async () => {
                 try {
-                    const index = await loadModulesIndex()
+                    const [index, pages, active] = await Promise.all([
+                        loadModulesIndex(),
+                        safeListPages(),
+                        safeGetActivePage(),
+                    ])
                     if (cancelled) return
-                    setState((s) => ({ ...s, modules: index.map((e) => e.meta), loading: false }))
+                    // Selecciona página actual: activa, o la primera, o vacía
+                    const current = active ?? pages[0] ?? null
+                    setState((s) => ({
+                        ...s,
+                        modules: index.map((e) => e.meta),
+                        pages,
+                        currentPageId: current?._id,
+                        installed: current?.modules ?? [],
+                        loading: false,
+                    }))
                 } catch (e) {
                     if (cancelled) return
                     setState((s) => ({ ...s, loading: false, error: (e as Error).message }))
@@ -37,10 +54,6 @@ export function useMarketplaceStore() {
             cancelled = true
         }
     }, [])
-
-    useEffect(() => {
-        saveToStorage(state.installed)
-    }, [state.installed])
 
     const filtered = useMemo(() => {
         const q = state.filters.query.toLowerCase()
@@ -72,21 +85,90 @@ export function useMarketplaceStore() {
         })
     }
 
+    function installModuleTo(pageId: string, meta: ModuleMeta, config: Record<string, unknown>) {
+        // posición inicial la decide el GridManager, aquí opcional
+        void dashboardService.addModule(pageId, { meta, config }).then(({ module }) => {
+            setState((s) => {
+                const pages = s.pages.map((p) => p._id === pageId ? { ...p, modules: [...p.modules, module] } : p)
+                const installed = s.currentPageId === pageId ? [...s.installed, module] : s.installed
+                return { ...s, pages, installed }
+            })
+        }).catch(() => { /* noop */ })
+    }
+
     function installModule(meta: ModuleMeta, config: Record<string, unknown>) {
-        setState((s) => ({ ...s, installed: [...s.installed, { meta, config }] }))
+        if (!state.currentPageId) return
+        installModuleTo(state.currentPageId, meta, config)
     }
 
     function removeModule(id: string) {
-        setState((s) => ({ ...s, installed: s.installed.filter((i) => i.meta.id !== id) }))
+        if (!state.currentPageId) return
+        const mod = state.installed.find((m) => (m._id ?? m.meta.id) === id)
+        const moduleId = mod?._id
+        if (!moduleId) {
+            // si no tiene _id, quita localmente
+            setState((s) => ({ ...s, installed: s.installed.filter((i) => (i._id ?? i.meta.id) !== id) }))
+            return
+        }
+        void dashboardService.removeModule(state.currentPageId, moduleId).then(() => {
+            setState((s) => ({ ...s, installed: s.installed.filter((i) => (i._id ?? i.meta.id) !== id) }))
+        }).catch(() => { /* noop */ })
     }
 
     function setModulePosition(id: string, position?: InstalledModule["position"]) {
+        // Actualiza estado local
         setState((s) => ({
             ...s,
             installed: s.installed.map((i) =>
-                i.meta.id === id ? { ...i, position } : i
+                (i._id === id || i.meta.id === id) ? { ...i, position } : i
             ),
         }))
+        // Persistencia individual inmediata si hay _id
+        const pageId = state.currentPageId
+        const mod = state.installed.find((m) => m._id === id || m.meta.id === id)
+        const moduleId = mod?._id
+        if (pageId && moduleId && position) {
+            void dashboardService.updateModule(pageId, moduleId, { position }).catch(() => { /* noop */ })
+        }
+        // Además, el effect realizará un reorder en bloque si fuera necesario
+    }
+
+    function selectDashboard(id: string) {
+        setState((s) => {
+            const p = s.pages.find((p) => p._id === id)
+            if (!p) return s
+            return { ...s, currentPageId: id, installed: p.modules }
+        })
+    }
+
+    async function createDashboard(name: string) {
+        const created = await dashboardService.createPage({ name, active: true })
+        setState((s) => ({
+            ...s,
+            pages: [...s.pages, created],
+            currentPageId: created._id,
+            installed: [],
+        }))
+    }
+
+    async function deleteDashboard(id: string) {
+        await dashboardService.deletePage(id)
+        setState((s) => {
+            const pages = s.pages.filter((p) => p._id !== id)
+            const currentPageId = s.currentPageId === id ? pages[0]?._id : s.currentPageId
+            const installed = currentPageId ? (pages.find((p) => p._id === currentPageId)?.modules ?? []) : []
+            return { ...s, pages, currentPageId, installed }
+        })
+    }
+
+    async function activateDashboard(id: string) {
+        const updated = await dashboardService.updatePage(id, { active: true })
+        setState((s) => {
+            const pages = s.pages.map((p) => ({ ...p, active: p._id === id }))
+            const currentPageId = id
+            const installed = updated.modules ?? []
+            return { ...s, pages, currentPageId, installed }
+        })
     }
 
     return {
@@ -96,25 +178,28 @@ export function useMarketplaceStore() {
         toggleCategory,
         toggleSize,
         installModule,
+        installModuleTo,
         removeModule,
         setModulePosition,
+        selectDashboard,
+        createDashboard,
+        deleteDashboard,
+        activateDashboard,
     }
 }
 
-function loadFromStorage(): InstalledModule[] {
+async function safeListPages(): Promise<Page[]> {
     try {
-        const raw = localStorage.getItem(STORAGE_KEY)
-        if (!raw) return []
-        return JSON.parse(raw) as InstalledModule[]
+        return await dashboardService.listPages()
     } catch {
         return []
     }
 }
 
-function saveToStorage(data: InstalledModule[]) {
+async function safeGetActivePage(): Promise<Page | null> {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+        return await dashboardService.getActivePage()
     } catch {
-        // noop
+        return null
     }
 }

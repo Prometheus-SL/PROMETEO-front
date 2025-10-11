@@ -30,9 +30,11 @@ function ModuleCard({
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>{meta.name}</span>
-          {meta.size && <Badge variant="secondary">
-            {meta.size.width}x{meta.size.height}
-          </Badge>}
+          {meta.size && (
+            <Badge variant="secondary">
+              {meta.size.width}x{meta.size.height}
+            </Badge>
+          )}
         </CardTitle>
         {meta.description && (
           <CardDescription>{meta.description}</CardDescription>
@@ -62,7 +64,8 @@ function ModuleCard({
 }
 
 export function MarketplaceList() {
-  const { state, filtered, setQuery, installModule } = useMarketplaceStore();
+  const { state, filtered, setQuery, installModule, installModuleTo } =
+    useMarketplaceStore();
   const [selected, setSelected] = useState<ModuleMeta | null>(null);
 
   const categories = useMemo(
@@ -103,8 +106,12 @@ export function MarketplaceList() {
           meta={selected}
           open={!!selected}
           onClose={() => setSelected(null)}
-          onSave={(config) => {
-            installModule(selected, config);
+          onSave={(config, pageId) => {
+            if (pageId) {
+              installModuleTo(pageId, selected, config);
+            } else {
+              installModule(selected, config);
+            }
             setSelected(null);
           }}
         />

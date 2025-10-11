@@ -12,7 +12,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { ModuleMeta } from "../types";
+import { useMarketplaceStore } from "../store";
 import { loadModulesIndex, loadModuleDefinition } from "../loader";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 
 // Generador de formulario mínimo a partir de un schema Zod (strings y numbers)
 function ZodForm({
@@ -192,9 +201,11 @@ export function ModuleConfigModal({
   meta: ModuleMeta;
   open: boolean;
   onClose: () => void;
-  onSave: (config: Record<string, unknown>) => void;
+  onSave: (config: Record<string, unknown>, pageId?: string) => void;
 }) {
   const [schema, setSchema] = useState<z.ZodTypeAny | null>(null);
+  const [pageId, setPageId] = useState<string | undefined>(undefined);
+  const { state } = useMarketplaceStore();
 
   useEffect(() => {
     let cancelled = false;
@@ -211,10 +222,15 @@ export function ModuleConfigModal({
     };
   }, [meta.id]);
 
+  // Inicializa el pageId por defecto a la página actual cuando se abre o cambia la actual
+  useEffect(() => {
+    if (open) setPageId(state.currentPageId);
+  }, [open, state.currentPageId]);
+
   const [form, setForm] = useState<Record<string, unknown>>({});
 
   const content = useMemo(() => {
-    if (!schema) return <div>Este módulo no requiere configuración.</div>;
+    if (!schema) return <div>This module does not require configuration.</div>;
     return <ZodForm schema={schema} initial={{}} onChange={setForm} />;
   }, [schema]);
 
@@ -224,12 +240,40 @@ export function ModuleConfigModal({
         <DialogHeader>
           <DialogTitle> Configure: {meta.name}</DialogTitle>
         </DialogHeader>
-        <div className="py-2">{content}</div>
+        <div className="py-2 space-y-3">
+          {/* Config del módulo */}
+          {content}
+          {/* Selección de página destino */}
+          {state.pages?.length ? (
+            <div className="space-y-3 w-full">
+              <Separator />
+              <Label htmlFor="page-select">Add to Page</Label>
+              <Select
+                name="page-select"
+                value={pageId ?? state.currentPageId ?? ""}
+                onValueChange={setPageId}
+              >
+                <SelectTrigger className="w-full ">
+                  <SelectValue placeholder="Select page" className="w-full" />
+                </SelectTrigger>
+                <SelectContent className="w-full">
+                  {state.pages.map((p) => (
+                    <SelectItem key={p._id} value={p._id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+        </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
-            Cancelar
+            Cancel
           </Button>
-          <Button onClick={() => onSave(form)}>Guardar</Button>
+          <Button onClick={() => onSave(form, pageId ?? state.currentPageId)}>
+            Save
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
