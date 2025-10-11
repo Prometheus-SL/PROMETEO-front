@@ -143,7 +143,10 @@ export const buildColumns = (
                 Revoke tokens
               </DropdownMenuItem>
             </UserRevokeTokensDialog>
-            <UserDeleteDialog user={user} onDeleted={(id) => actions.onUserDeleted?.(id)}>
+            <UserDeleteDialog
+              user={user}
+              onDeleted={(id) => actions.onUserDeleted?.(id)}
+            >
               <DropdownMenuItem
                 onSelect={(e) => e.preventDefault()}
                 className="bg-red-400 hover:bg-red-600 text-white"

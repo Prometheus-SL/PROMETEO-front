@@ -1,6 +1,12 @@
 import { buildColumns } from "@/components/admin/users/columns";
 import { DataTable } from "@/components/admin/users/data-table";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { usersService, type User } from "@/services/users";
 
 import { useEffect, useMemo, useState } from "react";

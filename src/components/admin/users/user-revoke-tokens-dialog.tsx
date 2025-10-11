@@ -42,14 +42,19 @@ export function UserRevokeTokensDialog({ user, children }: Props) {
         <DialogHeader>
           <DialogTitle>Revocar sesiones</DialogTitle>
           <DialogDescription>
-            Se cerrarán todas las sesiones abiertas para "{user.email}". ¿Deseas continuar?
+            Se cerrarán todas las sesiones abiertas para "{user.email}". ¿Deseas
+            continuar?
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="outline" disabled={loading}>Cancelar</Button>
+            <Button type="button" variant="outline" disabled={loading}>
+              Cancelar
+            </Button>
           </DialogClose>
-          <Button onClick={submit} disabled={loading}>{loading ? "Revocando..." : "Revocar"}</Button>
+          <Button onClick={submit} disabled={loading}>
+            {loading ? "Revocando..." : "Revocar"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

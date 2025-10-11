@@ -46,17 +46,34 @@ export function UserRoleDialog({ user, children, onSaved }: Props) {
   };
 
   return (
-  <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { setRole(user.role); setConfirmed(false); } }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v) {
+          setRole(user.role);
+          setConfirmed(false);
+        }
+      }}
+    >
       <form onSubmit={submit}>
         <DialogTrigger asChild>{children}</DialogTrigger>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
             <DialogTitle>Cambiar rol</DialogTitle>
-            <DialogDescription>Selecciona el nuevo rol para el usuario.</DialogDescription>
+            <DialogDescription>
+              Selecciona el nuevo rol para el usuario.
+            </DialogDescription>
           </DialogHeader>
           <div className="px-6 -mt-2 text-sm text-muted-foreground">
-            <div>Email: <span className="font-medium text-foreground">{user.email}</span></div>
-            <div>Rol actual: <span className="font-medium text-foreground">{user.role}</span></div>
+            <div>
+              Email:{" "}
+              <span className="font-medium text-foreground">{user.email}</span>
+            </div>
+            <div>
+              Rol actual:{" "}
+              <span className="font-medium text-foreground">{user.role}</span>
+            </div>
           </div>
           <div className="grid gap-3">
             <label className="flex items-center gap-2">
@@ -81,16 +98,27 @@ export function UserRoleDialog({ user, children, onSaved }: Props) {
             </label>
           </div>
           <div className="flex items-center gap-3">
-            <Checkbox id="confirm-role" checked={confirmed} onCheckedChange={(v) => setConfirmed(v === true)} />
-            <label htmlFor="confirm-role" className="cursor-pointer text-sm text-muted-foreground">
+            <Checkbox
+              id="confirm-role"
+              checked={confirmed}
+              onCheckedChange={(v) => setConfirmed(v === true)}
+            />
+            <label
+              htmlFor="confirm-role"
+              className="cursor-pointer text-sm text-muted-foreground"
+            >
               Confirmo el cambio de rol
             </label>
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={saving}>Cancelar</Button>
+              <Button type="button" variant="outline" disabled={saving}>
+                Cancelar
+              </Button>
             </DialogClose>
-            <Button type="submit" disabled={saving || !confirmed}>{saving ? "Guardando..." : "Guardar"}</Button>
+            <Button type="submit" disabled={saving || !confirmed}>
+              {saving ? "Guardando..." : "Guardar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </form>

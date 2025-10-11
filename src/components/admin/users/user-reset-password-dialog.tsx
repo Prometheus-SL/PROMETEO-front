@@ -45,13 +45,21 @@ export function UserResetPasswordDialog({ user, children }: Props) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) setPassword(""); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v) setPassword("");
+      }}
+    >
       <form onSubmit={submit}>
         <DialogTrigger asChild>{children}</DialogTrigger>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
             <DialogTitle>Resetear contraseña</DialogTitle>
-            <DialogDescription>Introduce la nueva contraseña para el usuario.</DialogDescription>
+            <DialogDescription>
+              Introduce la nueva contraseña para el usuario.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
             <Label htmlFor="new-password">Nueva contraseña</Label>
@@ -64,9 +72,13 @@ export function UserResetPasswordDialog({ user, children }: Props) {
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={saving}>Cancelar</Button>
+              <Button type="button" variant="outline" disabled={saving}>
+                Cancelar
+              </Button>
             </DialogClose>
-            <Button type="submit" disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Guardando..." : "Guardar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </form>

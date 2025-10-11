@@ -1,5 +1,7 @@
 // Cliente HTTP centralizado con soporte de token, reintento en 401 y errores tipados
 
+import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY } from "@/services/auth";
+
 export const API_URL = import.meta.env.VITE_URL_BACKEND as string;
 
 // Error tipado para peticiones API
@@ -119,9 +121,15 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
         }
         throw new ApiError(message, res.status, errData);
     } catch {
-        throw new ApiError(res.statusText || `Error ${res.status}`, res.status);
+        if (res.statusText === "Unauthorized") {
+            localStorage.removeItem(ACCESS_TOKEN_KEY);
+            localStorage.removeItem(REFRESH_TOKEN_KEY);
+            localStorage.removeItem(USER_KEY);
+            window.location.replace("/login");
+        }
     }
-}
+    throw new ApiError(res.statusText || `Error ${res.status}`, res.status);
+};
 
 export const api = {
     get: <T>(endpoint: string, options?: Omit<RequestOptions, "method" | "body">) =>

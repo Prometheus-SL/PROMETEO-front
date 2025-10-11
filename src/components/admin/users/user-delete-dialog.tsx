@@ -48,13 +48,26 @@ export function UserDeleteDialog({ user, children, onDeleted }: Props) {
           </DialogDescription>
         </DialogHeader>
         <div className="px-6 -mt-2 text-sm text-muted-foreground">
-          <div>Email: <span className="font-medium text-foreground">{user.email}</span></div>
-          <div>Rol: <span className="font-medium text-foreground">{user.role}</span></div>
-          <div>Activo: <span className="font-medium text-foreground">{user.isActive ? "Sí" : "No"}</span></div>
+          <div>
+            Email:{" "}
+            <span className="font-medium text-foreground">{user.email}</span>
+          </div>
+          <div>
+            Rol:{" "}
+            <span className="font-medium text-foreground">{user.role}</span>
+          </div>
+          <div>
+            Activo:{" "}
+            <span className="font-medium text-foreground">
+              {user.isActive ? "Sí" : "No"}
+            </span>
+          </div>
         </div>
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="outline" disabled={loading}>Cancelar</Button>
+            <Button type="button" variant="outline" disabled={loading}>
+              Cancelar
+            </Button>
           </DialogClose>
           <Button variant="destructive" onClick={submit} disabled={loading}>
             {loading ? "Eliminando..." : "Eliminar"}
