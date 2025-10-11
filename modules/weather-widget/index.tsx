@@ -16,7 +16,7 @@ export default function WeatherWidget({
 }: {
   config: Record<string, unknown>;
 }) {
-  const city = String(config["city"] ?? "Madrid,ES");
+  const city = String(config["city"] ?? "Madrid");
   const units = String(config["units"] ?? "metric");
   const [data, setData] = useState<OpenWeatherResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,12 +28,10 @@ export default function WeatherWidget({
   useEffect(() => {
     async function fetchWeather() {
       if (!apiKey) {
-        setError("Falta VITE_OPENWEATHER_API_KEY en .env");
         setLoading(false);
         return;
       }
       if (!city) {
-        setError("Falta VITE_OPENWEATHER_CITY en .env");
         setLoading(false);
         return;
       }
@@ -64,8 +62,8 @@ export default function WeatherWidget({
 
   const bg = (() => {
     // Color brutalista por grupo
-    const id = cond?.id ?? 800;
-    if (id === 800) return isDay ? "#f59e0b" : "#4f46e5"; // sol / noche
+    const id = cond?.id ?? 0;
+    if (id === 0)  return "#f3f4f6ff"; // sin datos
     const g = Math.floor(id / 100);
     switch (g) {
       case 2:
@@ -80,7 +78,7 @@ export default function WeatherWidget({
       case 8:
         return "#9ca3af"; // nubes
       default:
-        return "#22c55e";
+        return isDay ? "#f59e0b" : "#4f46e5"; // claro / noche
     }
   })();
 
