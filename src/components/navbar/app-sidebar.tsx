@@ -47,7 +47,10 @@ export function AppSidebar({
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <Link to="https://landing.prometeo.miguelprez.es/">
+              <Link
+                to="https://landing.prometeo.miguelprez.es/"
+                target="_blank"
+              >
                 <img
                   src={logo.src}
                   alt={logo.alt}
@@ -64,7 +67,7 @@ export function AppSidebar({
         <NavMain sections={visibleSections} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser/>
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
   );
