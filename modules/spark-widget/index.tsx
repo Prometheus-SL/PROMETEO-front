@@ -376,14 +376,28 @@ function SparkSvg({
                 Z
               "
               fill="url(#batGrad)"
-              stroke="#fff"
               strokeWidth="2"
               transform="translate(0, -40)"
+            />
+            <path d="M145 110 L155 110 L150 125 Z" fill="#000" />
+          </g>
+          <g filter="url(#glow)">
+            <path
+              d="
+                M50 180
+                C60 220, 90 280, 150 300
+                C210 280, 240 220, 250 180
+                C240 200, 210 250, 150 270
+                C90 250, 60 200, 50 180
+                Z
+              "
+              fill="url(#batGrad)"
+              strokeWidth="2"
+              transform="translate(0, -35)"
             />
           </g>
         </svg>
       )}
-
       {/* brillo superior */}
       <ellipse cx="82" cy="58" rx="14" ry="9" fill="#fff" opacity="0.1" />
     </svg>
