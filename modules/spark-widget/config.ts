@@ -7,7 +7,7 @@ export const schema = z.object({
         message: "Must be a valid hex color (ej. #ff0000)",
     }),
     mood: z.enum(["happy", "sleepy", "angry", "surprised"]).default("happy"),
-    accessory: z.enum(["none", "glasses", "crown", "antenna"]).default("none"),
+    accessory: z.enum(["none", "glasses", "crown", "antenna", "batman"]).default("none"),
     autoMood: z.boolean().optional().default(true),
 })
 

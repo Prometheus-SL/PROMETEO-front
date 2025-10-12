@@ -4,7 +4,7 @@ import { Particles } from "@/components/ui/shadcn-io/particles";
 // El widget es de solo lectura: no se muestran controles ni confetti
 
 type Mood = "happy" | "sleepy" | "angry" | "surprised";
-type Accessory = "none" | "glasses" | "crown" | "antenna";
+type Accessory = "none" | "glasses" | "crown" | "antenna" | "batman";
 
 export default function SparkChispaCard({
   config,
@@ -321,6 +321,67 @@ function SparkSvg({
             strokeWidth="1.5"
           />
         </g>
+      )}
+      {accessory === "batman" && (
+        <svg
+          viewBox="0 0 300 300"
+          xmlns="http://www.w3.org/2000/svg"
+          role="img"
+          aria-label="Batman Spark accessory"
+        >
+          <defs>
+            <linearGradient id="batGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop
+                offset="0%"
+                style={{ stopColor: "#000000", stopOpacity: 1 }}
+              />
+              <stop
+                offset="100%"
+                style={{ stopColor: "#222222", stopOpacity: 1 }}
+              />
+            </linearGradient>
+            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="5" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          <g filter="url(#glow)">
+            <path
+              d="
+                M150 50
+                L140 100
+                L120 80
+                L100 100
+                L90 50
+                L60 90
+                L70 140
+                L50 180
+                L80 180
+                L100 160
+                L130 180
+                L170 180
+                L200 160
+                L220 180
+                L250 180
+                L230 140
+                L240 90
+                L210 50
+                L190 100
+                L170 80
+                L150 100
+                Z
+              "
+              fill="url(#batGrad)"
+              stroke="#fff"
+              strokeWidth="2"
+              transform="translate(0, -40)"
+            />
+          </g>
+        </svg>
       )}
 
       {/* brillo superior */}
