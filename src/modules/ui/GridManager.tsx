@@ -301,7 +301,7 @@ export function GridManager({
             }}
           >
             <div
-              className="h-full w-full rounded-md border bg-background shadow-sm overflow-hidden group relative"
+              className="h-full w-full shadow-sm overflow-hidden group relative"
               data-widget-id={key}
             >
               {/* Barra de acciones */}
@@ -310,7 +310,7 @@ export function GridManager({
                   size="icon"
                   variant="secondary"
                   className="h-7 w-7 cursor-grab active:cursor-grabbing"
-                  title="Mover"
+                  title="Move"
                   onPointerDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -322,8 +322,8 @@ export function GridManager({
                 <Button
                   size="icon"
                   variant="secondary"
-                  className="h-7 w-7"
-                  title="Editar configuración"
+                  className="h-7 w-7 cursor-pointer"
+                  title="Edit configuration"
                   onClick={(e) => {
                     e.stopPropagation();
                     setEditingId(key);
@@ -334,8 +334,8 @@ export function GridManager({
                 <Button
                   size="icon"
                   variant="destructive"
-                  className="h-7 w-7"
-                  title="Eliminar"
+                  className="h-7 w-7 cursor-pointer"
+                  title="Delete"
                   onClick={(e) => {
                     e.stopPropagation();
                     onRemove?.(key);
@@ -349,7 +349,7 @@ export function GridManager({
                   <Def config={i.config} />
                 ) : (
                   <div className="h-full grid place-items-center text-sm text-zinc-500">
-                    Cargando…
+                    Loading...
                   </div>
                 )}
               </div>
