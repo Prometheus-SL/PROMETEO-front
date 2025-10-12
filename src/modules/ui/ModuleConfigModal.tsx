@@ -197,11 +197,15 @@ export function ModuleConfigModal({
   open,
   onClose,
   onSave,
+  mode = "add",
+  initialConfig,
 }: {
   meta: ModuleMeta;
   open: boolean;
   onClose: () => void;
   onSave: (config: Record<string, unknown>, pageId?: string) => void;
+  mode?: "add" | "edit";
+  initialConfig?: Record<string, unknown>;
 }) {
   const [schema, setSchema] = useState<z.ZodTypeAny | null>(null);
   const [pageId, setPageId] = useState<string | undefined>(undefined);
@@ -227,24 +231,38 @@ export function ModuleConfigModal({
     if (open) setPageId(state.currentPageId);
   }, [open, state.currentPageId]);
 
-  const [form, setForm] = useState<Record<string, unknown>>({});
+  // Estabiliza initialConfig para evitar recreaciones por identidad
+  const initialConfigMemo = useMemo(
+    () => initialConfig ?? ({} as Record<string, unknown>),
+    [initialConfig]
+  );
+
+  const [form, setForm] = useState<Record<string, unknown>>(initialConfigMemo);
+  useEffect(() => {
+    // Cuando cambie initialConfig (p.ej. al abrir edición), sincroniza el formulario
+    setForm(initialConfigMemo);
+  }, [initialConfigMemo]);
 
   const content = useMemo(() => {
     if (!schema) return <div>This module does not require configuration.</div>;
-    return <ZodForm schema={schema} initial={{}} onChange={setForm} />;
-  }, [schema]);
+    return (
+      <ZodForm schema={schema} initial={initialConfigMemo} onChange={setForm} />
+    );
+  }, [schema, initialConfigMemo]);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle> Configure: {meta.name}</DialogTitle>
+          <DialogTitle>
+            {mode === "edit" ? "Editar" : "Configure"}: {meta.name}
+          </DialogTitle>
         </DialogHeader>
         <div className="py-2 space-y-3">
           {/* Config del módulo */}
           {content}
           {/* Selección de página destino */}
-          {state.pages?.length ? (
+          {mode === "add" && state.pages?.length ? (
             <div className="space-y-3 w-full">
               <Separator />
               <Label htmlFor="page-select">Add to Page</Label>
@@ -272,7 +290,7 @@ export function ModuleConfigModal({
             Cancel
           </Button>
           <Button onClick={() => onSave(form, pageId ?? state.currentPageId)}>
-            Save
+            {mode === "edit" ? "Guardar" : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

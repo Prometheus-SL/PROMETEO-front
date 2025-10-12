@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { InstalledModule } from "../types";
 import { loadModulesIndex, loadModuleDefinition } from "../loader";
 import { Button } from "@/components/ui/button";
+import { ModuleConfigModal } from "./ModuleConfigModal";
 
 type GridCell = { x: number; y: number; w: number; h: number };
 
@@ -9,6 +10,7 @@ interface GridManagerProps {
   installed: InstalledModule[];
   onRemove?: (id: string) => void; // id de instancia (_id) o meta.id si no existe
   onMove?: (id: string, pos: GridCell) => void; // id de instancia (_id) o meta.id si no existe
+  onUpdateConfig?: (id: string, config: Record<string, unknown>) => void;
 }
 
 // Tamaño del lienzo: 4 columnas x 5 filas
@@ -112,7 +114,12 @@ function getDesiredSize(inst: InstalledModule): { w: number; h: number } {
   return { w: 1, h: 1 };
 }
 
-export function GridManager({ installed, onRemove, onMove }: GridManagerProps) {
+export function GridManager({
+  installed,
+  onRemove,
+  onMove,
+  onUpdateConfig,
+}: GridManagerProps) {
   const [defs, setDefs] = useState<
     Record<
       string,
@@ -127,6 +134,14 @@ export function GridManager({ installed, onRemove, onMove }: GridManagerProps) {
   } | null>(null);
   const [positions, setPositions] = useState<Record<string, GridCell>>({});
   const gridRef = useRef<HTMLDivElement | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editingInst = useMemo(
+    () =>
+      editingId
+        ? installed.find((m) => (m._id ?? m.meta.id) === editingId)
+        : null,
+    [editingId, installed]
+  );
 
   // Cargar componentes dinámicos
   useEffect(() => {
@@ -306,6 +321,18 @@ export function GridManager({ installed, onRemove, onMove }: GridManagerProps) {
                 </Button>
                 <Button
                   size="icon"
+                  variant="secondary"
+                  className="h-7 w-7"
+                  title="Editar configuración"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingId(key);
+                  }}
+                >
+                  ✎
+                </Button>
+                <Button
+                  size="icon"
                   variant="destructive"
                   className="h-7 w-7"
                   title="Eliminar"
@@ -330,6 +357,22 @@ export function GridManager({ installed, onRemove, onMove }: GridManagerProps) {
           </div>
         );
       })}
+
+      {/* Modal de edición de configuración */}
+      {editingId && editingInst && (
+        <ModuleConfigModal
+          key={`edit-${editingId}`}
+          meta={editingInst.meta}
+          open={!!editingId}
+          onClose={() => setEditingId(null)}
+          onSave={(config) => {
+            onUpdateConfig?.(editingId, config);
+            setEditingId(null);
+          }}
+          mode="edit"
+          initialConfig={editingInst.config}
+        />
+      )}
     </div>
   );
 }

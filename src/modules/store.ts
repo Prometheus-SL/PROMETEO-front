@@ -133,6 +133,29 @@ export function useMarketplaceStore() {
         // Además, el effect realizará un reorder en bloque si fuera necesario
     }
 
+    function setModuleConfig(id: string, config: Record<string, unknown>) {
+        // Actualiza estado local: installed y la página actual en pages
+        setState((s) => {
+            const installed = s.installed.map((i) =>
+                (i._id === id || i.meta.id === id) ? { ...i, config } : i
+            )
+            const pages = s.pages.map((p) =>
+                p._id === s.currentPageId
+                    ? { ...p, modules: p.modules.map((m) => (m._id === id || m.meta.id === id) ? { ...m, config } : m) }
+                    : p
+            )
+            return { ...s, installed, pages }
+        })
+
+        // Persistencia si hay _id
+        const pageId = state.currentPageId
+        const mod = state.installed.find((m) => m._id === id || m.meta.id === id)
+        const moduleId = mod?._id
+        if (pageId && moduleId) {
+            void dashboardService.updateModule(pageId, moduleId, { config }).catch(() => { /* noop */ })
+        }
+    }
+
     function selectDashboard(id: string) {
         setState((s) => {
             const p = s.pages.find((p) => p._id === id)
@@ -181,6 +204,7 @@ export function useMarketplaceStore() {
         installModuleTo,
         removeModule,
         setModulePosition,
+        setModuleConfig,
         selectDashboard,
         createDashboard,
         deleteDashboard,

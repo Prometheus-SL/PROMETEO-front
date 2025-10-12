@@ -16,6 +16,7 @@ export default function DashboardsPage() {
     state,
     removeModule,
     setModulePosition,
+    setModuleConfig,
     selectDashboard,
     createDashboard,
     deleteDashboard,
@@ -26,7 +27,10 @@ export default function DashboardsPage() {
     <div>
       {/* Selector de páginas */}
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={state.currentPageId ?? ""} onValueChange={selectDashboard}>
+        <Select
+          value={state.currentPageId ?? ""}
+          onValueChange={selectDashboard}
+        >
           <SelectTrigger className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
             <SelectValue placeholder="Select page" />
           </SelectTrigger>
@@ -78,6 +82,7 @@ export default function DashboardsPage() {
           installed={state.installed}
           onRemove={removeModule}
           onMove={(id, pos) => setModulePosition(id, pos)}
+          onUpdateConfig={(id, config) => setModuleConfig(id, config)}
         />
       </div>
     </div>
