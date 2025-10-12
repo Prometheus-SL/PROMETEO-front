@@ -103,6 +103,65 @@ function SparkSvg({
   const eyeY = 94;
   const eyeXOffset = 26;
   const eyeR = 7.5;
+  // Estado de parpadeo simultáneo
+  const [isBlinking, setIsBlinking] = useState(false);
+  const blinkTimeoutRef = useRef<number | null>(null);
+  const scheduleTimeoutRef = useRef<number | null>(null);
+  // Dirección de mirada: -1 izquierda, 0 centro, 1 derecha
+  const [gazeDir, setGazeDir] = useState<-1 | 0 | 1>(0);
+  const gazeTimeoutRef = useRef<number | null>(null);
+
+  // Programa parpadeos aleatorios a la vez para ambos ojos
+  useEffect(() => {
+    const scheduleNextBlink = () => {
+      // Próximo parpadeo entre 2 y 6 segundos
+      const delay = 2000 + Math.random() * 4000;
+      scheduleTimeoutRef.current = window.setTimeout(() => {
+        setIsBlinking(true);
+        // Duración del parpadeo breve (100-180ms)
+        const blinkDuration = 100 + Math.random() * 80;
+        blinkTimeoutRef.current = window.setTimeout(() => {
+          setIsBlinking(false);
+          scheduleNextBlink();
+        }, blinkDuration);
+      }, delay);
+    };
+
+    scheduleNextBlink();
+    return () => {
+      if (blinkTimeoutRef.current) window.clearTimeout(blinkTimeoutRef.current);
+      if (scheduleTimeoutRef.current)
+        window.clearTimeout(scheduleTimeoutRef.current);
+    };
+  }, []);
+
+  // Cambios de dirección de mirada aleatorios
+  useEffect(() => {
+    const scheduleNextGaze = () => {
+      const delay = 1200 + Math.random() * 1800; // 1.2s - 3s
+      gazeTimeoutRef.current = window.setTimeout(() => {
+        // Selecciona una dirección distinta a la actual con mayor probabilidad de volver a centro
+        const options: Array<-1 | 0 | 1> = [-1, 0, 1];
+        const weights = options.map((o) => (o === 0 ? 0.5 : 0.25));
+        const r = Math.random();
+        let acc = 0;
+        let next: -1 | 0 | 1 = 0;
+        for (let i = 0; i < options.length; i++) {
+          acc += weights[i];
+          if (r <= acc) {
+            next = options[i];
+            break;
+          }
+        }
+        setGazeDir(next);
+        scheduleNextGaze();
+      }, delay);
+    };
+    scheduleNextGaze();
+    return () => {
+      if (gazeTimeoutRef.current) window.clearTimeout(gazeTimeoutRef.current);
+    };
+  }, []);
 
   const gradId = useMemo(
     () => `spark-body-${Math.random().toString(36).slice(2)}`,
@@ -171,88 +230,86 @@ function SparkSvg({
       {/* halo sutil */}
       <circle cx="92" cy="82" r="38" fill={lightColor} opacity="0.08" />
 
-      {/* cuerpo chispa suavizado */}
+      {/* cuerpo con glow */}
       <g filter="url(#glow)">
         <path
-          d="
-      M92 164
-      C118 152, 144 132, 152 106
-      C156 92, 154 80, 140 60
-      C146 52, 154 42, 142 36
-      C134 32, 128 38, 120 28
-      C112 20, 104 18, 92 20
-      C80 18, 72 20, 64 28
-      C56 38, 50 32, 42 36
-      C30 42, 38 52, 44 60
-      C30 80, 28 92, 32 106
-      C40 132, 66 152, 92 164
-      Z
-    "
+          d="M92 164
+            C118 152, 144 132, 152 106
+            C156 92, 154 80, 140 60
+            C146 52, 154 42, 142 36
+            C134 32, 128 38, 120 28
+            C112 20, 104 18, 92 20
+            C80 18, 72 20, 64 28
+            C56 38, 50 32, 42 36
+            C30 42, 38 52, 44 60
+            C30 80, 28 92, 32 106
+            C40 132, 66 152, 92 164
+            Z"
           fill={`url(#${gradId})`}
           stroke={strokeColor}
           strokeWidth="2.4"
         />
       </g>
 
-      {/* chispas flotantes dinámicas */}
-      <g>
-        <circle cx="70" cy="40" r="2.5" fill={lightColor} opacity="0.6">
-          <animate
-            attributeName="cy"
-            values="40;30;40"
-            dur="1.4s"
-            repeatCount="indefinite"
-          />
-          <animate
-            attributeName="opacity"
-            values="0.6;1;0.6"
-            dur="1.4s"
-            repeatCount="indefinite"
-          />
-        </circle>
-        <circle cx="120" cy="38" r="2.8" fill={lightColor} opacity="0.7">
-          <animate
-            attributeName="cy"
-            values="38;26;38"
-            dur="1.1s"
-            repeatCount="indefinite"
-            begin="0.2s"
-          />
-        </circle>
-        <circle cx="92" cy="18" r="2.2" fill={lightColor} opacity="0.5">
-          <animate
-            attributeName="r"
-            values="2.2;3;2.2"
-            dur="1s"
-            repeatCount="indefinite"
-            begin="0.6s"
-          />
-        </circle>
-      </g>
-
       {/* Ojos */}
-      <g>
-        {/* izquierdo */}
-        <circle cx={92 - eyeXOffset} cy={eyeY} r={eyeR + 2.5} fill="#fff" />
-        <circle cx={92 - eyeXOffset} cy={eyeY} r={eyeR} fill={strokeColor} />
-        <circle
-          cx={92 - eyeXOffset - 2.5}
-          cy={eyeY - 2.5}
-          r={2}
-          fill="#fff"
-          opacity="0.9"
-        />
-        {/* derecho */}
-        <circle cx={92 + eyeXOffset} cy={eyeY} r={eyeR + 2.5} fill="#fff" />
-        <circle cx={92 + eyeXOffset} cy={eyeY} r={eyeR} fill={strokeColor} />
-        <circle
-          cx={92 + eyeXOffset - 2.5}
-          cy={eyeY - 2.5}
-          r={2}
-          fill="#fff"
-          opacity="0.9"
-        />
-      </g>
+      {isBlinking ? (
+        // Ojos cerrados (líneas) durante el parpadeo
+        <g>
+          <line
+            x1={92 - eyeXOffset - eyeR}
+            y1={eyeY}
+            x2={92 - eyeXOffset + eyeR}
+            y2={eyeY}
+            stroke={strokeColor}
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+          <line
+            x1={92 + eyeXOffset - eyeR}
+            y1={eyeY}
+            x2={92 + eyeXOffset + eyeR}
+            y2={eyeY}
+            stroke={strokeColor}
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+        </g>
+      ) : (
+        <g>
+          {/* izquierdo */}
+          <circle cx={92 - eyeXOffset} cy={eyeY} r={eyeR + 2.5} fill="#fff" />
+          {/* pupila (círculo interior) con desplazamiento de mirada */}
+          <circle
+            cx={92 - eyeXOffset + gazeDir * 2}
+            cy={eyeY}
+            r={eyeR}
+            fill={strokeColor}
+          />
+          <circle
+            cx={92 - eyeXOffset + gazeDir * 2 - 2.5}
+            cy={eyeY - 2.5}
+            r={2}
+            fill="#fff"
+            opacity="0.9"
+          />
+          {/* derecho */}
+          <circle cx={92 + eyeXOffset} cy={eyeY} r={eyeR + 2.5} fill="#fff" />
+          {/* pupila (círculo interior) con desplazamiento de mirada */}
+          <circle
+            cx={92 + eyeXOffset + gazeDir * 2}
+            cy={eyeY}
+            r={eyeR}
+            fill={strokeColor}
+          />
+          <circle
+            cx={92 + eyeXOffset + gazeDir * 2 - 2.5}
+            cy={eyeY - 2.5}
+            r={2}
+            fill="#fff"
+            opacity="0.9"
+          />
+        </g>
+      )}
 
       {/* Boca */}
       {mouth}
