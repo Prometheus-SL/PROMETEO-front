@@ -25,7 +25,7 @@ import { useAuthContext } from "@/providers/AuthProvider";
 export default function QRLoginPage() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { loginQR } = useAuthContext();
+  const { loginQR, user } = useAuthContext();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -110,11 +110,6 @@ export default function QRLoginPage() {
         setSuccess(true);
         setQrStatus("authenticated");
         loginQR(result.tokens, result.user);
-
-        // Redirigir después de un breve retraso
-        setTimeout(() => {
-          navigate("/");
-        }, 5000);
       }
     } catch (err) {
       setError(
@@ -124,6 +119,22 @@ export default function QRLoginPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Si hay refreshToken, intentar refrescar y redirigir
+    const tryRefresh = async () => {
+      if (user) {
+        try {
+          navigate("/");
+        } catch (err) {
+          setError(
+            err instanceof Error ? err.message : "Error al refrescar token"
+          );
+        }
+      }
+    };
+    tryRefresh();
+  }, [user]);
 
   const getStatusIcon = () => {
     if (scanning) return <Spinner />;
