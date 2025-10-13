@@ -7,6 +7,7 @@ interface AuthContextProps {
   refreshToken: string | null;
   user: AuthUser | null;
   login: (username: string, password: string) => Promise<void>;
+  loginQR: (tokens: { accessToken: string; refreshToken: string }, user: AuthUser) => Promise<void>;
   logout: () => void;
   register: (
     username: string,

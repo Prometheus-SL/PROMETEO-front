@@ -33,6 +33,28 @@ export function useAuth() {
         }
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loginQR = async (tokens: any, user: AuthUser) => {
+        setLoading(true);
+        setError(null);
+        try {
+            localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
+            localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+            localStorage.setItem(USER_KEY, JSON.stringify(tokens.user));
+            setAccessToken(tokens.accessToken);
+            setRefreshToken(tokens.refreshToken);
+            setUser(user);
+        } catch (e: unknown) {
+            if (e instanceof Error) {
+                setError(e.message);
+            } else {
+                setError("Error de autenticación");
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const register = async (username: string, email: string, password: string, name: string, surname: string, birthday: string) => {
         setLoading(true);
         setError(null);
@@ -60,5 +82,5 @@ export function useAuth() {
         window.location.replace("/login");
     };
 
-    return { accessToken, refreshToken, user, login, logout, loading, error, register };
+    return { accessToken, refreshToken, user, login, logout, loading, error, register, loginQR };
 }

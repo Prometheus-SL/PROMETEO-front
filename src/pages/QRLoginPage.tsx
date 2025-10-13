@@ -20,10 +20,12 @@ import {
   Smartphone,
 } from "lucide-react";
 import Background from "@/components/common/background";
+import { useAuthContext } from "@/providers/AuthProvider";
 
 export default function QRLoginPage() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
+  const { loginQR } = useAuthContext();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -107,11 +109,12 @@ export default function QRLoginPage() {
       if (result.user) {
         setSuccess(true);
         setQrStatus("authenticated");
+        loginQR(result.tokens, result.user);
 
         // Redirigir después de un breve retraso
         setTimeout(() => {
           navigate("/");
-        }, 2000);
+        }, 5000);
       }
     } catch (err) {
       setError(
