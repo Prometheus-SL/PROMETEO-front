@@ -49,7 +49,7 @@ export default function QRLoginPage() {
   // Verificar y marcar QR como escaneado al cargar
   useEffect(() => {
     if (!code) {
-      setError("Código QR inválido");
+      setError("Invalid QR code");
       return;
     }
 
@@ -67,7 +67,7 @@ export default function QRLoginPage() {
         );
 
         if (statusData.status === "expired") {
-          setError("El código QR ha expirado");
+          setError("The QR code has expired");
           return;
         }
 
@@ -116,9 +116,7 @@ export default function QRLoginPage() {
         setQrStatus("authenticated");
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Error en la autenticación"
-      );
+      setError(err instanceof Error ? err.message : "Authentication error");
     } finally {
       setLoading(false);
     }
@@ -146,15 +144,15 @@ export default function QRLoginPage() {
 
     switch (qrStatus) {
       case "pending":
-        return "Código QR detectado";
+        return "QR detected";
       case "scanned":
-        return "Código verificado. Introduce tus credenciales";
+        return "QR code verified. Please enter your credentials";
       case "authenticated":
-        return "¡Autenticación exitosa!";
+        return "Authentication successful!";
       case "expired":
-        return "El código QR ha expirado";
+        return "The QR code has expired";
       default:
-        return "Verificando código...";
+        return "Verifying QR code...";
     }
   };
 
@@ -192,8 +190,8 @@ export default function QRLoginPage() {
 
                 {success && (
                   <p className="text-sm text-muted-foreground mt-2">
-                    El dispositivo ha sido autenticado correctamente.
-                    Redirigiendo...
+                    The device has been successfully authenticated.
+                    Redirecting...
                   </p>
                 )}
 
@@ -201,14 +199,14 @@ export default function QRLoginPage() {
 
                 {qrStatus === "expired" && (
                   <p className="text-sm text-muted-foreground mt-2">
-                    Genera un nuevo código QR desde el dispositivo principal
+                    Generate a new QR code from the main device
                   </p>
                 )}
               </div>
 
               {(error || qrStatus === "expired") && (
                 <Button onClick={() => navigate("/")} variant="outline">
-                  Ir al inicio
+                  Go Back Home
                 </Button>
               )}
             </div>
@@ -231,7 +229,7 @@ export default function QRLoginPage() {
                 className="h-10 mx-auto dark:invert"
               />
             </a>
-            <h1 className="text-xl font-semibold">Autenticación QR</h1>
+            <h1 className="text-xl font-semibold">QR Authentication</h1>
 
             <div className="flex items-center justify-center space-x-2">
               {getStatusIcon()}
@@ -252,11 +250,13 @@ export default function QRLoginPage() {
               <FieldSet>
                 <FieldGroup>
                   <Field>
-                    <FieldLabel htmlFor="username">Usuario o Email</FieldLabel>
+                    <FieldLabel htmlFor="username">
+                      Username or Email
+                    </FieldLabel>
                     <Input
                       id="username"
                       type="text"
-                      placeholder="Usuario o Email"
+                      placeholder="Username or Email"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       required
@@ -265,12 +265,12 @@ export default function QRLoginPage() {
                   </Field>
 
                   <Field>
-                    <FieldLabel htmlFor="password">Contraseña</FieldLabel>
+                    <FieldLabel htmlFor="password">Password</FieldLabel>
                     <InputGroup>
                       <InputGroupInput
                         id="password"
                         type={showPassword ? "text" : "password"}
-                        placeholder="Contraseña"
+                        placeholder="Password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
@@ -299,10 +299,10 @@ export default function QRLoginPage() {
                     {loading ? (
                       <>
                         <Spinner />
-                        Autenticando...
+                        Authenticating...
                       </>
                     ) : (
-                      "Autenticar"
+                      "Authenticate"
                     )}
                   </Button>
 
@@ -317,10 +317,9 @@ export default function QRLoginPage() {
           )}
 
           <div className="text-xs text-muted-foreground text-center space-y-1">
-            <p>Esta es una sesión de autenticación QR</p>
+            <p>This is a QR authentication session</p>
             <p>
-              Introduce tus credenciales para completar el login en el
-              dispositivo principal
+              Enter your credentials to complete the login on the main device
             </p>
           </div>
         </Card>

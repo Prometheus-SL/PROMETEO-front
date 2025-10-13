@@ -72,7 +72,7 @@ export default function QRLogin({ onBack }: QRLoginProps) {
 
           // Redirigir al dashboard
           setTimeout(() => {
-            navigate("/");
+            window.location.href = "/"; 
           }, 1000);
         }
       } catch (err) {
@@ -166,7 +166,7 @@ export default function QRLogin({ onBack }: QRLoginProps) {
             <div className="flex justify-center p-4 bg-white rounded-lg">
               <QRCode
                 size={200}
-                value={`${window.location.origin}/qr-login/${qrData.code}`}
+                value={`https://prometeo.miguelprez.es/qr-login/${qrData.code}`}
                 level="M"
               />
             </div>
