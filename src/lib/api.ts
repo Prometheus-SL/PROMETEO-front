@@ -79,6 +79,10 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
         // Si es FormData, dejamos que el navegador gestione el boundary
         (finalHeaders as Headers).delete("Content-Type");
     }
+    (finalHeaders as Headers).set("Access-Control-Allow-Origin", "*");
+    (finalHeaders as Headers).set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    (finalHeaders as Headers).set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
     const body: BodyInit | undefined = isFormData
         ? (formData as FormData)
         : data !== undefined
