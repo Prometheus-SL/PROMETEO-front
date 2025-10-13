@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="155.63977794943224" height="144.72135954999578" viewBox="94.52451464096077 66.33715245175404 125.63977794943224 144.72135954999578" preserveAspectRatio="none">
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="-95 -110 500 500">
 
   <!-- Relleno -->
   <g>
@@ -33,7 +33,7 @@
   </g>
 
 
-  
+
   <!-- Ojo derecho -->
   <g>
     <defs>
@@ -53,7 +53,7 @@
   </g>
 
 
-  
+
    <!-- Ojo izquierdo -->
   <g>
     <defs>

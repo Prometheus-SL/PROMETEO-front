@@ -5,6 +5,7 @@ import RegisterPage from "./pages/RegisterPage";
 import AppLayout from "./layouts/AppLayout";
 import NotFoundPage from "@/pages/404Page";
 import UsersPage from "./pages/admin/UsersPage";
+import AgentsPage from "./pages/admin/AgentsPage";
 import MarketplacePage from "@/pages/MarketplacePage";
 import DashboardsPage from "./pages/DashboardsPage";
 
@@ -26,15 +27,19 @@ export const appRoutes = [
     ),
     handle: [
       {
-        routes: [{ title: "Home", url: "/" },
-          { title: "Dashboards", url: "/dashboard" }
+        routes: [
+          { title: "Home", url: "/" },
+          { title: "Dashboards", url: "/dashboard" },
         ],
         adminOnly: false,
         title: "Principal",
       },
       {
         title: "Administración",
-        routes: [{ title: "Users", url: "/admin/users" }],
+        routes: [
+          { title: "Users", url: "/admin/users" },
+          { title: "Agents", url: "/admin/agents" },
+        ],
         adminOnly: true,
       },
       {
@@ -63,6 +68,11 @@ export const appRoutes = [
         path: "/admin/users",
         element: <UsersPage />,
         handle: { title: "Users" },
+      },
+      {
+        path: "/admin/agents",
+        element: <AgentsPage />,
+        handle: { title: "Agents" },
       },
     ],
   },

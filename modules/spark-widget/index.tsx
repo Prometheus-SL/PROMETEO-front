@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Particles } from "@/components/ui/shadcn-io/particles";
 import TresCreusSvg from "./complements/trescreus.svg";
+import SpidermanSvg from "./complements/spiderman.svg";
 
 type Mood = "happy" | "sleepy" | "angry" | "surprised";
 type Accessory =
@@ -10,6 +11,7 @@ type Accessory =
   | "crown"
   | "antenna"
   | "batman"
+  | "spiderman"
   | "trescreus";
 
 export default function SparkChispaCard({
@@ -552,6 +554,14 @@ function SparkSvg({
           role="img"
           xmlns="http://www.w3.org/2000/svg"
           transform="translate(110,125) scale(0.2)"
+        />
+      )}
+      {accessory === "spiderman" && (
+        <image
+          href={SpidermanSvg}
+          role="img"
+          xmlns="http://www.w3.org/2000/svg"
+          transform="scale(3.5) translate(-50,-49)"
         />
       )}
       {/* brillo superior */}
