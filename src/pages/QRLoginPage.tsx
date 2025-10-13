@@ -73,6 +73,10 @@ export default function QRLoginPage() {
 
         if (statusData.status === "authenticated") {
           setSuccess(true);
+          // Redirigir tras un breve retraso para mostrar el mensaje de éxito
+          setTimeout(() => {
+            window.location.href = "/";
+          }, 1500);
           return;
         }
 
@@ -108,12 +112,8 @@ export default function QRLoginPage() {
 
       if (result.user) {
         setSuccess(true);
-        setQrStatus("authenticated");
         loginQR(result.tokens, result.user);
-        // Redirigir tras un breve retraso para mostrar el mensaje de éxito
-        setTimeout(() => {
-          window.location.href = "/";
-        }, 1500);
+        setQrStatus("authenticated");
       }
     } catch (err) {
       setError(
@@ -123,7 +123,6 @@ export default function QRLoginPage() {
       setLoading(false);
     }
   };
-
 
   const getStatusIcon = () => {
     if (scanning) return <Spinner />;
