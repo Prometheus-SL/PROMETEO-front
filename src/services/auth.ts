@@ -68,6 +68,38 @@ export const authService = {
             return false;
         }
     },
+    async generateQRCode() {
+        const res = await api.post<ApiSuccess<{ code: string; expiresAt: string }> | ApiFailure>("/auth/qr/generate", {}, { skipAuth: true });
+        if (!res || ("success" in res && !res.success)) {
+            const msg = (res as ApiFailure)?.message || "Error generando código QR";
+            throw new Error(msg);
+        }
+        return (res as ApiSuccess<{ code: string; expiresAt: string }>).data;
+    },
+    async checkQRStatus(code: string) {
+        const res = await api.get<ApiSuccess<{ status: string; scannedAt?: string; authenticatedAt?: string; user?: AuthUser; tokens?: Tokens }> | ApiFailure>(`/auth/qr/status/${code}`, { skipAuth: true });
+        if (!res || ("success" in res && !res.success)) {
+            const msg = (res as ApiFailure)?.message || "Error verificando estado del QR";
+            throw new Error(msg);
+        }
+        return (res as ApiSuccess<{ status: string; scannedAt?: string; authenticatedAt?: string; user?: AuthUser; tokens?: Tokens }>).data;
+    },
+    async scanQRCode(code: string) {
+        const res = await api.post<ApiSuccess<{ message: string }> | ApiFailure>("/auth/qr/scan", { code }, { skipAuth: true });
+        if (!res || ("success" in res && !res.success)) {
+            const msg = (res as ApiFailure)?.message || "Error escaneando código QR";
+            throw new Error(msg);
+        }
+        return (res as ApiSuccess<{ message: string }>).data;
+    },
+    async authenticateWithQR(code: string, username: string, password: string) {
+        const res = await api.post<AuthResponse>("/auth/qr/authenticate", { code, username, password }, { skipAuth: true });
+        if (!res || ("success" in res && !res.success)) {
+            const msg = (res as ApiFailure)?.message || "Credenciales incorrectas";
+            throw new Error(msg);
+        }
+        return (res as ApiSuccess<{ user: AuthUser; tokens: Tokens }>).data;
+    },
 };
 
 // Conectar el cliente API con métodos de tokens del storage

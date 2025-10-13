@@ -8,6 +8,7 @@ import UsersPage from "./pages/admin/UsersPage";
 import AgentsPage from "./pages/admin/AgentsPage";
 import MarketplacePage from "@/pages/MarketplacePage";
 import DashboardsPage from "./pages/DashboardsPage";
+import QRLoginPage from "@/pages/QRLoginPage";
 
 export const appRoutes = [
   {
@@ -17,6 +18,10 @@ export const appRoutes = [
   {
     path: "/register",
     element: <RegisterPage />,
+  },
+  {
+    path: "/qr-login/:code",
+    element: <QRLoginPage />,
   },
   {
     path: "/",
