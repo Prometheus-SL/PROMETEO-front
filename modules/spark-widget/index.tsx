@@ -55,9 +55,6 @@ export default function SparkChispaCard({
     return () => window.clearInterval(id);
   }, [autoMood, baseMood, inactivityMs, stepMs, mood]);
 
-  // Fondo derivado del color principal para cohesión
-  const bgCircle = useMemo(() => rgba(darken(color, 0.5), 0.35), [color]);
-
   return (
     <Card
       className="relative h-full w-full rounded-xl p-4 overflow-hidden bg-black"
@@ -65,16 +62,8 @@ export default function SparkChispaCard({
       onPointerDown={markActive}
       onTouchStart={markActive}
     >
-      <div className="flex h-full w-full items-center justify-center">
-        <div className="relative flex flex-col items-center">
-          {/* Fondo circular bien centrado detrás de la chispa */}
-          <div className="absolute -z-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-            <div
-              className="size-48 md:size-56 rounded-full shadow-[0_0_80px_-10px_rgba(0,0,0,0.6)]"
-              style={{ backgroundColor: bgCircle }}
-            />
-          </div>
-
+      <div className="flex h-full w-full items-center justify-center overflow-visible">
+        <div className="relative flex flex-col items-center justify-center ">
           {/* Chispa */}
           <SparkSvg color={color} mood={mood} accessory={accessory} />
 
@@ -585,10 +574,6 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
       : h;
   const num = parseInt(full, 16);
   return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
-}
-function rgba(hex: string, a: number) {
-  const { r, g, b } = hexToRgb(hex);
-  return `rgba(${r}, ${g}, ${b}, ${clamp(a, 0, 1)})`;
 }
 function mixChannel(from: number, to: number, p: number) {
   return Math.round(from + (to - from) * clamp(p, 0, 1));

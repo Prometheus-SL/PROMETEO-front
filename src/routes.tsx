@@ -3,12 +3,14 @@ import LoginPage from "@/pages/LoginPage";
 import HomePage from "@/pages/HomePage";
 import RegisterPage from "./pages/RegisterPage";
 import AppLayout from "./layouts/AppLayout";
+import ClientLayout from "./layouts/ClientLayout";
 import NotFoundPage from "@/pages/404Page";
 import UsersPage from "./pages/admin/UsersPage";
 import AgentsPage from "./pages/admin/AgentsPage";
 import MarketplacePage from "@/pages/MarketplacePage";
 import DashboardsPage from "./pages/DashboardsPage";
 import QRLoginPage from "@/pages/QRLoginPage";
+import ClientDashboardsPage from "./pages/ClientDashboardsPage";
 
 export const appRoutes = [
   {
@@ -78,6 +80,20 @@ export const appRoutes = [
         path: "/admin/agents",
         element: <AgentsPage />,
         handle: { title: "Agents" },
+      },
+    ],
+  },
+  {
+    path: "/client",
+    element: (
+      <PrivateRoute>
+        <ClientLayout />
+      </PrivateRoute>
+    ),
+    children: [
+      {
+        index: true,
+        element: <ClientDashboardsPage />,
       },
     ],
   },
