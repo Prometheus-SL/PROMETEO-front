@@ -76,6 +76,9 @@ export function useMarketplaceStore() {
             return { ...s, filters: { ...s.filters, categories } }
         })
     }
+    function clearCategories() {
+        setState((s) => ({ ...s, filters: { ...s.filters, categories: [] } }))
+    }
     function toggleSize(size: string) {
         setState((s) => {
             const sz = size as unknown as MarketplaceFilters["sizes"][number]
@@ -205,6 +208,7 @@ export function useMarketplaceStore() {
         removeModule,
         setModulePosition,
         setModuleConfig,
+        clearCategories,
         selectDashboard,
         createDashboard,
         deleteDashboard,

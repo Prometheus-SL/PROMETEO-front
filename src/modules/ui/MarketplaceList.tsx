@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import BadgeSelectable from "@/components/common/badgeSelect";
 import { useMarketplaceStore } from "../store";
 import type { ModuleMeta } from "../types";
 import { ModuleConfigModal } from "./ModuleConfigModal";
@@ -64,8 +65,15 @@ function ModuleCard({
 }
 
 export function MarketplaceList() {
-  const { state, filtered, setQuery, installModule, installModuleTo } =
-    useMarketplaceStore();
+  const {
+    state,
+    filtered,
+    setQuery,
+    installModule,
+    installModuleTo,
+    toggleCategory,
+    clearCategories,
+  } = useMarketplaceStore();
   const [selected, setSelected] = useState<ModuleMeta | null>(null);
 
   const categories = useMemo(
@@ -76,22 +84,37 @@ export function MarketplaceList() {
     [state.modules]
   );
 
-  if (state.loading) return <div>Cargando módulos…</div>;
+  if (state.loading) return <div>Loading modules…</div>;
   if (state.error)
     return <div className="text-red-600">Error: {state.error}</div>;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Input
-          placeholder="Buscar módulos…"
-          value={state.filters.query}
-          onChange={(e) => setQuery(e.target.value)}
+        <BadgeSelectable
+          key="__all"
+          text="All"
+          selected={state.filters.categories.length === 0}
+          onChange={(value) => {
+            if (value) {
+              clearCategories();
+            }
+          }}
         />
-        <div className="flex gap-2">
-          {categories.map((c) => (
-            <Badge key={c}>{c}</Badge>
-          ))}
+        {categories.map((c) => (
+          <BadgeSelectable
+            key={c}
+            text={capitalize(c)}
+            selected={state.filters.categories.includes(c)}
+            onChange={() => toggleCategory(c)}
+          />
+        ))}
+        <div className="flex gap-2 ms-auto">
+          <Input
+            placeholder="Search modules…"
+            value={state.filters.query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
         </div>
       </div>
 
