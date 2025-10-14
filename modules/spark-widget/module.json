@@ -5,7 +5,7 @@
   "category": "funny",
   "size": {
     "width": 1,
-    "height": 2
+    "height": 3
   },
   "entry": "./index.tsx",
   "configSchema": "./config.ts",
