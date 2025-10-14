@@ -181,14 +181,48 @@ export function useMarketplaceStore() {
         })
     }
 
-    async function createDashboard(name: string) {
-        const created = await dashboardService.createPage({ name, active: true })
-        setState((s) => ({
-            ...s,
-            pages: [...s.pages, created],
-            currentPageId: created._id,
-            installed: [],
-        }))
+    async function createDashboard(name: string): Promise<Page>
+    async function createDashboard(payload: Partial<Pick<Page, "name" | "slug" | "description" | "style" | "active">>): Promise<Page>
+    async function createDashboard(input: string | Partial<Pick<Page, "name" | "slug" | "description" | "style" | "active">>): Promise<Page> {
+        const basePayload = typeof input === "string" ? { name: input } : input
+        if (!basePayload?.name) {
+            throw new Error("Name is required")
+        }
+        const shouldBeActive = basePayload.active ?? state.pages.length === 0
+        const created = await dashboardService.createPage({ ...basePayload, active: shouldBeActive })
+        setState((s) => {
+            const pages = [
+                ...s.pages.map((p) => (created.active ? { ...p, active: false } : p)),
+                created,
+            ]
+            return {
+                ...s,
+                pages,
+                currentPageId: created._id,
+                installed: created.modules ?? [],
+            }
+        })
+        return created
+    }
+
+    async function updateDashboard(id: string, payload: Partial<Pick<Page, "name" | "slug" | "description" | "style" | "active">>): Promise<Page> {
+        const updated = await dashboardService.updatePage(id, payload)
+        setState((s) => {
+            const pages = s.pages.map((p) => {
+                if (p._id === id) return updated
+                return updated.active ? { ...p, active: false } : p
+            })
+            const isCurrent = s.currentPageId === id
+            const currentPageId = updated.active ? updated._id : isCurrent ? updated._id : s.currentPageId
+            const installed = updated.active || isCurrent ? (updated.modules ?? []) : s.installed
+            return {
+                ...s,
+                pages,
+                currentPageId,
+                installed,
+            }
+        })
+        return updated
     }
 
     async function deleteDashboard(id: string) {
@@ -229,6 +263,7 @@ export function useMarketplaceStore() {
         createDashboard,
         deleteDashboard,
         activateDashboard,
+        updateDashboard,
     }
 }
 
