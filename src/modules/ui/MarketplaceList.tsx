@@ -44,7 +44,7 @@ function ModuleCard({ meta, onAdd }: ModuleCardProps) {
             className="h-full w-full transition duration-300 group-hover:scale-[1.03] object-contain "
           />
         ) : (
-          <div className="grid h-full w-full place-items-center gap-2 text-muted-foreground">
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2">
             <ImageOff className="size-5" aria-hidden="true" />
             <span className="text-xs font-medium">No preview available</span>
           </div>
