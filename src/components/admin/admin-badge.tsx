@@ -4,14 +4,15 @@ import { cn } from "@/lib/utils";
 
 export function AdminBadge({ className }: { className?: string }) {
   return (
-    <Badge
-      variant="secondary"
-      className={cn(
-        "flex items-center gap-1.5 font-medium transition-all border border-yellow-400/60",
-        className
-      )}
-    >
-      Admin
-    </Badge>
+    <div className="flex items-center justify-center rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 p-0.5 shadow-md scale-85 transition-transform hover:scale-90 ">
+      <Badge
+        className={cn(
+          "bg-background hover:bg-background text-foreground rounded-full border-none",
+          className
+        )}
+      >
+        Admin
+      </Badge>
+    </div>
   );
 }

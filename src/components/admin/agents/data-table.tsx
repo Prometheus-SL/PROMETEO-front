@@ -20,18 +20,40 @@ import {
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 
-interface DataTableProps<TData, TValue> {
+interface AgentDataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  filtersComponent?: React.ReactNode;
 }
 
-export function DataTable<TData, TValue>({
+export function AgentDataTable<TData, TValue>({
   columns,
   data,
-}: DataTableProps<TData, TValue>) {
+  filtersComponent,
+}: AgentDataTableProps<TData, TValue>) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-
+  const [globalFilter, setGlobalFilter] = useState("");
   const [rowSelection, setRowSelection] = useState({});
+
+  // Filtro global personalizado para buscar por ID y nombre
+  const globalFilterFn = (
+    row: { original: TData },
+    _columnId: string,
+    value: string
+  ) => {
+    const agent = row.original as Record<string, unknown>;
+    const searchValue = value.toLowerCase();
+
+    // Buscar en ID y nombre
+    const searchableText = [
+      (agent.id as string) || "",
+      (agent.name as string) || "",
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return searchableText.includes(searchValue);
+  };
 
   const table = useReactTable({
     data,
@@ -39,9 +61,12 @@ export function DataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
+    onGlobalFilterChange: setGlobalFilter,
     onRowSelectionChange: setRowSelection,
+    globalFilterFn,
     state: {
       columnFilters,
+      globalFilter,
       rowSelection,
     },
   });
@@ -50,13 +75,12 @@ export function DataTable<TData, TValue>({
     <div>
       <div className="flex items-center py-4">
         <Input
-          placeholder="Filter emails..."
-          value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("email")?.setFilterValue(event.target.value)
-          }
+          placeholder="Search by ID or name..."
+          value={globalFilter ?? ""}
+          onChange={(event) => setGlobalFilter(event.target.value)}
           className="max-w-sm"
         />
+        <div className="ml-auto">{filtersComponent}</div>
       </div>
       <div className="overflow-hidden rounded-md border">
         <Table>
