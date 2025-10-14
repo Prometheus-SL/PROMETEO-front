@@ -23,19 +23,19 @@ export default function MinecraftCard({
   config: Record<string, unknown>;
 }) {
   const ipAddress = String(config["ipAddress"] ?? "play.example.com");
-  const port = Number(config["port"] ?? 25565);
+  const port = Number(config["port"] ?? null);
   const title = String(config["name"] ?? "");
   const refreshSecs = Number(config["refreshSecs"] ?? 600);
   const [data, setData] = React.useState<McStatus | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  const address = `${ipAddress}:${port}`;
+  const address = port ? `${ipAddress}:${port}` : ipAddress;
   const displayName = title ?? "Minecraft";
 
   const fetchStatus = React.useCallback(async () => {
     if (!address) {
-      setError("Falta VITE_MC_SERVER_ADDRESS en .env");
+      setError("No address configured");
       setLoading(false);
       return;
     }
