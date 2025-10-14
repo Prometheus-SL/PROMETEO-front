@@ -79,13 +79,27 @@ export function useMarketplaceStore() {
     function clearCategories() {
         setState((s) => ({ ...s, filters: { ...s.filters, categories: [] } }))
     }
-    function toggleSize(size: string) {
+    function toggleSize(size: MarketplaceFilters["sizes"][number]) {
         setState((s) => {
-            const sz = size as unknown as MarketplaceFilters["sizes"][number]
-            const exists = s.filters.sizes.includes(sz)
-            const sizes = exists ? s.filters.sizes.filter((c) => c !== sz) : [...s.filters.sizes, sz]
+            const exists = s.filters.sizes.includes(size)
+            const sizes = exists ? s.filters.sizes.filter((c) => c !== size) : [...s.filters.sizes, size]
             return { ...s, filters: { ...s.filters, sizes } }
         })
+    }
+
+    function clearSizes() {
+        setState((s) => ({ ...s, filters: { ...s.filters, sizes: [] } }))
+    }
+
+    function resetFilters() {
+        setState((s) => ({
+            ...s,
+            filters: {
+                query: "",
+                categories: [],
+                sizes: [],
+            },
+        }))
     }
 
     function installModuleTo(pageId: string, meta: ModuleMeta, config: Record<string, unknown>) {
@@ -203,18 +217,22 @@ export function useMarketplaceStore() {
         setQuery,
         toggleCategory,
         toggleSize,
+        clearSizes,
         installModule,
         installModuleTo,
         removeModule,
         setModulePosition,
         setModuleConfig,
         clearCategories,
+        resetFilters,
         selectDashboard,
         createDashboard,
         deleteDashboard,
         activateDashboard,
     }
 }
+
+export type MarketplaceStore = ReturnType<typeof useMarketplaceStore>
 
 async function safeListPages(): Promise<Page[]> {
     try {
