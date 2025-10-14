@@ -2,6 +2,7 @@ import * as React from "react";
 import { Users, RefreshCcw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 type McStatus = {
   online: boolean;
@@ -68,8 +69,15 @@ export default function MinecraftCard({
   const version = data?.version?.name_raw ?? "";
 
   return (
-    <Card className="rounded-xl p-4 h-full">
-      <div className="h-full flex flex-col justify-center">
+    <Card className="rounded-xl p-0 h-full shadow-lg shadow-primary/5 ">
+      <div
+        className={cn(
+          "h-full flex flex-col justify-center bg-gradient-to-br p-4 m-0 rounded-xl",
+          isOnline
+            ? "from-primary/10 to-green-600/10"
+            : "from-primary/10 to-destructive/10"
+        )}
+      >
         <div className="flex items-center gap-4">
           <div className="min-w-0 space-y-1">
             <div className="text-lg font-semibold truncate">
