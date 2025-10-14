@@ -16,7 +16,13 @@ type BackendAgent = {
     updatedAt?: string;
     lastSeen?: string;
     lastData?: string;
-    user?: string;
+    user: {
+        _id: string;
+        username: string;
+        email?: string;
+        surname?: string;
+        name?: string;
+    };
     computerInfo?: {
         hardware?: { storage?: unknown[] };
         network?: { interfaces?: unknown[] };
@@ -151,6 +157,18 @@ export const agentsService = {
             pageSize: Math.ceil(data.pagination.total / data.pagination.pages) || 10,
         };
     },
+
+    // GET /agents/:userId
+    async getById(userId: string): Promise<BackendAgent> {
+        const res = await api.get<ApiSuccess<BackendAgent> | ApiFailure>(`/api/v1/agents/${encodeURIComponent(userId)}`);
+        if (!res || ("success" in res && !res.success)) {
+            const msg = (res as ApiFailure)?.message || "Cant get agents for user";
+            throw new Error(msg);
+        }
+        const agents = (res as ApiSuccess<BackendAgent>).data;
+        return agents;
+    },
+
 
     // GET /stats
     async stats(): Promise<ServerStats> {
