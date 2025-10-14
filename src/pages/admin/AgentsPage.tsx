@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 type PagedAgents = {
   items: Agent[];
@@ -65,7 +66,7 @@ export default function AgentsPage() {
       setData(res);
     } catch (err) {
       console.error(err);
-      toast.error("No se pudo cargar la lista de agentes");
+      toast.error("Error on loading agents list");
     } finally {
       setLoading(false);
     }
@@ -81,7 +82,7 @@ export default function AgentsPage() {
       setStats(s);
     } catch (err) {
       console.error(err);
-      toast.error("No se pudieron obtener las estadísticas");
+      toast.error("Error on loading agents stats");
     }
   }
 
@@ -104,11 +105,11 @@ export default function AgentsPage() {
   return (
     <div className="flex flex-col gap-6">
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Agentes online</CardTitle>
-            <CardDescription>Actualmente conectados</CardDescription>
+            <CardTitle>Online Agents</CardTitle>
+            <CardDescription>Currently connected</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold">{online}</div>
@@ -116,36 +117,12 @@ export default function AgentsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Total agentes</CardTitle>
-            <CardDescription>Registrados en el sistema</CardDescription>
+            <CardTitle>Total Agents</CardTitle>
+            <CardDescription>Registered in the system</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold">
               {stats?.agentsTotal ?? data.total}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Usuarios</CardTitle>
-            <CardDescription>Total usuarios</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-semibold">
-              {stats?.usersTotal ?? "-"}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Última ingesta</CardTitle>
-            <CardDescription>Fecha del último dato</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-semibold text-balance text-wrap leading-tight">
-              {stats?.lastIngestionAt
-                ? new Date(stats.lastIngestionAt).toLocaleString()
-                : "-"}
             </div>
           </CardContent>
         </Card>
@@ -155,7 +132,7 @@ export default function AgentsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <Input
-            placeholder="Buscar por id/nombre/tag..."
+            placeholder="Search by ID/Name/Tag..."
             value={query}
             onChange={(e) => {
               setPage(1);
@@ -170,22 +147,16 @@ export default function AgentsPage() {
               setPage(1);
             }}
           >
-            Limpiar
+            Clear
           </Button>
         </div>
         <div className="flex items-center gap-2">
-          <RegisterAgentDialog
-            onRegistered={() => {
-              void refreshList();
-              void refreshStats();
-            }}
-          />
           <SendCommandDialog
             agents={Array.isArray(data?.items) ? data.items : []}
-            onSent={() => toast.success("Comando enviado")}
+            onSent={() => toast.success("Command sent")}
           />
           <Button variant="secondary" onClick={() => void refreshStats()}>
-            Refrescar stats
+            Refresh stats
           </Button>
         </div>
       </div>
@@ -196,11 +167,11 @@ export default function AgentsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>ID</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Estado</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>IP</TableHead>
-              <TableHead>Última conexión</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
+              <TableHead>Last Seen</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -208,7 +179,7 @@ export default function AgentsPage() {
             !loading ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center">
-                  Sin resultados
+                  No results
                 </TableCell>
               </TableRow>
             ) : (
@@ -217,17 +188,23 @@ export default function AgentsPage() {
                   <TableCell className="font-mono text-xs">{a.id}</TableCell>
                   <TableCell>{a.name || "-"}</TableCell>
                   <TableCell>
-                    <span
+                    <Badge
                       className={
                         a.status === "online"
-                          ? "text-green-600 dark:text-green-400"
-                          : a.status === "offline"
-                          ? "text-muted-foreground"
-                          : ""
+                          ? "rounded-full border-none bg-green-600/10 text-green-600 focus-visible:ring-green-600/20 focus-visible:outline-none dark:bg-green-400/10 dark:text-green-400 dark:focus-visible:ring-green-400/40 [a&]:hover:bg-green-600/5 dark:[a&]:hover:bg-green-400/5"
+                          : "bg-destructive/10 [a&]:hover:bg-destructive/5 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 text-destructive rounded-full border-none focus-visible:outline-none"
                       }
                     >
-                      {a.status}
-                    </span>
+                      <span
+                        className={
+                          a.status === "online"
+                            ? "size-1.5 rounded-full bg-green-600 dark:bg-green-400"
+                            : "bg-destructive size-1.5 rounded-full"
+                        }
+                        aria-hidden="true"
+                      />
+                      {a.status.charAt(0).toUpperCase() + a.status.slice(1)}
+                    </Badge>
                   </TableCell>
                   <TableCell>{a.ip || "-"}</TableCell>
                   <TableCell>
@@ -266,7 +243,7 @@ export default function AgentsPage() {
       {/* Paginación simple */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          {loading ? "Cargando..." : `${data.total} resultados`}
+          {loading ? "Loading..." : `${data.total} results`}
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -274,17 +251,17 @@ export default function AgentsPage() {
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
-            Anterior
+            Previous
           </Button>
           <span className="text-sm">
-            Página {page} de {pages}
+            Pages {page} of {pages}
           </span>
           <Button
             variant="outline"
             disabled={page >= pages}
             onClick={() => setPage((p) => Math.min(pages, p + 1))}
           >
-            Siguiente
+            Next
           </Button>
           <select
             className="h-9 rounded-md border bg-background px-3 text-sm"
@@ -296,7 +273,7 @@ export default function AgentsPage() {
           >
             {[10, 20, 50].map((n) => (
               <option key={n} value={n}>
-                {n} / pág
+                {n} / page
               </option>
             ))}
           </select>
@@ -306,97 +283,11 @@ export default function AgentsPage() {
   );
 }
 
-function RegisterAgentDialog({ onRegistered }: { onRegistered?: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [id, setId] = useState("");
-  const [name, setName] = useState("");
-  const [tags, setTags] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const canSubmit = id.trim().length > 0 && !submitting;
-
-  async function onSubmit() {
-    setSubmitting(true);
-    try {
-      await agentsService.registerAgent({
-        id: id.trim(),
-        name: name.trim() || undefined,
-        tags: tags
-          ? tags
-              .split(",")
-              .map((t) => t.trim())
-              .filter(Boolean)
-          : undefined,
-      });
-      toast.success("Agente registrado");
-      setOpen(false);
-      setId("");
-      setName("");
-      setTags("");
-      onRegistered?.();
-    } catch (err) {
-      console.error(err);
-      toast.error("No se pudo registrar el agente");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>Registrar agente</Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[480px]">
-        <DialogHeader>
-          <DialogTitle>Registrar nuevo agente</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4 py-2">
-          <div className="grid gap-2">
-            <Label htmlFor="agent-id">ID del agente</Label>
-            <Input
-              id="agent-id"
-              value={id}
-              onChange={(e) => setId(e.target.value)}
-              placeholder="uuid-o-identificador"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="agent-name">Nombre</Label>
-            <Input
-              id="agent-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="opcional"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="agent-tags">Tags</Label>
-            <Input
-              id="agent-tags"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="tag1, tag2 (opcional)"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={onSubmit} disabled={!canSubmit}>
-            {submitting ? "Guardando..." : "Registrar"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function SendCommandDialog({
   agents = [],
   defaultAgentId,
   onSent,
-  label = "Enviar comando",
+  label = "Send Command",
 }: {
   agents?: Agent[];
   defaultAgentId?: string;
@@ -420,18 +311,18 @@ function SendCommandDialog({
         args: safeParseJSON(args),
       };
       if (!payload.command) {
-        toast.error("El comando es obligatorio");
+        toast.error("Command is required");
         setSubmitting(false);
         return;
       }
       await agentsService.sendCommand(payload);
-      toast.success("Comando enviado");
+      toast.success("Command sent");
       setOpen(false);
       setCommand("");
       onSent?.();
     } catch (err) {
       console.error(err);
-      toast.error("No se pudo enviar el comando");
+      toast.error("Failed to send command");
     } finally {
       setSubmitting(false);
     }
@@ -442,13 +333,13 @@ function SendCommandDialog({
       <DialogTrigger asChild>
         <Button variant="outline">{label}</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[560px]">
+      <DialogContent className="sm:max-w-[720px]">
         <DialogHeader>
-          <DialogTitle>Enviar comando a agentes</DialogTitle>
+          <DialogTitle>Send Command to Agents</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-2">
           <div className="grid gap-2">
-            <Label htmlFor="agent-select">Destino</Label>
+            <Label htmlFor="agent-select">Destination</Label>
             <select
               id="agent-select"
               className="h-9 rounded-md border bg-background px-3 text-sm"
@@ -457,7 +348,7 @@ function SendCommandDialog({
                 setAgentId(e.target.value as "all" | string)
               }
             >
-              <option value="all">Todos los agentes</option>
+              <option value="all">All Agents</option>
               {agents.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name ? `${a.name} (${a.id})` : a.id}
@@ -466,7 +357,7 @@ function SendCommandDialog({
             </select>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="agent-command">Comando</Label>
+            <Label htmlFor="agent-command">Command</Label>
             <Input
               id="agent-command"
               value={command}
@@ -486,10 +377,10 @@ function SendCommandDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancelar
+            Cancel
           </Button>
           <Button onClick={onSubmit} disabled={submitting}>
-            {submitting ? "Enviando..." : "Enviar"}
+            {submitting ? "Sending..." : "Send"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -510,7 +401,7 @@ function AgentDataDialog({ agentId }: { agentId: string }) {
       setItems(response.records);
     } catch (err) {
       console.error(err);
-      toast.error("No se pudieron cargar los datos");
+      toast.error("Failed to load data");
     } finally {
       setLoading(false);
     }
@@ -525,20 +416,18 @@ function AgentDataDialog({ agentId }: { agentId: string }) {
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="outline">Datos</Button>
+        <Button variant="outline">Data</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[720px]">
         <DialogHeader>
-          <DialogTitle>Últimos datos del agente</DialogTitle>
+          <DialogTitle>Latest Agent Data</DialogTitle>
         </DialogHeader>
         <div className="max-h-[60vh] overflow-auto">
           {loading && (
-            <p className="p-2 text-sm text-muted-foreground">Cargando...</p>
+            <p className="p-2 text-sm text-muted-foreground">Loading...</p>
           )}
           {!loading && (!items || items.length === 0) && (
-            <p className="p-2 text-sm text-muted-foreground">
-              Sin datos recientes
-            </p>
+            <p className="p-2 text-sm text-muted-foreground">No recent data</p>
           )}
           {!loading &&
             items &&
@@ -591,12 +480,12 @@ function AgentPatchDialog({
     try {
       const patch = safeParseJSON(body) as Partial<Agent>;
       const updated = await agentsService.updateAgent(agent.id, patch);
-      toast.success("Agente actualizado");
+      toast.success("Agent updated");
       setOpen(false);
       onSaved?.(updated);
     } catch (err) {
       console.error(err);
-      toast.error("No se pudo actualizar el agente");
+      toast.error("Failed to update agent");
     } finally {
       setSubmitting(false);
     }
@@ -605,11 +494,11 @@ function AgentPatchDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">Editar</Button>
+        <Button variant="outline">Edit Agent</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>Actualizar agente</DialogTitle>
+          <DialogTitle>Edit Agent</DialogTitle>
         </DialogHeader>
         <div className="grid gap-2 py-2">
           <Label>Patch (JSON)</Label>
@@ -621,10 +510,10 @@ function AgentPatchDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancelar
+            Cancel
           </Button>
           <Button onClick={onSubmit} disabled={submitting}>
-            {submitting ? "Guardando..." : "Guardar"}
+            {submitting ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>
