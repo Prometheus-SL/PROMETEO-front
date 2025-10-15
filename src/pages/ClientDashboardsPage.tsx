@@ -49,7 +49,7 @@ export default function ClientDashboardsPage() {
       } catch (err) {
         if (cancelled) return;
         const message =
-          (err as Error)?.message ?? "No se pudieron cargar los dashboards";
+          (err as Error)?.message ?? "Unknown error occurred";
         setError(message);
         setPages([]);
         setSelectedPageId(null);
@@ -102,7 +102,7 @@ export default function ClientDashboardsPage() {
     return (
       <div className="flex h-full flex-1 flex-col items-center justify-center gap-3 text-center">
         <Spinner className="size-6 text-primary" />
-        <p className="text-sm text-muted-foreground">Cargando dashboards…</p>
+        <p className="text-sm text-muted-foreground">Loading dashboards…</p>
       </div>
     );
   }
@@ -121,7 +121,7 @@ export default function ClientDashboardsPage() {
     return (
       <div className="flex h-full flex-1 items-center justify-center px-6">
         <div className="rounded-lg border border-dashed px-8 py-10 text-center text-sm text-muted-foreground">
-          Entra en la web para configurar tus dashboards.
+          Visit the website to configure your dashboards.
         </div>
       </div>
     );

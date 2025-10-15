@@ -160,7 +160,7 @@ export function ClientGrid({ modules }: ClientGridProps) {
                 <Definition config={module.config} />
               ) : (
                 <div className="grid h-full place-items-center text-sm text-muted-foreground">
-                  Cargando módulo…
+                  Loading module…
                 </div>
               )}
             </div>
