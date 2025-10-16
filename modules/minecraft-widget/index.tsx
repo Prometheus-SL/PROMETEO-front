@@ -193,7 +193,7 @@ export default function MinecraftCard({
                   ? "Obtaining server status..."
                   : error
                   ? "Could not obtain server status."
-                  : motd || "Server has no message of the day."}
+                  : motd || "No MOTD"}
               </div>
             </div>
           </div>

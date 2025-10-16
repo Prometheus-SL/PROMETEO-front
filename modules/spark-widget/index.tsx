@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Particles } from "@/components/ui/shadcn-io/particles";
 import TresCreusSvg from "./complements/trescreus.svg";
 import SpidermanSvg from "./complements/spiderman.svg";
+import PooSvg from "./complements/poo.svg";
 
 type Mood = "happy" | "sleepy" | "angry" | "surprised";
 type Accessory =
@@ -14,6 +15,13 @@ type Accessory =
   | "batman"
   | "spiderman"
   | "trescreus";
+type PoopDrop = {
+  id: string;
+  left: number;
+  top: number;
+  rotation: number;
+  scale: number;
+};
 
 export default function SparkChispaCard({
   config,
@@ -43,16 +51,30 @@ export default function SparkChispaCard({
 
   // Estado actual (puede cambiar por inactividad)
   const [mood, setMood] = useState<Mood>(baseMood);
+  const [poops, setPoops] = useState<PoopDrop[]>([]);
+  const pooSpawnEnabled = (config["pooEnabled"] as boolean | undefined) ?? true;
+  const spawnMin = Math.max(10000, Number(config["pooMinDelayMs"] ?? 45000));
+  const spawnMax = Math.max(
+    spawnMin + 1000,
+    Number(config["pooMaxDelayMs"] ?? 90000)
+  );
+  const pooLimit = Math.max(1, Number(config["pooMaxCount"] ?? 3));
+  const lastActiveRef = useRef<number>(Date.now());
+  const spawnTimeoutRef = useRef<number | null>(null);
 
   // Auto-cambio de ánimo por inactividad (opcional)
   const autoMood = (config["autoMood"] as boolean | undefined) ?? true;
   const inactivityMs = Number(config["inactivityMs"] ?? 20000); // 20s
   const stepMs = Number(config["inactivityStepMs"] ?? 20000); // cada 20s cambia
-  const lastActiveRef = useRef<number>(Date.now());
 
   const markActive = () => {
     lastActiveRef.current = Date.now();
     setMood(baseMood);
+  };
+
+  const handlePoopClick = (id: string) => {
+    markActive();
+    setPoops((prev) => prev.filter((poop) => poop.id !== id));
   };
 
   useEffect(() => {
@@ -70,6 +92,42 @@ export default function SparkChispaCard({
     }, 1000);
     return () => window.clearInterval(id);
   }, [autoMood, baseMood, inactivityMs, stepMs, mood]);
+
+  useEffect(() => {
+    if (!pooSpawnEnabled) {
+      setPoops([]);
+      if (spawnTimeoutRef.current) {
+        window.clearTimeout(spawnTimeoutRef.current);
+        spawnTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    const scheduleNext = () => {
+      const delay = spawnMin + Math.random() * (spawnMax - spawnMin);
+      spawnTimeoutRef.current = window.setTimeout(() => {
+        setPoops((prev) => {
+          if (prev.length >= pooLimit) return prev;
+          const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const left = 15 + Math.random() * 70;
+          const top = 58 + Math.random() * 32;
+          const rotation = (Math.random() - 0.5) * 40;
+          const scale = 0.6 + Math.random() * 0.4;
+          return [...prev, { id, left, top, rotation, scale }];
+        });
+        scheduleNext();
+      }, delay);
+    };
+
+    scheduleNext();
+
+    return () => {
+      if (spawnTimeoutRef.current) {
+        window.clearTimeout(spawnTimeoutRef.current);
+        spawnTimeoutRef.current = null;
+      }
+    };
+  }, [pooSpawnEnabled, spawnMin, spawnMax, pooLimit]);
 
   return (
     <Card
@@ -134,6 +192,29 @@ export default function SparkChispaCard({
         size={0.45}
         refresh
       />
+      <div className="pointer-events-none absolute inset-0 z-20">
+        {poops.map((poop) => (
+          <button
+            key={poop.id}
+            type="button"
+            aria-label="Limpiar caca"
+            onClick={() => handlePoopClick(poop.id)}
+            className="pointer-events-auto absolute origin-center drop-shadow-[0_4px_12px_rgba(0,0,0,0.45)] transition-transform duration-200 hover:scale-110 focus-visible:scale-110"
+            style={{
+              left: `${poop.left}%`,
+              top: `${poop.top}%`,
+              transform: `translate(-50%, -50%) rotate(${poop.rotation}deg) scale(${poop.scale})`,
+            }}
+          >
+            <img
+              src={PooSvg}
+              alt=""
+              className="h-14 w-14 select-none"
+              draggable={false}
+            />
+          </button>
+        ))}
+      </div>
     </Card>
   );
 }
