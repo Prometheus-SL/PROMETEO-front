@@ -261,7 +261,7 @@ export function GridManager({
   return (
     <div
       ref={gridRef}
-      className="relative w-full select-none h-screen max-h-[75vh] bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md overflow-hidden touch-none"
+      className="relative select-none bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md touch-none h-[500px] w-[1024px] mx-auto"
       style={{ aspectRatio: `${COLS}/${ROWS}` }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}

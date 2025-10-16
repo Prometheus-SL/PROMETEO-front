@@ -217,3 +217,226 @@
 .spark {
   animation: sparkPulse 2s ease-in-out infinite;
 }
+
+@layer utilities {
+  .weather-backdrop {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    border-radius: inherit;
+  }
+
+  .weather-sun-gradient {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(254, 240, 138, 0.4), rgba(253, 224, 71, 0.22) 45%, rgba(59, 130, 246, 0.12) 80%);
+  }
+
+  .weather-sun-halo {
+    position: absolute;
+    right: -18%;
+    top: -38%;
+    width: min(70%, 260px);
+    aspect-ratio: 1 / 1;
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgba(253, 224, 71, 0.45), rgba(253, 224, 71, 0));
+    filter: blur(18px);
+    animation: weather-sun-pulse 16s ease-in-out infinite;
+    opacity: 0.9;
+  }
+
+  .weather-sun-core {
+    position: absolute;
+    right: -12%;
+    top: -28%;
+    width: min(55%, 200px);
+    aspect-ratio: 1 / 1;
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgba(253, 224, 71, 0.8) 0%, rgba(254, 243, 199, 0.65) 45%, rgba(253, 224, 71, 0.05) 90%);
+    box-shadow: 0 0 110px rgba(253, 224, 71, 0.45);
+    animation: weather-sun-pulse 12s ease-in-out infinite;
+  }
+
+  .weather-sun-rays {
+    position: absolute;
+    right: -24%;
+    top: -42%;
+    width: min(80%, 320px);
+    aspect-ratio: 1 / 1;
+    border-radius: 9999px;
+    background: conic-gradient(from 0deg,
+        rgba(253, 224, 71, 0.45) 0deg,
+        transparent 35deg,
+        rgba(255, 255, 255, 0.55) 70deg,
+        transparent 105deg,
+        rgba(253, 224, 71, 0.45) 140deg,
+        transparent 175deg,
+        rgba(255, 255, 255, 0.55) 210deg,
+        transparent 245deg,
+        rgba(253, 224, 71, 0.45) 280deg,
+        transparent 315deg);
+    mask-image: radial-gradient(circle, transparent 48%, black 58%);
+    -webkit-mask-image: radial-gradient(circle, transparent 48%, black 58%);
+    opacity: 0.55;
+    animation: weather-sun-rotate 24s linear infinite;
+  }
+
+  .weather-snow-flake {
+    position: absolute;
+    top: -120%;
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.4) 70%, rgba(255, 255, 255, 0) 100%);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.35);
+    animation: weather-snow 8s linear infinite;
+    will-change: transform, opacity;
+  }
+
+  .weather-star {
+    position: absolute;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+    animation: weather-twinkle 6s ease-in-out infinite;
+    will-change: opacity, transform;
+  }
+
+  .weather-fog-band {
+    position: absolute;
+    left: -10%;
+    width: 120%;
+    height: 35%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(148, 163, 184, 0.25) 60%, rgba(255, 255, 255, 0.1));
+    filter: blur(14px);
+    animation: weather-fog 18s ease-in-out infinite;
+  }
+
+  .weather-cloud {
+    position: absolute;
+    left: -60%;
+    width: 220%;
+    height: 55%;
+    background:
+      radial-gradient(circle at 20% 40%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.35) 45%, transparent 70%),
+      radial-gradient(circle at 70% 50%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.25) 55%, transparent 80%);
+    filter: blur(8px);
+    mix-blend-mode: lighten;
+    animation: weather-cloud 40s linear infinite;
+    will-change: transform;
+  }
+
+  .weather-flash {
+    position: absolute;
+    inset: -15%;
+    background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.15) 45%, transparent 70%);
+    mix-blend-mode: screen;
+    animation: weather-flash 7s ease-in-out infinite;
+    pointer-events: none;
+  }
+}
+
+@keyframes weather-sun-pulse {
+
+  0%,
+  100% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
+@keyframes weather-sun-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes weather-snow {
+  0% {
+    transform: translate3d(0, -120%, 0) scale(var(--snow-scale, 1));
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translate3d(var(--snow-drift, 20px), 140%, 0) scale(var(--snow-scale, 1));
+    opacity: 0;
+  }
+}
+
+@keyframes weather-twinkle {
+
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.6);
+  }
+}
+
+@keyframes weather-fog {
+
+  0%,
+  100% {
+    transform: translateX(-12%);
+    opacity: 0.18;
+  }
+
+  50% {
+    transform: translateX(12%);
+    opacity: 0.32;
+  }
+}
+
+@keyframes weather-cloud {
+  0% {
+    transform: translateX(-20%);
+  }
+
+  50% {
+    transform: translateX(var(--cloud-shift, 25%));
+  }
+
+  100% {
+    transform: translateX(40%);
+  }
+}
+
+@keyframes weather-flash {
+
+  0%,
+  100% {
+    opacity: 0;
+  }
+
+  8% {
+    opacity: 0.9;
+  }
+
+  12% {
+    opacity: 0.1;
+  }
+
+  16% {
+    opacity: 0.7;
+  }
+
+  24% {
+    opacity: 0;
+  }
+}
