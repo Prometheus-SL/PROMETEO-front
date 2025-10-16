@@ -1,8 +1,17 @@
 import * as React from "react";
-import { Users, RefreshCcw } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Globe2, RefreshCcw } from "lucide-react";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { GridPattern } from "@/components/ui/grid-pattern";
 
 type McStatus = {
   online: boolean;
@@ -69,74 +78,133 @@ export default function MinecraftCard({
   const version = data?.version?.name_raw ?? "";
 
   return (
-    <Card className="rounded-xl p-0 h-full shadow-lg shadow-primary/5 ">
+    <Card
+      className={cn(
+        "relative h-full overflow-hidden gap-0 border border-border/60 bg-background/90 p-0 shadow-lg shadow-primary/10 transition-shadow",
+        isOnline ? "hover:shadow-emerald-500/20" : "hover:shadow-destructive/20"
+      )}
+    >
+      <GridPattern
+        width={30}
+        height={30}
+        x={-1}
+        y={-1}
+        strokeDasharray="4 2"
+        className={cn(
+          "pointer-events-none opacity-40 [mask-image:radial-gradient(360px_circle_at_center,white,transparent)]"
+        )}
+      />
       <div
         className={cn(
-          "h-full flex flex-col justify-center bg-gradient-to-br p-4 m-0 rounded-xl",
+          "pointer-events-none absolute inset-0 bg-gradient-to-br ",
           isOnline
-            ? "from-primary/10 to-green-600/10"
-            : "from-primary/10 to-destructive/10"
+            ? "from-emerald-500/15 via-primary/10 to-background"
+            : "from-destructive/20 via-primary/10 to-background"
         )}
-      >
-        <div className="flex items-center gap-4">
-          <div className="min-w-0 space-y-1">
-            <div className="text-lg font-semibold truncate">
-              {displayName}{" "}
-              {version && <span className="text-sm opacity-80">{version}</span>}
-            </div>
-            <div className="text-sm truncate opacity-80 flex items-center">
-              {loading ? (
-                "Loading..."
-              ) : error ? (
-                `Error: ${error}`
-              ) : isOnline ? (
-                <Badge className="rounded-full border-none bg-green-600/10 text-green-600 focus-visible:ring-green-600/20 focus-visible:outline-none dark:bg-green-400/10 dark:text-green-400 dark:focus-visible:ring-green-400/40 [a&]:hover:bg-green-600/5 dark:[a&]:hover:bg-green-400/5">
-                  <span
-                    className="size-1.5 rounded-full bg-green-600 dark:bg-green-400"
-                    aria-hidden="true"
-                  />
-                  {address ?? "—"}
-                </Badge>
-              ) : (
-                <Badge className="bg-destructive/10 [a&]:hover:bg-destructive/5 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 text-destructive rounded-full border-none focus-visible:outline-none">
-                  <span
-                    className="bg-destructive size-1.5 rounded-full"
-                    aria-hidden="true"
-                  />
-                  Offline
+      />
+
+      <CardHeader className="relative z-10 py-4 pb-0">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-2">
+            <CardTitle className="flex flex-wrap items-center gap-2 text-xl">
+              {displayName || "Minecraft"}
+              {version && (
+                <Badge
+                  className="bg-background/60 text-foreground"
+                  variant="secondary"
+                >
+                  {version}
                 </Badge>
               )}
-              <button
-                onClick={fetchStatus}
-                className="inline-flex items-center gap-1 bg-white/20 px-2 py-1 text-xs hover:bg-white/30 ms-2 rounded-full"
-                title="Refresh"
+            </CardTitle>
+            <CardDescription className="flex flex-wrap items-center gap-2 text-sm">
+              <Badge
+                variant="outline"
+                className="bg-background/70 text-foreground backdrop-blur supports-[backdrop-filter]:bg-background/50"
               >
-                <RefreshCcw className="size-3" />
-              </button>
+                <Globe2 className="size-3.5" />
+                {address ?? "N/A"}
+              </Badge>
+            </CardDescription>
+          </div>
+          <CardAction className="flex items-center gap-2 align-items-">
+            <Badge
+              variant={isOnline ? "secondary" : "destructive"}
+              className={cn(
+                "px-3 py-1 text-xs uppercase tracking-wide",
+                isOnline
+                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                  : "bg-destructive/20"
+              )}
+            >
+              <span
+                className={cn(
+                  "size-2 rounded-full",
+                  isOnline
+                    ? "bg-emerald-500 dark:bg-emerald-400"
+                    : "bg-destructive"
+                )}
+                aria-hidden="true"
+              />
+              {loading ? "Refreshing..." : isOnline ? "Online" : "Offline"}
+            </Badge>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={fetchStatus}
+              disabled={loading}
+              className="border-border/40 bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/50"
+            >
+              <RefreshCcw
+                className={cn(
+                  "size-4",
+                  loading && "animate-spin text-muted-foreground"
+                )}
+              />
+            </Button>
+          </CardAction>
+        </div>
+      </CardHeader>
+
+      <CardContent className="relative z-10 flex flex-col gap-6 pb-6">
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,100px)_1fr] sm:items-center">
+          <div className="rounded-xl border border-border/50 bg-background/70 px-4 py-3 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Players
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-4xl font-semibold tabular-nums text-foreground">
+                {isOnline ? players : "--"}
+              </span>
+              {maxPlayers ? (
+                <span className="text-sm text-muted-foreground">
+                  of {maxPlayers}
+                </span>
+              ) : null}
             </div>
           </div>
-          <div className="ml-auto text-right flex flex-col justify-center items-end">
-            <div className="text-3xl font-bold tabular-nums">
-              {isOnline ? ` ${players}/${maxPlayers}` : "—"}
+          <div className="rounded-xl border border-border/50 bg-background/70 px-4 py-3 shadow-sm h-full">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              MOTD
             </div>
-            <div className="text-xs opacity-80 flex items-center gap-1">
-              <Users className="size-3" />
-              <span>Players</span>
+            <div className="mt-1 flex items-baseline gap-2 mt-4">
+              <div className="font-medium text-foreground text-xl leading-snug">
+                {loading
+                  ? "Obtaining server status..."
+                  : error
+                  ? "Could not obtain server status."
+                  : motd || "Server has no message of the day."}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mt-2 text-sm">
-          {motd && (
-            <div className="col-span-3 bg-white/20 rounded-md p-2">
-              <div className="text-xs opacity-80 mb-1">MOTD</div>
-              <div className="font-medium truncate" title={motd}>
-                {motd}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+        {error ? (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/15 px-3 py-2 text-sm text-destructive">
+            Error: {error}
+          </div>
+        ) : null}
+      </CardContent>
     </Card>
   );
 }
