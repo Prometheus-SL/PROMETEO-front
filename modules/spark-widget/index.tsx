@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Particles } from "@/components/ui/shadcn-io/particles";
@@ -24,6 +25,21 @@ export default function SparkChispaCard({
   const baseMood = (String(config["mood"] ?? "happy") as Mood) || "happy";
   const accessory =
     (String(config["accessory"] ?? "none") as Accessory) || "none";
+  const accentColor = useMemo(() => lighten(color, 0.3), [color]);
+  const borderColor = useMemo(() => toRgba(lighten(color, 0.2), 0.4), [color]);
+  const glowColor = useMemo(() => toRgba(lighten(color, 0.5), 0.35), [color]);
+  const surfaceShadow = useMemo(
+    () => toRgba(darken(color, 0.65), 0.65),
+    [color]
+  );
+  const backgroundGradient = useMemo(
+    () =>
+      `radial-gradient(120% 120% at 50% 0%, ${toRgba(
+        lighten(color, 0.55),
+        0.35
+      )}, rgba(2, 6, 23, 0.94))`,
+    [color]
+  );
 
   // Estado actual (puede cambiar por inactividad)
   const [mood, setMood] = useState<Mood>(baseMood);
@@ -57,30 +73,66 @@ export default function SparkChispaCard({
 
   return (
     <Card
-      className="relative h-full w-full rounded-xl p-4 overflow-hidden bg-black"
+      className="group relative h-full w-full overflow-hidden rounded-2xl border bg-transparent p-6 backdrop-blur-md transition-[transform,box-shadow] duration-500"
+      style={{
+        background: backgroundGradient,
+        borderColor,
+        boxShadow: `0 18px 50px ${surfaceShadow}, inset 0 0 24px ${glowColor}`,
+      }}
       onMouseMove={markActive}
       onPointerDown={markActive}
       onTouchStart={markActive}
     >
-      <div className="flex h-full w-full items-center justify-center overflow-visible">
-        <div className="relative flex flex-col items-center justify-center ">
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div
+          className="absolute inset-x-[-28%] top-[-35%] h-[65%] blur-[120px] opacity-60"
+          style={{
+            background: `radial-gradient(circle at 50% 0%, ${toRgba(
+              accentColor,
+              0.55
+            )}, transparent 70%)`,
+          }}
+        />
+        <div
+          className="absolute inset-x-[-25%] bottom-[-45%] h-[70%] blur-[140px] opacity-70"
+          style={{
+            background: `radial-gradient(circle at 50% 100%, ${toRgba(
+              darken(color, 0.45),
+              0.48
+            )}, transparent 65%)`,
+          }}
+        />
+      </div>
+      <div className="relative flex h-full w-full items-center justify-center overflow-visible">
+        <div className="relative flex flex-col items-center justify-center gap-3">
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-[-35%] top-[58%] -z-10 h-40 blur-[100px] opacity-80 transition-opacity duration-500 group-hover:opacity-100"
+            style={{
+              background: `radial-gradient(60% 80% at 50% 50%, ${toRgba(
+                accentColor,
+                0.65
+              )}, transparent)`,
+            }}
+          />
           {/* Chispa */}
           <SparkSvg color={color} mood={mood} accessory={accessory} />
 
           {/* Nombre */}
-          <div className="mt-2 w-full text-center text-sm font-medium text-foreground/80">
+          <div className="w-full text-center text-sm font-medium tracking-wide text-foreground/90">
             {name || "Chispa"}
           </div>
         </div>
       </div>
       {/* Interactive particles */}
       <Particles
-        className="absolute inset-0 z--1 overflow-hidden"
-        quantity={200}
-        ease={80}
-        staticity={50}
-        color={lighten(color, 0.3)}
-        size={0.3}
+        className="absolute inset-0 -z-20 overflow-hidden"
+        quantity={220}
+        ease={85}
+        staticity={60}
+        color={accentColor}
+        size={0.45}
+        refresh
       />
     </Card>
   );
@@ -107,6 +159,23 @@ function SparkSvg({
   // Dirección de mirada: -1 izquierda, 0 centro, 1 derecha
   const [gazeDir, setGazeDir] = useState<-1 | 0 | 1>(0);
   const gazeTimeoutRef = useRef<number | null>(null);
+  const [shouldAnimate, setShouldAnimate] = useState(true);
+  const floatAnimId = useMemo(
+    () => `spark-float-${Math.random().toString(36).slice(2)}`,
+    []
+  );
+  const haloAnimId = useMemo(
+    () => `spark-halo-${Math.random().toString(36).slice(2)}`,
+    []
+  );
+  const sparkleAnimId = useMemo(
+    () => `spark-sparkle-${Math.random().toString(36).slice(2)}`,
+    []
+  );
+  const gradId = useMemo(
+    () => `spark-body-${Math.random().toString(36).slice(2)}`,
+    []
+  );
 
   // Programa parpadeos aleatorios a la vez para ambos ojos
   useEffect(() => {
@@ -160,12 +229,67 @@ function SparkSvg({
     };
   }, []);
 
-  const gradId = useMemo(
-    () => `spark-body-${Math.random().toString(36).slice(2)}`,
+  // Animate softly unless the user prefers reduced motion.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const handleChange = () => setShouldAnimate(!query.matches);
+    handleChange();
+    if (typeof query.addEventListener === "function") {
+      query.addEventListener("change", handleChange);
+      return () => query.removeEventListener("change", handleChange);
+    }
+    query.addListener(handleChange);
+    return () => query.removeListener(handleChange);
+  }, []);
+
+  // Keyframes are injected dynamically to avoid global CSS dependencies.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const style = document.createElement("style");
+    style.setAttribute("data-spark-style", gradId);
+    style.textContent = `
+      @keyframes ${floatAnimId} {
+        0% { transform: translateY(0px) scale(1); }
+        50% { transform: translateY(-6px) scale(1.02); }
+        100% { transform: translateY(0px) scale(1); }
+      }
+      @keyframes ${haloAnimId} {
+        0% { opacity: 0.18; filter: blur(0px); }
+        50% { opacity: 0.46; filter: blur(1.5px); }
+        100% { opacity: 0.2; filter: blur(0.2px); }
+      }
+      @keyframes ${sparkleAnimId} {
+        0%, 100% { opacity: 0.15; transform: scale(0.85); }
+        50% { opacity: 0.7; transform: scale(1.25); }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      style.remove();
+    };
+  }, [floatAnimId, haloAnimId, sparkleAnimId, gradId]);
+
+  const highlightId = useMemo(
+    () => `spark-highlight-${Math.random().toString(36).slice(2)}`,
     []
   );
   const strokeColor = darken(color, 0.55);
   const lightColor = lighten(color, 0.22);
+  const svgAnimationStyle = useMemo<CSSProperties>(
+    () =>
+      shouldAnimate
+        ? { animation: `${floatAnimId} 7s ease-in-out infinite` }
+        : {},
+    [floatAnimId, shouldAnimate]
+  );
+  const sheenStyle = useMemo<CSSProperties>(
+    () =>
+      shouldAnimate
+        ? { animation: `${haloAnimId} 8s ease-in-out infinite`, opacity: 0.16 }
+        : { opacity: 0.12 },
+    [haloAnimId, shouldAnimate]
+  );
 
   const mouth = (() => {
     switch (mood) {
@@ -208,7 +332,8 @@ function SparkSvg({
       viewBox="0 0 184 184"
       role="img"
       aria-label="Spark preview"
-      className="drop-shadow-md spark w-full h-auto max-w-[180px] z-10"
+      className="spark relative z-10 h-auto w-full max-w-[200px] drop-shadow-[0_10px_35px_rgba(0,0,0,0.5)]"
+      style={svgAnimationStyle}
     >
       <defs>
         <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -218,14 +343,16 @@ function SparkSvg({
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        <radialGradient id={gradId} cx="50%" cy="35%" r="65%">
+        <linearGradient id={gradId} x1="50%" y1="100%" x2="50%" y2="0%">
           <stop offset="0%" stopColor={lightColor} />
           <stop offset="100%" stopColor={color} />
+        </linearGradient>
+        <radialGradient id={highlightId} cx="50%" cy="30%" r="55%">
+          <stop offset="0%" stopColor={toRgba("#ffffff", 0.45)} />
+          <stop offset="45%" stopColor={toRgba(lightColor, 0.35)} />
+          <stop offset="100%" stopColor="transparent" />
         </radialGradient>
       </defs>
-
-      {/* halo sutil */}
-      <circle cx="92" cy="82" r="38" fill={lightColor} opacity="0.08" />
 
       {/* cuerpo con glow */}
       <g filter="url(#glow)">
@@ -346,6 +473,8 @@ function SparkSvg({
           />
         </g>
       )}
+      {/* brillo superior */}
+      <ellipse cx="82" cy="58" rx="14" ry="9" fill="#fff" style={sheenStyle} />
       {accessory === "crown" && (
         <svg
           version="1.1"
@@ -553,8 +682,6 @@ function SparkSvg({
           transform="scale(3.5) translate(-50,-49)"
         />
       )}
-      {/* brillo superior */}
-      <ellipse cx="82" cy="58" rx="14" ry="9" fill="#fff" opacity="0.1" />
     </svg>
   );
 }
@@ -593,4 +720,8 @@ function lighten(hex: string, p: number) {
 }
 function darken(hex: string, p: number) {
   return adjust(hex, -Math.abs(p));
+}
+function toRgba(hex: string, alpha: number) {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${clamp(alpha, 0, 1)})`;
 }
