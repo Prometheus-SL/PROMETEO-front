@@ -1,111 +1,57 @@
-# PROMETEO Frontend - AI Coding Instructions
+# PROMETEO Frontend – AI Coding Instructions
 
-## Project Overview
+## Overview
 
-PROMETEO is a React + TypeScript + Vite frontend application built with shadcn/ui components and Tailwind CSS v4. This is a modern single-page application using the latest React 19 features.
+- React 19 + TypeScript SPA bootstrapped by Vite 7; `src/main.tsx` mounts `App` under React StrictMode.
+- Styling layers: Tailwind CSS v4 (see `src/index.css`) plus shadcn/ui primitives; reuse `cn` from `src/lib/utils.ts` for class composition.
+- UI chrome provided by the custom `SidebarProvider` + `ThemeProvider`; dark mode toggles via `localStorage` key `vite-ui-theme`.
 
-## Architecture & Stack
+## Routing & Layout
 
-- **Frontend Framework**: React 19 with TypeScript
-- **Build Tool**: Vite 7 with HMR and path aliases
-- **Styling**: Tailwind CSS v4 with CSS variables and custom theming
-- **UI Components**: shadcn/ui (New York style) with Radix UI primitives
-- **State Management**: Built-in React state (no external state library)
-- **Icons**: Lucide React
+- `src/routes.tsx` exports the route array consumed by `createBrowserRouter` in `src/router.tsx`; `handle` metadata drives navigation titles and sections.
+- `AppLayout` reads `useMatches()` to feed `AppSidebar` (in `src/components/navbar/app-sidebar.tsx`) with section definitions and sets the page title for `SiteHeader`.
+- `ClientLayout` renders kiosk dashboards with idle detection via `useIdle`; remember to surface critical content inside `<Outlet />` for both admin and client shells.
 
-## Key Conventions & Patterns
+## State & Providers
 
-### Path Aliases & Imports
+- `AuthProvider` wraps `useAuth` (tokens in `localStorage`) and exposes `login`, `register`, `logout`, and QR flows; guard private pages with `PrivateRoute`.
+- `authService` wires `configureApi` so the shared `api` client can inject tokens and refresh via `/auth/refresh`.
+- `SidebarProvider` defines CSS variables (`--sidebar-width`, `--header-height`) used by shadcn sidebar components; keep it around any view that calls `useSidebar`.
 
-- Use `@/` prefix for all internal imports: `import { Button } from "@/components/ui/button"`
-- Absolute imports configured via Vite alias: `"@": path.resolve(__dirname, "./src")`
-- Component imports: `@/components`, utilities: `@/lib/utils`, hooks: `@/hooks`
+## API Access
 
-### Component Structure
+- `src/lib/api.ts` centralizes fetch logic with automatic JSON parsing, token headers, optional `FormData`, and retry-on-401; it throws `ApiError` with server messages when possible.
+- Backend base URL comes from `import.meta.env.VITE_URL_BACKEND`; ensure the env var is set before hitting `/api/v1/...` endpoints.
+- Add new REST calls under `src/services/` (e.g. `agents.ts`, `dashboards.ts`, `users.ts`) so UI layers never hit `api` directly.
 
-- **UI Components**: Located in `src/components/ui/` (shadcn/ui components)
-- **Custom Components**: Place in `src/components/` (business logic components)
-- All components use TypeScript with proper prop typing
-- shadcn/ui components follow the compound component pattern with variants
+## Modules Marketplace
 
-### Styling Approach
+- Runtime discovers modules with `import.meta.glob` in `src/modules/loader.ts`; each module lives in `/modules/<id>/` with `module.json`, `index.tsx`, optional `config.ts`, and preview asset.
+- `module.json` is validated by `moduleMetaSchema` in `src/modules/validation.ts`; keep required fields (`id`, `name`, `entry`, `size`) in sync with backend expectations.
+- `config.ts` should export a Zod schema (see `modules/minecraft-widget/config.ts`); the `ModuleConfigModal` builds forms from that schema for add/edit flows.
+- `useMarketplaceStore` (`src/modules/store.ts`) loads module metadata, dashboards via `dashboardService`, and keeps `state.installed` in sync with server mutations.
+- `GridManager` handles drag/drop layout, calling `dashboardService.updateModule` when `_id` exists; make sure custom modules expose stable `meta.id` keys for local positioning.
 
-- **Tailwind CSS v4**: Uses new `@import "tailwindcss"` syntax in `src/index.css`
-- **CSS Variables**: Extensive use of CSS custom properties for theming
-- **Dark Mode**: Implemented via `@custom-variant dark (&:is(.dark *))`
-- **Component Variants**: Use `class-variance-authority` (cva) for component styling
-- **Utility Function**: `cn()` function combines `clsx` and `tailwind-merge` for conditional classes
+## Admin & Monitoring
 
-### shadcn/ui Integration
+- `pages/admin/*.tsx` compose data tables using `@tanstack/react-table`; columns are generated via helpers in `src/components/admin/**/columns.tsx`.
+- `agentsService` and `usersService` adapt backend payloads (`/api/v1`) into UI-friendly shapes, handling success/error envelopes before returning to components.
+- Toast notifications rely on `sonner`; mount a single `<Toaster />` (already included in layouts) and prefer `toast.error`/`toast.success` for user feedback.
 
-- Configuration in `components.json` specifies New York style with zinc base color
-- Components use Radix UI primitives with custom styling
-- All UI components include proper TypeScript definitions and variant props
-- Use `asChild` prop pattern for polymorphic components (see Button component)
+## UI Patterns
 
-## Development Workflows
+- Reuse shadcn/ui wrappers in `src/components/ui/`; when adding variants, follow the `cva` pattern as seen in `button.tsx` and `sidebar.tsx`.
+- Shared widgets such as `BadgeSelectable` (`src/components/common/badgeSelect.tsx`) encapsulate recurring behaviours—import them instead of duplicating badge toggles.
+- Navigation avatars/buttons live in `src/components/navbar/`; `NavUser` consumes `AuthProvider`, so keep token shape compatible when extending auth features.
 
-### Essential Commands
+## Workflows
 
-```bash
-npm run dev          # Start development server with HMR
-npm run build        # TypeScript compilation + Vite build
-npm run lint         # ESLint with TypeScript and React rules
-npm run preview      # Preview production build locally
-```
+- Run `npm run dev` for local development, `npm run build` for type-checked production bundles, and `npm run lint` for ESLint flat-config checks.
+- The Vite preview server (`npm run preview`) is useful to validate dynamic module loading in a production-like build.
+- If module discovery fails, clear Vite’s cache (`npm run build` once) because `import.meta.glob` results are cached during dev.
 
-### Adding New shadcn/ui Components
+## Tips
 
-- Use shadcn/ui CLI or manually add components to `src/components/ui/`
-- Follow existing patterns in `button.tsx` for variant definitions
-- Maintain consistent prop interfaces and TypeScript definitions
-
-### ESLint Configuration
-
-- Uses modern ESLint flat config with TypeScript integration
-- Includes React Hooks rules and React Refresh for HMR
-- TypeScript strict mode enabled with proper path resolution
-
-## Critical Files & Dependencies
-
-### Configuration Files
-
-- `vite.config.ts`: Build configuration with React plugin and path aliases
-- `components.json`: shadcn/ui configuration defining aliases and styling
-- `eslint.config.js`: Flat config with TypeScript and React rules
-- `src/index.css`: Tailwind v4 imports and CSS variable definitions
-
-### Core Utilities
-
-- `src/lib/utils.ts`: Contains `cn()` utility for conditional CSS classes
-- Always use `cn()` for combining Tailwind classes and conditional styling
-
-### Project Structure
-
-```
-src/
-├── components/
-│   └── ui/           # shadcn/ui components (Button, etc.)
-├── lib/
-│   └── utils.ts      # Utility functions (cn, etc.)
-├── assets/           # Static assets
-├── App.tsx           # Main application component
-└── main.tsx          # Application entry point
-```
-
-## Key Integration Points
-
-- **Radix UI**: Provides accessible component primitives
-- **Tailwind CSS v4**: Latest version with new CSS-first architecture
-- **TypeScript**: Strict mode with proper type definitions for all components
-- **Vite**: Fast development with React Fast Refresh and TypeScript integration
-
-## Component Development Patterns
-
-- Use compound component patterns for complex UI elements
-- Implement proper TypeScript interfaces for all props
-- Leverage `VariantProps` from class-variance-authority for styling variants
-- Follow shadcn/ui patterns for consistency and maintainability
-- Always include proper accessibility attributes from Radix UI primitives
-
-When adding new features, prioritize type safety, accessibility, and consistency with existing shadcn/ui patterns.
+- Keep new files under `src/` using the `@/` path alias defined in `vite.config.ts`; avoid relative `../../` imports.
+- When a view needs API data plus marketplace state, consume `useMarketplaceStore` once and pass the store through props (e.g. `MarketplaceList`).
+- For kiosk widgets, prefer pure-presentational components that accept `{ config }`; the loader injects props exactly as `ModuleDefinition.Component` expects.
