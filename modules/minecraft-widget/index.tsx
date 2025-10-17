@@ -103,7 +103,7 @@ export default function MinecraftCard({
         )}
       />
 
-      <CardHeader className="relative z-10 py-4 pb-0">
+      <CardHeader className="relative  py-4 pb-0">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
             <CardTitle className="flex flex-wrap items-center gap-2 text-xl">
@@ -166,7 +166,7 @@ export default function MinecraftCard({
         </div>
       </CardHeader>
 
-      <CardContent className="relative z-10 flex flex-col gap-6 pb-6">
+      <CardContent className="relative  flex flex-col gap-6 pb-6">
         <div className="grid gap-4 sm:grid-cols-[minmax(0,100px)_1fr] sm:items-center">
           <div className="rounded-xl border border-border/50 bg-background/70 px-4 py-3 shadow-sm">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

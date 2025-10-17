@@ -54,10 +54,10 @@ export default function ClientLayout() {
             </time>
             <Separator className="bg-white/10" />
             <span
-              className="text-lg capitalize tracking-wide text-white/70"
+              className="text-lg tracking-wide text-white/70"
               aria-hidden="true"
             >
-              {dateLabel}
+              {dateLabel.replace(/^\w/, (c) => c.toUpperCase())}
             </span>
           </CardContent>
         </Card>
