@@ -1,7 +1,7 @@
 {
   "id": "whatsapp-personal-widget",
-  "name": "WhatsApp Personal",
-  "description": "Consulta de solo lectura de las últimas conversaciones y mensajes sin interacción.",
+  "name": "WhatsApp",
+  "description": "A widget to display your WhatsApp conversations.",
   "category": "communications",
   "size": {
     "width": 2,
