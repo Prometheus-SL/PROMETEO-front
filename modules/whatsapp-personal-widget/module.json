@@ -1,0 +1,12 @@
+{
+  "id": "whatsapp-personal-widget",
+  "name": "WhatsApp Personal",
+  "description": "Consulta de solo lectura de las últimas conversaciones y mensajes sin interacción.",
+  "category": "communications",
+  "size": {
+    "width": 2,
+    "height": 3
+  },
+  "entry": "./index.tsx",
+  "configSchema": "./config.ts"
+}
