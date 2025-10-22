@@ -1,0 +1,13 @@
+{
+  "id": "spotify-widget",
+  "name": "Spotify Now Playing",
+  "description": "Display and control your current Spotify playback with full controls, progress slider, and recently played tracks.",
+  "category": "entertainment",
+  "size": {
+    "width": 2,
+    "height": 2
+  },
+  "entry": "./index.tsx",
+  "configSchema": "./config.ts",
+  "preview": ""
+}

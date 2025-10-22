@@ -29,6 +29,34 @@ export default function ClientDashboardsPage() {
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
 
+  // Función para actualizar config de un módulo
+  const handleModuleConfigChange = async (
+    pageId: string,
+    moduleId: string,
+    config: Record<string, unknown>
+  ) => {
+    try {
+      // Actualizar en el backend
+      await dashboardService.updateModule(pageId, moduleId, { config });
+
+      // Actualizar estado local
+      setPages((prev) =>
+        prev.map((page) =>
+          page._id === pageId
+            ? {
+                ...page,
+                modules: page.modules.map((mod) =>
+                  mod._id === moduleId ? { ...mod, config } : mod
+                ),
+              }
+            : page
+        )
+      );
+    } catch (err) {
+      console.error("Error updating module config:", err);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -48,8 +76,7 @@ export default function ClientDashboardsPage() {
         });
       } catch (err) {
         if (cancelled) return;
-        const message =
-          (err as Error)?.message ?? "Unknown error occurred";
+        const message = (err as Error)?.message ?? "Unknown error occurred";
         setError(message);
         setPages([]);
         setSelectedPageId(null);
@@ -144,7 +171,13 @@ export default function ClientDashboardsPage() {
                       This dashboard has no modules.
                     </div>
                   ) : (
-                    <ClientGrid modules={page.modules} />
+                    <ClientGrid
+                      modules={page.modules}
+                      pageId={page._id}
+                      onModuleConfigChange={(moduleId, config) =>
+                        handleModuleConfigChange(page._id, moduleId, config)
+                      }
+                    />
                   )}
                 </div>
               </div>

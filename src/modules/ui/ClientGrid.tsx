@@ -9,11 +9,19 @@ const ROWS = 5;
 type GridCell = { x: number; y: number; w: number; h: number };
 
 type ModuleDefinitionEntry = {
-  Component: ComponentType<{ config: Record<string, unknown> }>;
+  Component: ComponentType<{
+    config: Record<string, unknown>;
+    onConfigChange?: (config: Record<string, unknown>) => void;
+  }>;
 };
 
 type ClientGridProps = {
   modules: InstalledModule[];
+  pageId?: string; // ID de la página para guardar cambios (opcional, solo para logging)
+  onModuleConfigChange?: (
+    moduleId: string,
+    config: Record<string, unknown>
+  ) => void;
 };
 
 function clampToGrid(cell: GridCell): GridCell {
@@ -82,7 +90,7 @@ function getDesiredSize(inst: InstalledModule): { w: number; h: number } {
   return { w: 1, h: 1 };
 }
 
-export function ClientGrid({ modules }: ClientGridProps) {
+export function ClientGrid({ modules, onModuleConfigChange }: ClientGridProps) {
   const [definitions, setDefinitions] = useState<
     Record<string, ModuleDefinitionEntry>
   >({});
@@ -157,7 +165,19 @@ export function ClientGrid({ modules }: ClientGridProps) {
           >
             <div className="relative h-full w-full overflow-hidden rounded-lg bg-background shadow">
               {Definition ? (
-                <Definition config={module.config} />
+                <Definition
+                  config={module.config}
+                  onConfigChange={
+                    onModuleConfigChange
+                      ? (newConfig) => {
+                          const moduleId = module._id;
+                          if (moduleId) {
+                            onModuleConfigChange(moduleId, newConfig);
+                          }
+                        }
+                      : undefined
+                  }
+                />
               ) : (
                 <div className="grid h-full place-items-center text-sm text-muted-foreground">
                   Loading module…

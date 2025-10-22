@@ -123,7 +123,12 @@ export function GridManager({
   const [defs, setDefs] = useState<
     Record<
       string,
-      { Component: React.ComponentType<{ config: Record<string, unknown> }> }
+      {
+        Component: React.ComponentType<{
+          config: Record<string, unknown>;
+          onConfigChange?: (config: Record<string, unknown>) => void;
+        }>;
+      }
     >
   >({});
 
@@ -150,7 +155,12 @@ export function GridManager({
       const index = await loadModulesIndex();
       const map: Record<
         string,
-        { Component: React.ComponentType<{ config: Record<string, unknown> }> }
+        {
+          Component: React.ComponentType<{
+            config: Record<string, unknown>;
+            onConfigChange?: (config: Record<string, unknown>) => void;
+          }>;
+        }
       > = {};
       for (const item of installed) {
         const entry = index.find((e) => e.meta.id === item.meta.id);
@@ -346,7 +356,12 @@ export function GridManager({
               </div>
               <div className="h-full w-full">
                 {Def ? (
-                  <Def config={i.config} />
+                  <Def
+                    config={i.config}
+                    onConfigChange={(newConfig) => {
+                      onUpdateConfig?.(key, newConfig);
+                    }}
+                  />
                 ) : (
                   <div className="h-full grid place-items-center text-sm text-zinc-500">
                     Loading...

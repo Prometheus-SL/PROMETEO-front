@@ -11,6 +11,7 @@ import MarketplacePage from "@/pages/MarketplacePage";
 import DashboardsPage from "./pages/DashboardsPage";
 import QRLoginPage from "@/pages/QRLoginPage";
 import ClientDashboardsPage from "./pages/ClientDashboardsPage";
+import SpotifyCallbackPage from "@/pages/SpotifyCallbackPage";
 
 export const appRoutes = [
   {
@@ -24,6 +25,10 @@ export const appRoutes = [
   {
     path: "/qr-login/:code",
     element: <QRLoginPage />,
+  },
+  {
+    path: "/spotify-callback",
+    element: <SpotifyCallbackPage />,
   },
   {
     path: "/",
