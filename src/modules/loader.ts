@@ -3,14 +3,16 @@ import type { ModuleDefinition, ModulesIndexEntry } from "./types"
 
 // Loader de módulos: usa import.meta.glob para descubrir module.json, entries y schemas
 // Estructura esperada: /modules/<id>/module.json, index.tsx, config.ts (opcional), preview.* (opcional)
+// module.json puede ser un objeto único o un array de variantes
 
 // Mapea todos los module.json bajo /modules/*/
 const moduleJsonGlobs = import.meta.glob("/modules/*/module.json", { eager: true, query: "?raw", import: "default" }) as Record<string, string>
 
 // Importadores perezosos para entry, config y preview de cualquier módulo
+// Soporta múltiples archivos de entrada con diferentes nombres (index.tsx, index2x1.tsx, etc.)
 const entryGlobs = import.meta.glob<{
     default: ModuleDefinition["Component"]
-}>("/modules/*/index.{tsx,ts,jsx,js}")
+}>("/modules/*/*.{tsx,ts,jsx,js}")
 const configGlobs = import.meta.glob<{
     default?: unknown
     schema?: unknown
@@ -23,6 +25,15 @@ function dirname(path: string) {
     return idx >= 0 ? path.slice(0, idx) : path
 }
 
+function resolveEntryPath(basePath: string, entryPath: string): string {
+    // Si el entry ya comienza con ./, es relativo al basePath
+    if (entryPath.startsWith("./")) {
+        return `${basePath}/${entryPath.slice(2)}`
+    }
+    // Si no, asumimos que es relativo al basePath
+    return `${basePath}/${entryPath}`
+}
+
 export async function loadModulesIndex(): Promise<ModulesIndexEntry[]> {
     const entries: ModulesIndexEntry[] = []
 
@@ -30,29 +41,49 @@ export async function loadModulesIndex(): Promise<ModulesIndexEntry[]> {
         try {
             const basePath = dirname(jsonPath)
             const json = JSON.parse(raw)
-            const meta = validateModuleMeta(json)
 
-            const entryImporter = Object.entries(entryGlobs).find(([k]) => dirname(k) === basePath)?.[1]
-            const configImporter = Object.entries(configGlobs).find(([k]) => dirname(k) === basePath)?.[1]
-            const previewImporter = Object.entries(previewGlobs).find(([k]) => dirname(k) === basePath)?.[1]
+            // Detectar si es array o objeto único
+            const metaArray = Array.isArray(json) ? json : [json]
 
-            entries.push({
-                basePath,
-                meta,
-                importers: {
-                    entry: async () => {
-                        const mod = (await entryImporter?.()) as unknown
-                        return mod
-                    },
-                    config: configImporter
-                        ? async () => {
-                            const mod = (await configImporter()) as unknown
+            for (const metaJson of metaArray) {
+                const meta = validateModuleMeta(metaJson)
+
+                // Resolver el path completo del entry específico de esta variante
+                const fullEntryPath = resolveEntryPath(basePath, meta.entry)
+
+                // Buscar el importador específico para este entry
+                const entryImporter = Object.entries(entryGlobs).find(([k]) => {
+                    // Comparar sin la extensión del archivo
+                    const kWithoutExt = k.replace(/\.(tsx|ts|jsx|js)$/, "")
+                    const fullWithoutExt = fullEntryPath.replace(/\.(tsx|ts|jsx|js)$/, "")
+                    return kWithoutExt === fullWithoutExt
+                })?.[1]
+
+                // Config y preview son compartidos por todas las variantes del módulo
+                const configImporter = Object.entries(configGlobs).find(([k]) => dirname(k) === basePath)?.[1]
+                const previewImporter = Object.entries(previewGlobs).find(([k]) => dirname(k) === basePath)?.[1]
+
+                entries.push({
+                    basePath,
+                    meta,
+                    importers: {
+                        entry: async () => {
+                            if (!entryImporter) {
+                                throw new Error(`No se encontró el entry ${meta.entry} para el módulo ${meta.id}`)
+                            }
+                            const mod = (await entryImporter()) as unknown
                             return mod
-                        }
-                        : undefined,
-                    preview: previewImporter ? async () => await previewImporter() : undefined,
-                },
-            })
+                        },
+                        config: configImporter
+                            ? async () => {
+                                const mod = (await configImporter()) as unknown
+                                return mod
+                            }
+                            : undefined,
+                        preview: previewImporter ? async () => await previewImporter() : undefined,
+                    },
+                })
+            }
         } catch (e) {
             console.warn("Error cargando módulo", jsonPath, e)
         }
