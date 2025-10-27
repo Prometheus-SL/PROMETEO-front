@@ -20,7 +20,17 @@ export default function ClientLayout() {
     return () => window.clearInterval(interval);
   }, []);
 
-  const timeLabel = useMemo(() => now.toTimeString(), [now]);
+  const timeLabel = useMemo(
+    () =>
+      now.toLocaleTimeString(locale, {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+        hourCycle: "h23",
+      }),
+    [locale, now]
+  );
 
   const dateLabel = useMemo(
     () =>
