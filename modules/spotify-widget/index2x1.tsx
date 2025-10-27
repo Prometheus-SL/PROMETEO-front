@@ -1,10 +1,10 @@
 import { Music2 } from "lucide-react";
 import { Card, CardDescription, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { GridPattern } from "@/components/ui/grid-pattern";
 import { useSpotifyState } from "./useSpotifyState";
+import { Progress } from "@/components/ui/progress";
 
 export default function SpotifyWidgetCompact({
   config,
@@ -14,12 +14,8 @@ export default function SpotifyWidgetCompact({
   onConfigChange?: (config: Record<string, unknown>) => void;
 }) {
   // Usar el hook compartido
-  const {
-    auth,
-    playbackState,
-    isTransitioning,
-    startOAuthFlow,
-  } = useSpotifyState(config);
+  const { auth, playbackState, isTransitioning, startOAuthFlow } =
+    useSpotifyState(config);
 
   const track = playbackState?.item;
   const albumArt = track?.album?.images?.[0]?.url;
@@ -129,12 +125,10 @@ export default function SpotifyWidgetCompact({
             <span className="text-[10px] text-foreground/70 w-9 text-right">
               {formatTime(progress)}
             </span>
-            <Slider
-              value={[progress]}
-              max={duration}
-              step={1000}
+            <Progress
+              value={Math.max(0, Math.min(100, (progress / duration) * 100))}
+              max={100}
               className="flex-1"
-              disabled
             />
             <span className="text-[10px] text-foreground/70 w-9">
               {formatTime(duration)}

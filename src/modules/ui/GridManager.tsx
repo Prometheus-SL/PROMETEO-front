@@ -3,6 +3,7 @@ import type { InstalledModule } from "../types";
 import { loadModulesIndex, loadModuleDefinition } from "../loader";
 import { Button } from "@/components/ui/button";
 import { ModuleConfigModal } from "./ModuleConfigModal";
+import { SharedContextProvider } from "@/providers/SharedContextProvider";
 
 type GridCell = { x: number; y: number; w: number; h: number };
 
@@ -269,125 +270,127 @@ export function GridManager({
   }, [installed, positions]);
 
   return (
-    <div
-      ref={gridRef}
-      className="relative select-none bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md touch-none h-[500px] w-[1024px] mx-auto"
-      style={{ aspectRatio: `${COLS}/${ROWS}` }}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
-      onPointerLeave={handlePointerUp}
-    >
-      {/* Lienzo base con fondo cuadriculado sutil */}
+    <SharedContextProvider>
       <div
-        className="absolute inset-0 grid"
-        style={{
-          gridTemplateColumns: `repeat(${COLS}, 1fr)`,
-          gridTemplateRows: `repeat(${ROWS}, 1fr)`,
-        }}
+        ref={gridRef}
+        className="relative select-none bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md touch-none h-[500px] w-[1024px] mx-auto"
+        style={{ aspectRatio: `${COLS}/${ROWS}` }}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onPointerLeave={handlePointerUp}
       >
-        {Array.from({ length: COLS * ROWS }).map((_, idx) => (
-          <div
-            key={idx}
-            className="border border-dashed border-zinc-200 dark:border-zinc-800"
-          />
-        ))}
-      </div>
-
-      {/* Widgets posicionados absolutamente */}
-      {items.map((i) => {
-        const key = i._id ?? i.meta.id;
-        const pos = positions[key] ?? { x: 0, y: 0, w: 1, h: 1 };
-        const Def = defs[i.meta.id]?.Component;
-        return (
-          <div
-            key={key}
-            className="absolute p-2"
-            style={{
-              left: `calc(${pos.x} / ${COLS} * 100%)`,
-              top: `calc(${pos.y} / ${ROWS} * 100%)`,
-              width: `calc(${pos.w} / ${COLS} * 100%)`,
-              height: `calc(${pos.h} / ${ROWS} * 100%)`,
-            }}
-          >
+        {/* Lienzo base con fondo cuadriculado sutil */}
+        <div
+          className="absolute inset-0 grid"
+          style={{
+            gridTemplateColumns: `repeat(${COLS}, 1fr)`,
+            gridTemplateRows: `repeat(${ROWS}, 1fr)`,
+          }}
+        >
+          {Array.from({ length: COLS * ROWS }).map((_, idx) => (
             <div
-              className="h-full w-full shadow-sm overflow-hidden group relative"
-              data-widget-id={key}
+              key={idx}
+              className="border border-dashed border-zinc-200 dark:border-zinc-800"
+            />
+          ))}
+        </div>
+
+        {/* Widgets posicionados absolutamente */}
+        {items.map((i) => {
+          const key = i._id ?? i.meta.id;
+          const pos = positions[key] ?? { x: 0, y: 0, w: 1, h: 1 };
+          const Def = defs[i.meta.id]?.Component;
+          return (
+            <div
+              key={key}
+              className="absolute p-2"
+              style={{
+                left: `calc(${pos.x} / ${COLS} * 100%)`,
+                top: `calc(${pos.y} / ${ROWS} * 100%)`,
+                width: `calc(${pos.w} / ${COLS} * 100%)`,
+                height: `calc(${pos.h} / ${ROWS} * 100%)`,
+              }}
             >
-              {/* Barra de acciones */}
-              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-10">
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  className="h-7 w-7 cursor-grab active:cursor-grabbing"
-                  title="Move"
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handlePointerDown(e, key);
-                  }}
-                >
-                  ≡
-                </Button>
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  className="h-7 w-7 cursor-pointer"
-                  title="Edit configuration"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingId(key);
-                  }}
-                >
-                  ✎
-                </Button>
-                <Button
-                  size="icon"
-                  variant="destructive"
-                  className="h-7 w-7 cursor-pointer"
-                  title="Delete"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemove?.(key);
-                  }}
-                >
-                  ×
-                </Button>
-              </div>
-              <div className="h-full w-full">
-                {Def ? (
-                  <Def
-                    config={i.config}
-                    onConfigChange={(newConfig) => {
-                      onUpdateConfig?.(key, newConfig);
+              <div
+                className="h-full w-full shadow-sm overflow-hidden group relative"
+                data-widget-id={key}
+              >
+                {/* Barra de acciones */}
+                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-10">
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    className="h-7 w-7 cursor-grab active:cursor-grabbing"
+                    title="Move"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handlePointerDown(e, key);
                     }}
-                  />
-                ) : (
-                  <div className="h-full grid place-items-center text-sm text-zinc-500">
-                    Loading...
-                  </div>
-                )}
+                  >
+                    ≡
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    className="h-7 w-7 cursor-pointer"
+                    title="Edit configuration"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingId(key);
+                    }}
+                  >
+                    ✎
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    className="h-7 w-7 cursor-pointer"
+                    title="Delete"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemove?.(key);
+                    }}
+                  >
+                    ×
+                  </Button>
+                </div>
+                <div className="h-full w-full">
+                  {Def ? (
+                    <Def
+                      config={i.config}
+                      onConfigChange={(newConfig) => {
+                        onUpdateConfig?.(key, newConfig);
+                      }}
+                    />
+                  ) : (
+                    <div className="h-full grid place-items-center text-sm text-zinc-500">
+                      Loading...
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
 
-      {/* Modal de edición de configuración */}
-      {editingId && editingInst && (
-        <ModuleConfigModal
-          key={`edit-${editingId}`}
-          meta={editingInst.meta}
-          open={!!editingId}
-          onClose={() => setEditingId(null)}
-          onSave={(config) => {
-            onUpdateConfig?.(editingId, config);
-            setEditingId(null);
-          }}
-          mode="edit"
-          initialConfig={editingInst.config}
-        />
-      )}
-    </div>
+        {/* Modal de edición de configuración */}
+        {editingId && editingInst && (
+          <ModuleConfigModal
+            key={`edit-${editingId}`}
+            meta={editingInst.meta}
+            open={!!editingId}
+            onClose={() => setEditingId(null)}
+            onSave={(config) => {
+              onUpdateConfig?.(editingId, config);
+              setEditingId(null);
+            }}
+            mode="edit"
+            initialConfig={editingInst.config}
+          />
+        )}
+      </div>
+    </SharedContextProvider>
   );
 }

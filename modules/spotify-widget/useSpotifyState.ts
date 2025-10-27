@@ -1,4 +1,8 @@
 import * as React from "react";
+import { useSharedContext } from "@/hooks/useSharedContext";
+import type { SpotifyAuth, MediaSession } from "@/types/shared";
+import { SharedKeys } from "@/types/shared";
+import { getSpotifyAuth, setSpotifyAuth } from "./shared-helpers";
 
 // Tipos de la API de Spotify
 export type SpotifyTrack = {
@@ -105,6 +109,9 @@ let activeInstances = 0;
 export function useSpotifyState(config: Record<string, unknown>) {
     const clientId = import.meta.env.VITE_SPOTIPY_CLIENT_ID || "";
     const clientSecret = import.meta.env.VITE_SPOTIPY_CLIENT_SECRET || "";
+
+    // Acceso al contexto compartido
+    const { setShared, getShared } = useSharedContext();
 
     // Estado local para tracking de transiciones por instancia
     const previousTrackIdRef = React.useRef<string | null>(null);
@@ -639,6 +646,63 @@ export function useSpotifyState(config: Record<string, unknown>) {
             return () => clearTimeout(timer);
         }
     }, [state.playbackState?.item?.id]);
+
+    // Sincronizar auth con SharedContext
+    React.useEffect(() => {
+        if (state.auth.isAuthenticated && state.auth.accessToken) {
+            const spotifyAuth: SpotifyAuth = {
+                accessToken: state.auth.accessToken,
+                refreshToken: state.auth.refreshToken,
+                expiresAt: state.auth.tokenExpiry,
+                userId: undefined, // Podríamos obtenerlo de la API si lo necesitas
+            };
+            setSpotifyAuth(setShared, spotifyAuth);
+        }
+    }, [state.auth, setShared]);
+
+    // Publicar media session cuando cambie la reproducción
+    React.useEffect(() => {
+        if (state.playbackState?.item) {
+            const track = state.playbackState.item;
+            const mediaSession: MediaSession = {
+                title: track.name,
+                artist: track.artists.map((a) => a.name).join(", "),
+                album: track.album.name,
+                artwork: track.album.images[0]?.url,
+                isPlaying: state.playbackState.is_playing,
+                source: "spotify",
+                timestamp: state.playbackState.progress_ms,
+                duration: track.duration_ms,
+            };
+            setShared<MediaSession>(SharedKeys.MEDIA_SESSION, mediaSession);
+        } else {
+            // No hay reproducción activa, limpiar la sesión si es de Spotify
+            const currentSession = getShared<MediaSession>(SharedKeys.MEDIA_SESSION);
+            if (currentSession && currentSession.source === "spotify") {
+                // Eliminar completamente la media session
+                setShared<MediaSession | null>(SharedKeys.MEDIA_SESSION, null);
+            }
+        }
+    }, [state.playbackState, setShared, getShared]);
+
+    // Intentar cargar auth desde SharedContext al montar (solo si no hay en config)
+    React.useEffect(() => {
+        const hasConfigAuth = Boolean(config["accessToken"]);
+        if (!hasConfigAuth) {
+            const sharedAuth = getSpotifyAuth(getShared);
+            if (sharedAuth && sharedAuth.accessToken) {
+                updateGlobalState({
+                    auth: {
+                        accessToken: sharedAuth.accessToken,
+                        refreshToken: sharedAuth.refreshToken || "",
+                        tokenExpiry: sharedAuth.expiresAt,
+                        isAuthenticated: true,
+                    },
+                });
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Solo al montar
 
     return {
         // Estado

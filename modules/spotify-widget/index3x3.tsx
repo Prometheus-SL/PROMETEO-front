@@ -185,7 +185,7 @@ export default function SpotifyWidgetQueue({
                 )}
               />
             ) : (
-              <div className="grid size-32 place-items-center rounded-xl border border-border/40 bg-muted">
+              <div className="grid size-28 place-items-center rounded-xl border border-border/40 bg-muted">
                 <Music2 className="size-16 text-muted-foreground" />
               </div>
             )}
