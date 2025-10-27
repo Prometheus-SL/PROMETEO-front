@@ -8,7 +8,7 @@ import { SharedContextProvider } from "@/providers/SharedContextProvider";
 import LockLayout from "./LockLayout";
 
 export default function ClientLayout() {
-  const isIdle = useIdle(1000 * 5); // 5 minutes
+  const isIdle = useIdle(1000 * 60 * 5); // 5 minutes
   const [now, setNow] = useState(() => new Date());
   const locale = useMemo(
     () => (typeof navigator !== "undefined" ? navigator.language : "es-ES"),
@@ -20,15 +20,7 @@ export default function ClientLayout() {
     return () => window.clearInterval(interval);
   }, []);
 
-  const timeLabel = useMemo(
-    () =>
-      now.toLocaleTimeString(locale, {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }),
-    [locale, now]
-  );
+  const timeLabel = useMemo(() => now.toTimeString(), [now]);
 
   const dateLabel = useMemo(
     () =>
