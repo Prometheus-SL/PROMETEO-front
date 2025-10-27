@@ -168,9 +168,9 @@ export default function SpotifyWidgetQueue({
         <div className="absolute inset-0 backdrop-blur-xs bg-background/40 rounded-xl" />
       )}
 
-      <div className="relative flex h-full gap-3 p-4">
+      <div className="relative flex h-full gap-3 p-0">
         {/* Columna izquierda: Player principal */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 my-4 ms-4">
           {/* Álbum y info de canción */}
           <div className="mb-4 flex items-center gap-4">
             {albumArt ? (
@@ -333,7 +333,7 @@ export default function SpotifyWidgetQueue({
         </div>
 
         {/* Columna derecha: Cola de reproducción */}
-        <div className="w-72 flex flex-col bg-background/70 backdrop-blur-sm rounded-lg border border-border/40 shadow-md">
+        <div className="w-64 flex flex-col bg-background/70 backdrop-blur-sm border border-border/40 shadow-md rounded-exl">
           <div className="p-3 border-b border-border/40">
             <h4 className="font-semibold text-sm flex items-center gap-2">
               <Clock className="size-4" />
