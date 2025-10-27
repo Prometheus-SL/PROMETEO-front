@@ -24,5 +24,18 @@
         "entry": "./index2x1.tsx",
         "configSchema": "./config.ts",
         "preview": ""
+    },
+    {
+        "id": "spotify-widget-queue",
+        "name": "Spotify Now Playing (With Queue)",
+        "description": "Full Spotify player with playback queue on the right side. Click on any track in the queue to play it.",
+        "category": "entertainment",
+        "size": {
+            "width": 3,
+            "height": 3
+        },
+        "entry": "./index3x3.tsx",
+        "configSchema": "./config.ts",
+        "preview": ""
     }
 ]

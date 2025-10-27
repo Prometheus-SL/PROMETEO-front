@@ -37,6 +37,18 @@ export type SpotifyContextInfo = {
     images?: { url: string }[];
 };
 
+export type SpotifyQueueItem = {
+    id: string;
+    name: string;
+    artists: { name: string }[];
+    album: {
+        name: string;
+        images: { url: string; height: number; width: number }[];
+    };
+    duration_ms: number;
+    uri: string;
+};
+
 type SpotifyAuthState = {
     accessToken: string;
     refreshToken: string;
@@ -48,6 +60,7 @@ type SpotifyState = {
     auth: SpotifyAuthState;
     playbackState: SpotifyPlaybackState | null;
     contextInfo: SpotifyContextInfo | null;
+    queue: SpotifyQueueItem[];
     error: string | null;
     volume: number;
 };
@@ -62,6 +75,7 @@ const globalSpotifyState: SpotifyState = {
     },
     playbackState: null,
     contextInfo: null,
+    queue: [],
     error: null,
     volume: 50,
 };
@@ -405,6 +419,51 @@ export function useSpotifyState(config: Record<string, unknown>) {
         }
     }, []);
 
+    const fetchQueue = React.useCallback(async () => {
+        const { accessToken } = globalSpotifyState.auth;
+        if (!accessToken) return;
+
+        try {
+            const response = await fetch("https://api.spotify.com/v1/me/player/queue", {
+                headers: { Authorization: `Bearer ${accessToken}` },
+            });
+
+            if (!response.ok) return;
+
+            const data = await response.json();
+            const queue = data.queue || [];
+
+            updateGlobalState({ queue });
+        } catch (e) {
+            console.error("Error fetching queue:", e);
+        }
+    }, []);
+
+    const playTrack = React.useCallback(async (uri: string) => {
+        const { accessToken } = globalSpotifyState.auth;
+        if (!accessToken) return;
+
+        try {
+            await fetch("https://api.spotify.com/v1/me/player/play", {
+                method: "PUT",
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    uris: [uri],
+                }),
+            });
+            // Esperar un poco antes de actualizar el estado
+            setTimeout(() => {
+                fetchPlaybackState();
+                fetchQueue();
+            }, 300);
+        } catch (e) {
+            console.error("Error playing track:", e);
+        }
+    }, [fetchPlaybackState, fetchQueue]);
+
     const startOAuthFlow = React.useCallback(
         (onConfigChange?: (config: Record<string, unknown>) => void) => {
             if (!clientId || !clientSecret) {
@@ -423,6 +482,7 @@ export function useSpotifyState(config: Record<string, unknown>) {
                 "user-modify-playback-state",
                 "user-read-currently-playing",
                 "user-read-recently-played",
+                "user-read-playback-position",
             ].join(" ");
 
             const authUrl = `https://accounts.spotify.com/authorize?${new URLSearchParams(
@@ -593,6 +653,8 @@ export function useSpotifyState(config: Record<string, unknown>) {
         toggleRepeat,
         seekToPosition,
         setVolumeLevel,
+        fetchQueue,
+        playTrack,
         startOAuthFlow,
     };
 }
