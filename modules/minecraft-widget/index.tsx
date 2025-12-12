@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { GridPattern } from "@/components/ui/grid-pattern";
+import { useSharedContext } from "@/hooks/useSharedContext";
 
 type McStatus = {
   online: boolean;
@@ -38,6 +39,8 @@ export default function MinecraftCard({
   const [data, setData] = React.useState<McStatus | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const dataRef = React.useRef<McStatus | null>(null);
+  const { registerAction, unregisterAction } = useSharedContext();
 
   const address = port ? `${ipAddress}:${port}` : ipAddress;
   const displayName = title ?? "Minecraft";
@@ -46,7 +49,7 @@ export default function MinecraftCard({
     if (!address) {
       setError("No address configured");
       setLoading(false);
-      return;
+      return null;
     }
     try {
       setLoading(true);
@@ -58,8 +61,11 @@ export default function MinecraftCard({
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = (await res.json()) as McStatus;
       setData(json);
+      dataRef.current = json;
+      return json;
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
+      return null;
     } finally {
       setLoading(false);
     }
@@ -70,6 +76,62 @@ export default function MinecraftCard({
     const id = setInterval(fetchStatus, refreshSecs * 1000);
     return () => clearInterval(id);
   }, [fetchStatus, refreshSecs]);
+
+  React.useEffect(() => {
+    const refreshId = "minecraft-widget:refresh";
+    const summaryId = "minecraft-widget:summary";
+
+    registerAction({
+      id: refreshId,
+      widgetId: "minecraft-widget",
+      title: "Actualizar servidor",
+      description: "Refresca el estado del servidor Minecraft",
+      intentTags: ["actualiza minecraft", "refresca servidor", "minecraft"],
+      run: async () => {
+        const next = await fetchStatus();
+        if (!next)
+          return { success: false, message: error ?? "No se pudo actualizar" };
+        return {
+          success: true,
+          message: next.online
+            ? `Servidor online: ${next.players?.online ?? 0}/${
+                next.players?.max ?? 0
+              } jugadores.`
+            : "Servidor offline.",
+        };
+      },
+    });
+
+    registerAction({
+      id: summaryId,
+      widgetId: "minecraft-widget",
+      title: "Estado Minecraft",
+      description: "Lee el estado guardado del servidor",
+      intentTags: ["estado minecraft", "jugadores", "servidor"],
+      run: async () => {
+        const current = dataRef.current ?? (await fetchStatus());
+        if (!current)
+          return { success: false, message: error ?? "Sin datos del servidor" };
+        if (!current.online)
+          return { success: true, message: "Servidor offline." };
+        const list =
+          current.players?.list?.map((p) => p.name_raw).filter(Boolean) ?? [];
+        const playersText = `${current.players?.online ?? 0}/${
+          current.players?.max ?? 0
+        }`;
+        const names = list.length ? ` Jugadores: ${list.join(", ")}.` : "";
+        return {
+          success: true,
+          message: `Servidor online ${playersText}.${names}`,
+        };
+      },
+    });
+
+    return () => {
+      unregisterAction(refreshId);
+      unregisterAction(summaryId);
+    };
+  }, [error, fetchStatus, registerAction, unregisterAction]);
 
   const isOnline = data?.online ?? false;
   const players = data?.players?.online ?? 0;

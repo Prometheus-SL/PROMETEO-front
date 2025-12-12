@@ -111,7 +111,7 @@ export function useSpotifyState(config: Record<string, unknown>) {
     const clientSecret = import.meta.env.VITE_SPOTIPY_CLIENT_SECRET || "";
 
     // Acceso al contexto compartido
-    const { setShared, getShared } = useSharedContext();
+    const { setShared, getShared, registerAction, unregisterAction } = useSharedContext();
 
     // Estado local para tracking de transiciones por instancia
     const previousTrackIdRef = React.useRef<string | null>(null);
@@ -703,6 +703,98 @@ export function useSpotifyState(config: Record<string, unknown>) {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []); // Solo al montar
+
+    React.useEffect(() => {
+        const playPauseId = "spotify-widget:play-pause";
+        const nextId = "spotify-widget:next";
+        const prevId = "spotify-widget:previous";
+        const volUpId = "spotify-widget:vol-up";
+        const volDownId = "spotify-widget:vol-down";
+
+        registerAction({
+            id: playPauseId,
+            widgetId: "spotify-widget",
+            title: "Reproducir / Pausar",
+            description: "Controla la reproducción actual",
+            intentTags: ["reproduce", "pausa", "play", "música", "spotify"],
+            run: async () => {
+                if (!globalSpotifyState.auth.isAuthenticated)
+                    return { success: false, message: "Inicia sesión en Spotify" };
+                await playPause();
+                const isPlaying = globalSpotifyState.playbackState?.is_playing;
+                return {
+                    success: true,
+                    message: isPlaying ? "Reproducción pausada." : "Reproducción reanudada.",
+                };
+            },
+        });
+
+        registerAction({
+            id: nextId,
+            widgetId: "spotify-widget",
+            title: "Siguiente canción",
+            description: "Salta a la siguiente pista",
+            intentTags: ["siguiente", "adelanta", "next"],
+            run: async () => {
+                if (!globalSpotifyState.auth.isAuthenticated)
+                    return { success: false, message: "Inicia sesión en Spotify" };
+                await skipNext();
+                return { success: true, message: "Saltando a la siguiente canción." };
+            },
+        });
+
+        registerAction({
+            id: prevId,
+            widgetId: "spotify-widget",
+            title: "Canción anterior",
+            description: "Vuelve a la pista previa",
+            intentTags: ["anterior", "atrás", "previa"],
+            run: async () => {
+                if (!globalSpotifyState.auth.isAuthenticated)
+                    return { success: false, message: "Inicia sesión en Spotify" };
+                await skipPrevious();
+                return { success: true, message: "Volviendo a la canción anterior." };
+            },
+        });
+
+        registerAction({
+            id: volUpId,
+            widgetId: "spotify-widget",
+            title: "Subir volumen",
+            description: "Sube el volumen un poco",
+            intentTags: ["sube volumen", "más volumen"],
+            run: async () => {
+                if (!globalSpotifyState.auth.isAuthenticated)
+                    return { success: false, message: "Inicia sesión en Spotify" };
+                const nextVol = Math.min(100, (globalSpotifyState.volume ?? state.volume ?? 0) + 10);
+                await setVolumeLevel(nextVol);
+                return { success: true, message: `Volumen a ${Math.round(nextVol)}%.` };
+            },
+        });
+
+        registerAction({
+            id: volDownId,
+            widgetId: "spotify-widget",
+            title: "Bajar volumen",
+            description: "Baja el volumen un poco",
+            intentTags: ["baja volumen", "menos volumen"],
+            run: async () => {
+                if (!globalSpotifyState.auth.isAuthenticated)
+                    return { success: false, message: "Inicia sesión en Spotify" };
+                const nextVol = Math.max(0, (globalSpotifyState.volume ?? state.volume ?? 0) - 10);
+                await setVolumeLevel(nextVol);
+                return { success: true, message: `Volumen a ${Math.round(nextVol)}%.` };
+            },
+        });
+
+        return () => {
+            unregisterAction(playPauseId);
+            unregisterAction(nextId);
+            unregisterAction(prevId);
+            unregisterAction(volUpId);
+            unregisterAction(volDownId);
+        };
+    }, [playPause, registerAction, skipNext, skipPrevious, setVolumeLevel, unregisterAction, state.volume]);
 
     return {
         // Estado

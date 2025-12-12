@@ -1,10 +1,13 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
+import { useSharedContext } from "@/hooks/useSharedContext";
 import {
   Sun,
   Moon,
@@ -29,43 +32,103 @@ export default function WeatherWidget({
   const [data, setData] = useState<OpenWeatherResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const dataRef = useRef<OpenWeatherResponse | null>(null);
 
   const apiKey = String(config["apiKey"] ?? "");
   const lang = String(config["language"] ?? "en");
+  const { registerAction, unregisterAction } = useSharedContext();
+
+  const fetchWeather = useCallback(async () => {
+    if (!apiKey) {
+      setError("Configura la API key de OpenWeather");
+      setLoading(false);
+      return null;
+    }
+    if (!city) {
+      setError("Configura una ciudad");
+      setLoading(false);
+      return null;
+    }
+    const base = "https://api.openweathermap.org/data/2.5/weather";
+    const url = `${base}?q=${encodeURIComponent(
+      city
+    )}&units=${units}&lang=${lang}&appid=${apiKey}`;
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = (await res.json()) as OpenWeatherResponse;
+      setData(json);
+      dataRef.current = json;
+      return json;
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [apiKey, city, units, lang]);
 
   useEffect(() => {
-    async function fetchWeather() {
-      if (!apiKey) {
-        setError("Configura la API key de OpenWeather");
-        setLoading(false);
-        return;
-      }
-      if (!city) {
-        setError("Configura una ciudad");
-        setLoading(false);
-        return;
-      }
-      const base = "https://api.openweathermap.org/data/2.5/weather";
-      const url = `${base}?q=${encodeURIComponent(
-        city
-      )}&units=${units}&lang=${lang}&appid=${apiKey}`;
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = (await res.json()) as OpenWeatherResponse;
-        setData(json);
-      } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : String(e));
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchWeather();
     const id = setInterval(fetchWeather, 15 * 60 * 1000);
     return () => clearInterval(id);
-  }, [apiKey, city, units, lang]);
+  }, [fetchWeather]);
+
+  useEffect(() => {
+    const refreshId = "weather-widget:refresh";
+    const summaryId = "weather-widget:summary";
+
+    registerAction({
+      id: refreshId,
+      widgetId: "weather-widget",
+      title: "Actualizar clima",
+      description: "Vuelve a consultar el clima actual",
+      intentTags: ["actualiza clima", "refresca clima", "tiempo"],
+      run: async () => {
+        const next = await fetchWeather();
+        if (!next)
+          return { success: false, message: error ?? "No se pudo actualizar" };
+        const desc = next.weather?.[0]?.description ?? "sin datos";
+        return {
+          success: true,
+          message: `Clima actualizado: ${Math.round(
+            next.main?.temp ?? 0
+          )}º, ${desc}.`,
+        };
+      },
+    });
+
+    registerAction({
+      id: summaryId,
+      widgetId: "weather-widget",
+      title: "Clima actual",
+      description: "Lee el clima actual guardado",
+      intentTags: ["qué tiempo hace", "clima", "tiempo"],
+      run: async () => {
+        const current = dataRef.current ?? (await fetchWeather());
+        if (!current)
+          return { success: false, message: error ?? "No hay datos de clima" };
+        const desc = current.weather?.[0]?.description ?? "sin datos";
+        const feels = current.main?.feels_like
+          ? `, se siente como ${Math.round(current.main.feels_like)}º`
+          : "";
+        return {
+          success: true,
+          message: `${current.name}: ${Math.round(
+            current.main?.temp ?? 0
+          )}º${feels}, ${desc}.`,
+        };
+      },
+    });
+
+    return () => {
+      unregisterAction(refreshId);
+      unregisterAction(summaryId);
+    };
+  }, [fetchWeather, registerAction, unregisterAction, error]);
 
   const cond = data?.weather?.[0];
   const isDay = cond?.icon?.includes("d") ?? true;

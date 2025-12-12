@@ -1,7 +1,18 @@
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useSharedContext } from "@/hooks/useSharedContext";
+import type { SharedAction } from "@/contexts/SharedContext";
 import { Particles } from "@/components/ui/shadcn-io/particles";
+import { askAI } from "./ai-service";
 import TresCreusSvg from "./complements/trescreus.svg";
 import SpidermanSvg from "./complements/spiderman.svg";
 import PooSvg from "./complements/poo.svg";
@@ -67,6 +78,16 @@ export default function SparkChispaCard({
   const inactivityMs = Number(config["inactivityMs"] ?? 20000); // 20s
   const stepMs = Number(config["inactivityStepMs"] ?? 20000); // cada 20s cambia
 
+  const { getActions, subscribeActions, registerAction, unregisterAction } =
+    useSharedContext();
+  const [availableActions, setAvailableActions] = useState<SharedAction[]>([]);
+  const [isListening, setIsListening] = useState(false);
+  const [assistantMessage, setAssistantMessage] = useState<string>("");
+  const [showModal, setShowModal] = useState(false);
+  const [lastTranscript, setLastTranscript] = useState<string>("");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
+
   const markActive = () => {
     lastActiveRef.current = Date.now();
     setMood(baseMood);
@@ -129,93 +150,378 @@ export default function SparkChispaCard({
     };
   }, [pooSpawnEnabled, spawnMin, spawnMax, pooLimit]);
 
+  useEffect(() => {
+    setAvailableActions(getActions());
+    const unsubscribe = subscribeActions(setAvailableActions);
+    return unsubscribe;
+  }, [getActions, subscribeActions]);
+
+  useEffect(() => {
+    const actions = [
+      {
+        id: "spark-widget:help",
+        widgetId: "spark-widget",
+        title: "Ayuda",
+        description: "Explica qué cosas puedo hacer",
+        intentTags: ["ayuda", "qué puedes hacer", "cómo funciona", "qué haces"],
+        run: () => {
+          const allActions = getActions().filter(
+            (a) => a.id !== "spark-widget:help"
+          );
+          const names = allActions.map((a) => a.title).join(", ");
+          return {
+            success: true,
+            message:
+              allActions.length > 0
+                ? `Puedo ejecutar: ${names}.`
+                : "Aún no hay acciones de otros widgets. Instala o expón acciones para controlarlas.",
+          };
+        },
+      },
+      {
+        id: "spark-widget:time",
+        widgetId: "spark-widget",
+        title: "Decir la hora",
+        description: "Te dice la hora actual",
+        intentTags: ["qué hora es", "hora", "dime la hora", "hora actual"],
+        run: () => {
+          const now = new Date();
+          const hours = now.getHours();
+          const minutes = now.getMinutes();
+          const timeStr = `${hours}:${minutes.toString().padStart(2, "0")}`;
+          return {
+            success: true,
+            message: `Son las ${timeStr}.`,
+          };
+        },
+      },
+      {
+        id: "spark-widget:date",
+        widgetId: "spark-widget",
+        title: "Decir la fecha",
+        description: "Te dice la fecha actual",
+        intentTags: [
+          "qué día es",
+          "fecha",
+          "dime la fecha",
+          "fecha actual",
+          "qué fecha es",
+        ],
+        run: () => {
+          const now = new Date();
+          const options: Intl.DateTimeFormatOptions = {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          };
+          const dateStr = now.toLocaleDateString("es-ES", options);
+          return {
+            success: true,
+            message: `Hoy es ${dateStr}.`,
+          };
+        },
+      },
+      {
+        id: "spark-widget:joke",
+        widgetId: "spark-widget",
+        title: "Contar un chiste",
+        description: "Te cuenta un chiste aleatorio",
+        intentTags: [
+          "cuéntame un chiste",
+          "dime un chiste",
+          "chiste",
+          "hazme reír",
+        ],
+        run: () => {
+          const jokes = [
+            "¿Por qué los pájaros no usan Facebook? Porque ya tienen Twitter.",
+            "¿Cómo se despiden los químicos? Ácido un placer.",
+            "¿Qué le dice un techo a otro? Techo de menos.",
+            "¿Por qué las focas del circo miran siempre hacia arriba? Porque es donde están los focos.",
+            "¿Cuál es el colmo de un electricista? Que su mujer se llame Luz y sus hijos le sigan la corriente.",
+          ];
+          const joke = jokes[Math.floor(Math.random() * jokes.length)];
+          return {
+            success: true,
+            message: joke,
+          };
+        },
+      },
+    ];
+
+    actions.forEach(registerAction);
+    return () => {
+      actions.forEach((action) => unregisterAction(action.id));
+    };
+  }, [getActions, registerAction, unregisterAction]);
+
+  // Ya no necesitamos el timeout del modal, se cierra cuando termina el TTS
+  useEffect(() => {
+    if (isListening) {
+      setMood("surprised");
+    } else {
+      setMood(baseMood);
+    }
+  }, [isListening, baseMood]);
+
+  const ensureRecognition = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    if (recognitionRef.current) return recognitionRef.current;
+    const Recognition =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).SpeechRecognition ||
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).webkitSpeechRecognition;
+    if (!Recognition) return null;
+    const instance = new Recognition();
+    instance.continuous = false;
+    instance.interimResults = false;
+    instance.lang = "es-ES";
+    recognitionRef.current = instance;
+    return instance;
+  }, []);
+
+  const speak = useCallback(
+    (text: string, lang = "es-ES") => {
+      if (typeof window === "undefined") return false;
+      if (!("speechSynthesis" in window)) return false;
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = lang;
+
+      // Cerrar modal cuando termine de hablar
+      utter.onend = () => {
+        setShowModal(false);
+      };
+
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utter);
+      return true;
+    },
+    [setShowModal]
+  );
+
+  const pickAction = useCallback(
+    (transcript: string): SharedAction | null => {
+      const normalized = transcript.toLowerCase();
+      let best: { action: SharedAction; score: number } | null = null;
+      for (const action of availableActions as SharedAction[]) {
+        const tags = action.intentTags ?? [];
+        let score = 0;
+        tags.forEach((tag) => {
+          if (normalized.includes(tag.toLowerCase())) score += 3;
+        });
+        if (normalized.includes(action.title.toLowerCase())) score += 1;
+        if (score > 0 && (!best || score > best.score)) {
+          best = { action, score };
+        }
+      }
+      return best ? best.action : null;
+    },
+    [availableActions]
+  );
+
+  const handleTranscript = useCallback(
+    async (transcript: string) => {
+      setLastTranscript(transcript);
+      const action = pickAction(transcript);
+
+      if (!action) {
+        setAssistantMessage("Pensando...");
+        setShowModal(true);
+
+        try {
+          const aiResponse = await askAI(transcript);
+          setAssistantMessage(aiResponse);
+          speak(aiResponse);
+        } catch (error) {
+          console.error("Error calling AI:", error);
+          const fallbackMessage =
+            "No encontré una acción para eso y no pude consultar la IA. Prueba con 'pausa la música' o 'actualiza el clima'.";
+          setAssistantMessage(fallbackMessage);
+          speak(fallbackMessage);
+        }
+        return;
+      }
+
+      try {
+        const result = await action.run({ transcript });
+        const message = result?.message ?? "Acción ejecutada.";
+        setAssistantMessage(message);
+        setShowModal(true);
+        speak(message);
+      } catch (error) {
+        console.error("Error executing action", error);
+        const message = "Hubo un error al ejecutar la acción.";
+        setAssistantMessage(message);
+        setShowModal(true);
+        speak(message);
+        toast.error(message);
+      }
+    },
+    [pickAction, speak]
+  );
+
+  const handleToggleListening = useCallback(() => {
+    const recognition = ensureRecognition();
+    if (!recognition) {
+      toast.error("El navegador no soporta reconocimiento de voz.");
+      return;
+    }
+    if (isListening) {
+      recognition.stop();
+      return;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((r: any) => r[0]?.transcript)
+        .join(" ")
+        .trim();
+      if (transcript) {
+        handleTranscript(transcript);
+      } else {
+        toast.error("No se escuchó nada claro.");
+      }
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error", event);
+      toast.error("Error al escuchar.");
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    try {
+      setIsListening(true);
+      recognition.start();
+    } catch (error) {
+      console.error("Speech recognition start error", error);
+      setIsListening(false);
+    }
+  }, [ensureRecognition, handleTranscript, isListening]);
+
   return (
-    <Card
-      className="group relative h-full w-full overflow-hidden rounded-2xl border bg-transparent p-6 backdrop-blur-md transition-[transform,box-shadow] duration-500"
-      style={{
-        background: backgroundGradient,
-        borderColor,
-        boxShadow: `0 18px 50px ${surfaceShadow}, inset 0 0 24px ${glowColor}`,
-      }}
-      onMouseMove={markActive}
-      onPointerDown={markActive}
-      onTouchStart={markActive}
-    >
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+    <>
+      <Card
+        className="group relative h-full w-full overflow-hidden rounded-2xl border bg-transparent p-6 backdrop-blur-md transition-[transform,box-shadow] duration-500"
+        style={{
+          background: backgroundGradient,
+          borderColor,
+          boxShadow: `0 18px 50px ${surfaceShadow}, inset 0 0 24px ${glowColor}`,
+        }}
+        onMouseMove={markActive}
+        onPointerDown={markActive}
+        onTouchStart={markActive}
+      >
         <div
-          className="absolute inset-x-[-28%] top-[-35%] h-[65%] blur-[120px] opacity-60"
-          style={{
-            background: `radial-gradient(circle at 50% 0%, ${toRgba(
-              accentColor,
-              0.55
-            )}, transparent 70%)`,
-          }}
-        />
-        <div
-          className="absolute inset-x-[-25%] bottom-[-45%] h-[70%] blur-[140px] opacity-70"
-          style={{
-            background: `radial-gradient(circle at 50% 100%, ${toRgba(
-              darken(color, 0.45),
-              0.48
-            )}, transparent 65%)`,
-          }}
-        />
-      </div>
-      <div className="relative flex h-full w-full items-center justify-center overflow-visible">
-        <div className="relative flex flex-col items-center justify-center gap-3">
+          className="pointer-events-none absolute inset-0"
+          aria-hidden="true"
+        >
           <div
-            aria-hidden="true"
-            className="absolute inset-x-[-35%] top-[58%] -z-10 h-40 blur-[100px] opacity-80 transition-opacity duration-500 group-hover:opacity-100"
+            className="absolute inset-x-[-28%] top-[-35%] h-[65%] blur-[120px] opacity-60"
             style={{
-              background: `radial-gradient(60% 80% at 50% 50%, ${toRgba(
+              background: `radial-gradient(circle at 50% 0%, ${toRgba(
                 accentColor,
-                0.65
-              )}, transparent)`,
+                0.55
+              )}, transparent 70%)`,
             }}
           />
-          {/* Chispa */}
-          <SparkSvg color={color} mood={mood} accessory={accessory} />
+          <div
+            className="absolute inset-x-[-25%] bottom-[-45%] h-[70%] blur-[140px] opacity-70"
+            style={{
+              background: `radial-gradient(circle at 50% 100%, ${toRgba(
+                darken(color, 0.45),
+                0.48
+              )}, transparent 65%)`,
+            }}
+          />
+        </div>
+        <div className="relative flex h-full w-full items-center justify-center overflow-visible">
+          <div className="relative flex flex-col items-center justify-center gap-3">
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-[-35%] top-[58%] -z-10 h-40 blur-[100px] opacity-80 transition-opacity duration-500 group-hover:opacity-100"
+              style={{
+                background: `radial-gradient(60% 80% at 50% 50%, ${toRgba(
+                  accentColor,
+                  0.65
+                )}, transparent)`,
+              }}
+            />
+            {/* Chispa */}
+            <SparkSvg color={color} mood={mood} accessory={accessory} />
 
-          {/* Nombre */}
-          <div className="w-full text-center text-sm font-medium tracking-wide text-foreground/90">
-            {name || "Chispa"}
+            {/* Nombre */}
+            <div className="w-full text-center text-sm font-medium tracking-wide text-foreground/90">
+              {name || "Chispa"}
+            </div>
           </div>
         </div>
-      </div>
-      {/* Interactive particles */}
-      <Particles
-        className="absolute inset-0 -z-20 overflow-hidden"
-        quantity={220}
-        ease={85}
-        staticity={60}
-        color={accentColor}
-        size={0.45}
-        refresh
-      />
-      <div className="pointer-events-none absolute inset-0 z-20">
-        {poops.map((poop) => (
-          <button
-            key={poop.id}
+        {/* Interactive particles */}
+        <Particles
+          className="absolute inset-0 -z-20 overflow-hidden"
+          quantity={220}
+          ease={85}
+          staticity={60}
+          color={accentColor}
+          size={0.45}
+          refresh
+        />
+        <div className="pointer-events-none absolute inset-0 z-20">
+          {poops.map((poop) => (
+            <button
+              key={poop.id}
+              type="button"
+              aria-label="Limpiar caca"
+              onClick={() => handlePoopClick(poop.id)}
+              className="pointer-events-auto absolute origin-center drop-shadow-[0_4px_12px_rgba(0,0,0,0.45)] transition-transform duration-200 hover:scale-110 focus-visible:scale-110"
+              style={{
+                left: `${poop.left}%`,
+                top: `${poop.top}%`,
+                transform: `translate(-50%, -50%) rotate(${poop.rotation}deg) scale(${poop.scale})`,
+              }}
+            >
+              <img
+                src={PooSvg}
+                alt=""
+                className="h-14 w-14 select-none"
+                draggable={false}
+              />
+            </button>
+          ))}
+        </div>
+        <div className="pointer-events-auto absolute bottom-4 left-4 right-4 z-30 flex items-center justify-between gap-3">
+          <Button
             type="button"
-            aria-label="Limpiar caca"
-            onClick={() => handlePoopClick(poop.id)}
-            className="pointer-events-auto absolute origin-center drop-shadow-[0_4px_12px_rgba(0,0,0,0.45)] transition-transform duration-200 hover:scale-110 focus-visible:scale-110"
-            style={{
-              left: `${poop.left}%`,
-              top: `${poop.top}%`,
-              transform: `translate(-50%, -50%) rotate(${poop.rotation}deg) scale(${poop.scale})`,
-            }}
+            size="sm"
+            variant={isListening ? "secondary" : "outline"}
+            className="rounded-full border-foreground/40 bg-black/30 px-4 text-xs font-semibold backdrop-blur transition hover:scale-105"
+            onClick={handleToggleListening}
           >
-            <img
-              src={PooSvg}
-              alt=""
-              className="h-14 w-14 select-none"
-              draggable={false}
-            />
-          </button>
-        ))}
-      </div>
-    </Card>
+            {isListening ? "Escuchando" : "Hablar"}
+          </Button>
+        </div>
+      </Card>
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="bg-slate-900/90 text-foreground backdrop-blur">
+          <DialogHeader>
+            <DialogTitle>
+              {lastTranscript.charAt(0).toUpperCase() + lastTranscript.slice(1)}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-foreground/80">
+            {assistantMessage || "..."}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

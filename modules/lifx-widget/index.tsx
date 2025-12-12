@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useSharedContext } from "@/hooks/useSharedContext";
 import { Power, Palette, AlertCircle, Loader2 } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,8 @@ export default function LifxWidget({
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<Set<string>>(new Set());
   const isTogglingRef = useRef(false);
+  const primaryLightRef = useRef<LifxLight | null>(null);
+  const { registerAction, unregisterAction } = useSharedContext();
 
   const api = useMemo(
     () => (apiToken ? new LifxApi(apiToken) : null),
@@ -41,6 +44,7 @@ export default function LifxWidget({
       const selector = groupFilter ? `group:"${groupFilter}"` : undefined;
       const data = await api.getLights(selector);
       setLights(data);
+      primaryLightRef.current = data[0] ?? null;
       setLoading(false);
     } catch (err) {
       const message =
@@ -90,6 +94,106 @@ export default function LifxWidget({
       }, 300);
     }
   };
+
+  useEffect(() => {
+    const toggleId = "lifx-widget:toggle";
+    const onId = "lifx-widget:on";
+    const offId = "lifx-widget:off";
+    const refreshId = "lifx-widget:refresh";
+
+    registerAction({
+      id: toggleId,
+      widgetId: "lifx-widget",
+      title: "Alternar luz",
+      description: "Enciende o apaga la primera luz",
+      intentTags: ["enciende luz", "apaga luz", "luces", "toggle luz"],
+      run: async () => {
+        if (!apiToken || !api)
+          return { success: false, message: "Configura el token de LIFX" };
+        const light = primaryLightRef.current;
+        if (!light)
+          return { success: false, message: "No hay luces disponibles" };
+        await toggleLight(light);
+        return {
+          success: true,
+          message: `Luz ${light.label} alternada`,
+        };
+      },
+    });
+
+    registerAction({
+      id: onId,
+      widgetId: "lifx-widget",
+      title: "Encender luz",
+      description: "Enciende la primera luz",
+      intentTags: ["enciende luz", "prende luz", "luz on"],
+      run: async () => {
+        if (!apiToken || !api)
+          return { success: false, message: "Configura el token de LIFX" };
+        const light = primaryLightRef.current;
+        if (!light)
+          return { success: false, message: "No hay luces disponibles" };
+        await api.turnOnLight(light.id);
+        await fetchLights();
+        return { success: true, message: `Luz ${light.label} encendida` };
+      },
+    });
+
+    registerAction({
+      id: offId,
+      widgetId: "lifx-widget",
+      title: "Apagar luz",
+      description: "Apaga la primera luz",
+      intentTags: ["apaga luz", "apagar luz", "luz off"],
+      run: async () => {
+        if (!apiToken || !api)
+          return { success: false, message: "Configura el token de LIFX" };
+        const light = primaryLightRef.current;
+        if (!light)
+          return { success: false, message: "No hay luces disponibles" };
+        await api.turnOffLight(light.id);
+        await fetchLights();
+        return { success: true, message: `Luz ${light.label} apagada` };
+      },
+    });
+
+    registerAction({
+      id: refreshId,
+      widgetId: "lifx-widget",
+      title: "Actualizar luces",
+      description: "Refresca el estado de las luces",
+      intentTags: ["actualiza luces", "refresca luces", "luces"],
+      run: async () => {
+        await fetchLights();
+        const light = primaryLightRef.current;
+        if (!light)
+          return {
+            success: true,
+            message: "Actualizado. Sin luces disponibles",
+          };
+        const onCount = lights.filter((l) => l.power === "on").length;
+        return {
+          success: true,
+          message: `Luces actualizadas. Encendidas: ${onCount}`,
+        };
+      },
+    });
+
+    return () => {
+      unregisterAction(toggleId);
+      unregisterAction(onId);
+      unregisterAction(offId);
+      unregisterAction(refreshId);
+    };
+  }, [
+    api,
+    apiToken,
+    fetchLights,
+    lights,
+    registerAction,
+    unregisterAction,
+    toggleLight,
+  ]);
 
   if (!apiToken) {
     return (

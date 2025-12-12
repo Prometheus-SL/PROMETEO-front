@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import {
   SharedContext,
+  type SharedAction,
   type SharedContextValue,
 } from "@/contexts/SharedContext";
 
@@ -46,6 +47,10 @@ export function SharedContextProvider({
   // Mapa de listeners por clave
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const listenersRef = useRef<Map<string, Set<Listener<any>>>>(new Map());
+
+  // Acciones (no persistentes)
+  const actionsRef = useRef<Map<string, SharedAction>>(new Map());
+  const actionListenersRef = useRef<Set<Listener<SharedAction[]>>>(new Set());
 
   // Sincronizar con localStorage cuando cambie el estado
   useEffect(() => {
@@ -145,6 +150,50 @@ export function SharedContextProvider({
     return { ...sharedDataRef.current };
   }, []);
 
+  const notifyActionListeners = useCallback(() => {
+    const snapshot = Array.from(actionsRef.current.values());
+    actionListenersRef.current.forEach((listener) => {
+      try {
+        listener(snapshot);
+      } catch (error) {
+        console.error("Error in actions listener:", error);
+      }
+    });
+  }, []);
+
+  const registerAction = useCallback(
+    (action: SharedAction) => {
+      actionsRef.current.set(action.id, action);
+      notifyActionListeners();
+    },
+    [notifyActionListeners]
+  );
+
+  const unregisterAction = useCallback(
+    (actionId: string) => {
+      if (actionsRef.current.delete(actionId)) {
+        notifyActionListeners();
+      }
+    },
+    [notifyActionListeners]
+  );
+
+  const getActions = useCallback(() => {
+    return Array.from(actionsRef.current.values());
+  }, []);
+
+  const subscribeActions = useCallback((listener: Listener<SharedAction[]>) => {
+    actionListenersRef.current.add(listener);
+    try {
+      listener(Array.from(actionsRef.current.values()));
+    } catch (error) {
+      console.error("Error in initial actions listener call:", error);
+    }
+    return () => {
+      actionListenersRef.current.delete(listener);
+    };
+  }, []);
+
   const value: SharedContextValue = useMemo(
     () => ({
       setShared,
@@ -153,8 +202,23 @@ export function SharedContextProvider({
       removeShared,
       getAllKeys,
       getAll,
+      registerAction,
+      unregisterAction,
+      getActions,
+      subscribeActions,
     }),
-    [setShared, getShared, subscribe, removeShared, getAllKeys, getAll]
+    [
+      setShared,
+      getShared,
+      subscribe,
+      removeShared,
+      getAllKeys,
+      getAll,
+      registerAction,
+      unregisterAction,
+      getActions,
+      subscribeActions,
+    ]
   );
 
   return (
