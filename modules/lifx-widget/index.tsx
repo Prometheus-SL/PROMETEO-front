@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Power, Palette, AlertCircle, Loader2 } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,8 +21,10 @@ export default function LifxWidget({
   const [updating, setUpdating] = useState<Set<string>>(new Set());
   const isTogglingRef = useRef(false);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const api = apiToken ? new LifxApi(apiToken) : null;
+  const api = useMemo(
+    () => (apiToken ? new LifxApi(apiToken) : null),
+    [apiToken]
+  );
 
   const fetchLights = useCallback(async () => {
     if (!api) {
@@ -59,13 +61,13 @@ export default function LifxWidget({
 
     isTogglingRef.current = true;
     const newPowerState = light.power === "on" ? "off" : "on";
-    
+
     setUpdating((prev) => new Set([...prev, light.id]));
-    
+
     try {
       // Llamar a la API y esperar respuesta
       await api.toggleLight(light.id);
-      
+
       // Solo actualizar después de éxito
       setLights((prev) =>
         prev.map((l) =>
