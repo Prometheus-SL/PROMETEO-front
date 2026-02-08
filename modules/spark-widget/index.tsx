@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,19 +13,10 @@ import { useSharedContext } from "@/hooks/useSharedContext";
 import type { SharedAction } from "@/contexts/SharedContext";
 import { Particles } from "@/components/ui/shadcn-io/particles";
 import { askAI } from "./ai-service";
-import TresCreusSvg from "./complements/trescreus.svg";
-import SpidermanSvg from "./complements/spiderman.svg";
 import PooSvg from "./complements/poo.svg";
+import { renderSparkAccessory, type Accessory } from "./spark-accessories";
 
 type Mood = "happy" | "sleepy" | "angry" | "surprised";
-type Accessory =
-  | "none"
-  | "glasses"
-  | "crown"
-  | "antenna"
-  | "batman"
-  | "spiderman"
-  | "trescreus";
 type PoopDrop = {
   id: string;
   left: number;
@@ -33,6 +24,8 @@ type PoopDrop = {
   rotation: number;
   scale: number;
 };
+
+const INACTIVE_MOOD_CYCLE: Mood[] = ["sleepy", "angry", "surprised"];
 
 export default function SparkChispaCard({
   config,
@@ -47,6 +40,7 @@ export default function SparkChispaCard({
   const accentColor = useMemo(() => lighten(color, 0.3), [color]);
   const borderColor = useMemo(() => toRgba(lighten(color, 0.2), 0.4), [color]);
   const glowColor = useMemo(() => toRgba(lighten(color, 0.5), 0.35), [color]);
+  const darkerSurfaceColor = useMemo(() => darken(color, 0.45), [color]);
   const surfaceShadow = useMemo(
     () => toRgba(darken(color, 0.65), 0.65),
     [color]
@@ -58,6 +52,27 @@ export default function SparkChispaCard({
         0.35
       )}, rgba(2, 6, 23, 0.94))`,
     [color]
+  );
+  const topBackgroundGlow = useMemo(
+    () =>
+      `radial-gradient(circle at 50% 0%, ${toRgba(accentColor, 0.55)}, transparent 70%)`,
+    [accentColor]
+  );
+  const bottomBackgroundGlow = useMemo(
+    () =>
+      `radial-gradient(circle at 50% 100%, ${toRgba(
+        darkerSurfaceColor,
+        0.48
+      )}, transparent 65%)`,
+    [darkerSurfaceColor]
+  );
+  const sparkGroundGlow = useMemo(
+    () =>
+      `radial-gradient(60% 80% at 50% 50%, ${toRgba(
+        accentColor,
+        0.65
+      )}, transparent)`,
+    [accentColor]
   );
 
   // Estado actual (puede cambiar por inactividad)
@@ -88,31 +103,34 @@ export default function SparkChispaCard({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
 
-  const markActive = () => {
+  const markActive = useCallback(() => {
     lastActiveRef.current = Date.now();
-    setMood(baseMood);
-  };
+    setMood((prev) => (prev === baseMood ? prev : baseMood));
+  }, [baseMood]);
 
-  const handlePoopClick = (id: string) => {
-    markActive();
-    setPoops((prev) => prev.filter((poop) => poop.id !== id));
-  };
+  const handlePoopClick = useCallback(
+    (id: string) => {
+      markActive();
+      setPoops((prev) => prev.filter((poop) => poop.id !== id));
+    },
+    [markActive]
+  );
 
   useEffect(() => {
     if (!autoMood) return;
-    const cycle: Mood[] = ["sleepy", "angry", "surprised"]; // rotación
     const id = window.setInterval(() => {
       const elapsed = Date.now() - lastActiveRef.current;
-      if (elapsed < inactivityMs) {
-        if (mood !== baseMood) setMood(baseMood);
-        return;
-      }
-      const idx = Math.floor((elapsed - inactivityMs) / stepMs) % cycle.length;
-      const next = cycle[idx];
-      if (mood !== next) setMood(next);
+      const nextMood =
+        elapsed < inactivityMs
+          ? baseMood
+          : INACTIVE_MOOD_CYCLE[
+              Math.floor((elapsed - inactivityMs) / stepMs) %
+                INACTIVE_MOOD_CYCLE.length
+            ];
+      setMood((prev) => (prev === nextMood ? prev : nextMood));
     }, 1000);
     return () => window.clearInterval(id);
-  }, [autoMood, baseMood, inactivityMs, stepMs, mood]);
+  }, [autoMood, baseMood, inactivityMs, stepMs]);
 
   useEffect(() => {
     if (!pooSpawnEnabled) {
@@ -301,24 +319,36 @@ export default function SparkChispaCard({
     [setShowModal]
   );
 
+  const normalizedActions = useMemo(
+    () =>
+      availableActions.map((action) => ({
+        action,
+        title: action.title.toLowerCase(),
+        tags: (action.intentTags ?? []).map((tag) => tag.toLowerCase()),
+      })),
+    [availableActions]
+  );
+
   const pickAction = useCallback(
     (transcript: string): SharedAction | null => {
-      const normalized = transcript.toLowerCase();
+      const normalizedTranscript = transcript.toLowerCase();
       let best: { action: SharedAction; score: number } | null = null;
-      for (const action of availableActions as SharedAction[]) {
-        const tags = action.intentTags ?? [];
+
+      for (const candidate of normalizedActions) {
         let score = 0;
-        tags.forEach((tag) => {
-          if (normalized.includes(tag.toLowerCase())) score += 3;
-        });
-        if (normalized.includes(action.title.toLowerCase())) score += 1;
+        for (const tag of candidate.tags) {
+          if (normalizedTranscript.includes(tag)) score += 3;
+        }
+        if (normalizedTranscript.includes(candidate.title)) score += 1;
+
         if (score > 0 && (!best || score > best.score)) {
-          best = { action, score };
+          best = { action: candidate.action, score };
         }
       }
-      return best ? best.action : null;
+
+      return best?.action ?? null;
     },
-    [availableActions]
+    [normalizedActions]
   );
 
   const handleTranscript = useCallback(
@@ -427,19 +457,13 @@ export default function SparkChispaCard({
           <div
             className="absolute inset-x-[-28%] top-[-35%] h-[65%] blur-[120px] opacity-60"
             style={{
-              background: `radial-gradient(circle at 50% 0%, ${toRgba(
-                accentColor,
-                0.55
-              )}, transparent 70%)`,
+              background: topBackgroundGlow,
             }}
           />
           <div
             className="absolute inset-x-[-25%] bottom-[-45%] h-[70%] blur-[140px] opacity-70"
             style={{
-              background: `radial-gradient(circle at 50% 100%, ${toRgba(
-                darken(color, 0.45),
-                0.48
-              )}, transparent 65%)`,
+              background: bottomBackgroundGlow,
             }}
           />
         </div>
@@ -449,10 +473,7 @@ export default function SparkChispaCard({
               aria-hidden="true"
               className="absolute inset-x-[-35%] top-[58%] -z-10 h-40 blur-[100px] opacity-80 transition-opacity duration-500 group-hover:opacity-100"
               style={{
-                background: `radial-gradient(60% 80% at 50% 50%, ${toRgba(
-                  accentColor,
-                  0.65
-                )}, transparent)`,
+                background: sparkGroundGlow,
               }}
             />
             {/* Chispa */}
@@ -525,28 +546,29 @@ export default function SparkChispaCard({
   );
 }
 
-function SparkSvg({
-  color,
-  mood,
-  accessory,
-}: {
+type SparkSvgProps = {
   color: string;
   mood: Mood;
   accessory: Accessory;
-  size?: number;
-}) {
-  // Elementos de cara según estado
+};
+
+const SparkSvg = memo(function SparkSvg({
+  color,
+  mood,
+  accessory,
+}: SparkSvgProps) {
   const eyeY = 94;
   const eyeXOffset = 26;
   const eyeR = 7.5;
-  // Estado de parpadeo simultáneo
+
   const [isBlinking, setIsBlinking] = useState(false);
   const blinkTimeoutRef = useRef<number | null>(null);
   const scheduleTimeoutRef = useRef<number | null>(null);
-  // Dirección de mirada: -1 izquierda, 0 centro, 1 derecha
+
   const [gazeDir, setGazeDir] = useState<-1 | 0 | 1>(0);
   const gazeTimeoutRef = useRef<number | null>(null);
   const [shouldAnimate, setShouldAnimate] = useState(true);
+
   const floatAnimId = useMemo(
     () => `spark-float-${Math.random().toString(36).slice(2)}`,
     []
@@ -555,23 +577,36 @@ function SparkSvg({
     () => `spark-halo-${Math.random().toString(36).slice(2)}`,
     []
   );
-  const sparkleAnimId = useMemo(
-    () => `spark-sparkle-${Math.random().toString(36).slice(2)}`,
-    []
-  );
   const gradId = useMemo(
     () => `spark-body-${Math.random().toString(36).slice(2)}`,
     []
   );
+  const highlightId = useMemo(
+    () => `spark-highlight-${Math.random().toString(36).slice(2)}`,
+    []
+  );
+  const glowFilterId = useMemo(
+    () => `spark-glow-${Math.random().toString(36).slice(2)}`,
+    []
+  );
+  const crownGradientId = useMemo(
+    () => `spark-crown-${Math.random().toString(36).slice(2)}`,
+    []
+  );
+  const batGradientId = useMemo(
+    () => `spark-bat-${Math.random().toString(36).slice(2)}`,
+    []
+  );
+  const batGlowFilterId = useMemo(
+    () => `spark-bat-glow-${Math.random().toString(36).slice(2)}`,
+    []
+  );
 
-  // Programa parpadeos aleatorios a la vez para ambos ojos
   useEffect(() => {
     const scheduleNextBlink = () => {
-      // Próximo parpadeo entre 2 y 6 segundos
       const delay = 2000 + Math.random() * 4000;
       scheduleTimeoutRef.current = window.setTimeout(() => {
         setIsBlinking(true);
-        // Duración del parpadeo breve (100-180ms)
         const blinkDuration = 100 + Math.random() * 80;
         blinkTimeoutRef.current = window.setTimeout(() => {
           setIsBlinking(false);
@@ -588,53 +623,54 @@ function SparkSvg({
     };
   }, []);
 
-  // Cambios de dirección de mirada aleatorios
   useEffect(() => {
     const scheduleNextGaze = () => {
-      const delay = 1200 + Math.random() * 1800; // 1.2s - 3s
+      const delay = 1200 + Math.random() * 1800;
       gazeTimeoutRef.current = window.setTimeout(() => {
-        // Selecciona una dirección distinta a la actual con mayor probabilidad de volver a centro
         const options: Array<-1 | 0 | 1> = [-1, 0, 1];
-        const weights = options.map((o) => (o === 0 ? 0.5 : 0.25));
-        const r = Math.random();
-        let acc = 0;
+        const weights = options.map((option) => (option === 0 ? 0.5 : 0.25));
+        const random = Math.random();
+        let accumulated = 0;
         let next: -1 | 0 | 1 = 0;
+
         for (let i = 0; i < options.length; i++) {
-          acc += weights[i];
-          if (r <= acc) {
+          accumulated += weights[i];
+          if (random <= accumulated) {
             next = options[i];
             break;
           }
         }
+
         setGazeDir(next);
         scheduleNextGaze();
       }, delay);
     };
+
     scheduleNextGaze();
     return () => {
       if (gazeTimeoutRef.current) window.clearTimeout(gazeTimeoutRef.current);
     };
   }, []);
 
-  // Animate softly unless the user prefers reduced motion.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
     const handleChange = () => setShouldAnimate(!query.matches);
     handleChange();
+
     if (typeof query.addEventListener === "function") {
       query.addEventListener("change", handleChange);
       return () => query.removeEventListener("change", handleChange);
     }
+
     query.addListener(handleChange);
     return () => query.removeListener(handleChange);
   }, []);
 
-  // Keyframes are injected dynamically to avoid global CSS dependencies.
   useEffect(() => {
     if (typeof document === "undefined") return;
     const style = document.createElement("style");
-    style.setAttribute("data-spark-style", gradId);
+    style.setAttribute("data-spark-style", floatAnimId);
     style.textContent = `
       @keyframes ${floatAnimId} {
         0% { transform: translateY(0px) scale(1); }
@@ -646,23 +682,14 @@ function SparkSvg({
         50% { opacity: 0.46; filter: blur(1.5px); }
         100% { opacity: 0.2; filter: blur(0.2px); }
       }
-      @keyframes ${sparkleAnimId} {
-        0%, 100% { opacity: 0.15; transform: scale(0.85); }
-        50% { opacity: 0.7; transform: scale(1.25); }
-      }
     `;
-    document.head.appendChild(style);
-    return () => {
-      style.remove();
-    };
-  }, [floatAnimId, haloAnimId, sparkleAnimId, gradId]);
 
-  const highlightId = useMemo(
-    () => `spark-highlight-${Math.random().toString(36).slice(2)}`,
-    []
-  );
-  const strokeColor = darken(color, 0.55);
-  const lightColor = lighten(color, 0.22);
+    document.head.appendChild(style);
+    return () => style.remove();
+  }, [floatAnimId, haloAnimId]);
+
+  const strokeColor = useMemo(() => darken(color, 0.55), [color]);
+  const lightColor = useMemo(() => lighten(color, 0.22), [color]);
   const svgAnimationStyle = useMemo<CSSProperties>(
     () =>
       shouldAnimate
@@ -678,7 +705,7 @@ function SparkSvg({
     [haloAnimId, shouldAnimate]
   );
 
-  const mouth = (() => {
+  const mouth = useMemo(() => {
     switch (mood) {
       case "happy":
         return (
@@ -712,7 +739,33 @@ function SparkSvg({
       case "surprised":
         return <circle cx="92" cy="118" r="6" fill="#111" />;
     }
-  })();
+  }, [mood]);
+
+  const accessoryNode = useMemo(
+    () =>
+      renderSparkAccessory({
+        accessory,
+        eyeY,
+        eyeXOffset,
+        strokeColor,
+        bodyGradientId: gradId,
+        bodyGlowFilterId: glowFilterId,
+        crownGradientId,
+        batGradientId,
+        batGlowFilterId,
+      }),
+    [
+      accessory,
+      eyeY,
+      eyeXOffset,
+      strokeColor,
+      gradId,
+      glowFilterId,
+      crownGradientId,
+      batGradientId,
+      batGlowFilterId,
+    ]
+  );
 
   return (
     <svg
@@ -723,7 +776,13 @@ function SparkSvg({
       style={svgAnimationStyle}
     >
       <defs>
-        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+        <filter
+          id={glowFilterId}
+          x="-50%"
+          y="-50%"
+          width="200%"
+          height="200%"
+        >
           <feGaussianBlur stdDeviation="6" result="coloredBlur" />
           <feMerge>
             <feMergeNode in="coloredBlur" />
@@ -741,8 +800,7 @@ function SparkSvg({
         </radialGradient>
       </defs>
 
-      {/* cuerpo con glow */}
-      <g filter="url(#glow)">
+      <g filter={`url(#${glowFilterId})`}>
         <path
           d="M92 164
             C118 152, 144 132, 152 106
@@ -762,9 +820,7 @@ function SparkSvg({
         />
       </g>
 
-      {/* Ojos */}
       {isBlinking ? (
-        // Ojos cerrados (líneas) durante el parpadeo
         <g>
           <line
             x1={92 - eyeXOffset - eyeR}
@@ -787,9 +843,7 @@ function SparkSvg({
         </g>
       ) : (
         <g>
-          {/* izquierdo */}
           <circle cx={92 - eyeXOffset} cy={eyeY} r={eyeR + 2.5} fill="#fff" />
-          {/* pupila (círculo interior) con desplazamiento de mirada */}
           <circle
             cx={92 - eyeXOffset + gazeDir * 2}
             cy={eyeY}
@@ -803,9 +857,7 @@ function SparkSvg({
             fill="#fff"
             opacity="0.9"
           />
-          {/* derecho */}
           <circle cx={92 + eyeXOffset} cy={eyeY} r={eyeR + 2.5} fill="#fff" />
-          {/* pupila (círculo interior) con desplazamiento de mirada */}
           <circle
             cx={92 + eyeXOffset + gazeDir * 2}
             cy={eyeY}
@@ -822,257 +874,14 @@ function SparkSvg({
         </g>
       )}
 
-      {/* Boca */}
       {mouth}
-
-      {/* Accesorios */}
-      {accessory === "glasses" && (
-        <g>
-          <rect
-            x={92 - eyeXOffset - 12}
-            y={eyeY - 10}
-            width="24"
-            height="20"
-            rx="4"
-            ry="4"
-            fill="none"
-            stroke={strokeColor}
-            strokeWidth="2"
-          />
-          <rect
-            x={92 + eyeXOffset - 12}
-            y={eyeY - 10}
-            width="24"
-            height="20"
-            rx="4"
-            ry="4"
-            fill="none"
-            stroke={strokeColor}
-            strokeWidth="2"
-          />
-          <line
-            x1={92 - eyeXOffset + 12}
-            y1={eyeY - 2}
-            x2={92 + eyeXOffset - 12}
-            y2={eyeY - 2}
-            stroke={strokeColor}
-            strokeWidth="2"
-          />
-        </g>
-      )}
-      {/* brillo superior */}
       <ellipse cx="82" cy="58" rx="14" ry="9" fill="#fff" style={sheenStyle} />
-      {accessory === "crown" && (
-        <svg
-          version="1.1"
-          id="crown"
-          viewBox="0 0 502 502"
-          transform="translate(45,-15) scale(0.5)"
-        >
-          <defs>
-            <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#FFD700" />
-              <stop offset="50%" stopColor="#FFC200" />
-              <stop offset="100%" stopColor="#DAA520" />
-            </linearGradient>
-          </defs>
-          <g>
-            <g>
-              <g>
-                <path
-                  style={{ fill: "url(#goldGrad)" }}
-                  d="M420.164,142.9c10.259,14.264,16.088,31.924,15.451,50.98
-                  c-1.422,42.588-35.589,77.461-78.142,79.687c-47.65,2.492-87.068-35.407-87.068-82.512c0-20.307,7.332-38.895,19.487-53.278
-                  c4.713-5.577,3.074-14.092-3.492-17.285c-10.097-4.908-19.22-10.765-27.119-17.392c-4.07-3.414-9.988-3.414-14.058,0
-                  c-7.913,6.639-17.055,12.505-27.174,17.419c-6.542,3.177-8.171,11.663-3.473,17.215c12.607,14.897,20.036,34.313,19.495,55.481
-                  c-1.089,42.647-37.957,79.439-80.606,80.444c-46.546,1.097-84.623-36.308-84.623-82.605c0-17.853,5.672-34.375,15.303-47.881
-                  c4.257-5.97,1.841-14.389-5.027-16.958c-20.195-7.556-37.399-18.642-50.01-32.112C22.264,86.793,10,91.689,10,101.703v274.823
-                  c0,19.259,15.612,34.871,34.871,34.871h412.258c19.259,0,34.871-15.612,34.871-34.871V104.288
-                  c0-9.893-11.944-14.771-18.935-7.771c-12.377,12.393-28.729,22.616-47.726,29.716C418.549,128.771,415.931,137.016,420.164,142.9
-                  z"
-                />
-                <path
-                  d="M457.129,421.397H44.871C20.129,421.397,0,401.268,0,376.525V101.703c0-8.71,5.238-16.407,13.344-19.609
-                  c8.08-3.192,17.133-1.16,23.064,5.176c11.585,12.374,27.566,22.603,46.213,29.579c6.152,2.302,10.784,7.231,12.708,13.524
-                  c1.95,6.379,0.84,13.16-3.043,18.606c-8.795,12.334-13.444,26.884-13.444,42.074c0,19.724,7.772,38.178,21.885,51.962
-                  c14.107,13.779,32.73,21.089,52.502,20.646c37.445-0.883,69.889-33.26,70.845-70.702c0.456-17.854-5.628-35.173-17.132-48.767
-                  c-4.291-5.071-5.968-11.69-4.602-18.16c1.347-6.376,5.48-11.665,11.339-14.51c9.364-4.548,17.814-9.959,25.115-16.085
-                  c7.798-6.539,19.115-6.54,26.912-0.001c7.288,6.115,15.72,11.518,25.064,16.06c5.87,2.854,10.011,8.154,11.361,14.541
-                  c1.37,6.479-0.308,13.11-4.602,18.192c-11.043,13.067-17.125,29.696-17.125,46.823c0,20.121,8.041,38.833,22.642,52.689
-                  c14.589,13.848,33.735,20.894,53.904,19.837c37.26-1.949,67.423-32.712,68.67-70.035c0.542-16.212-4.153-31.706-13.575-44.807
-                  l0,0c-3.827-5.32-4.929-11.97-3.023-18.244c1.924-6.337,6.595-11.304,12.815-13.628c17.507-6.544,32.774-16.023,44.151-27.415
-                  c6.069-6.076,15.106-7.884,23.027-4.607C496.903,88.107,502,95.74,502,104.288v272.237
-                  C502,401.268,481.871,421.397,457.129,421.397z M21.149,100.597c-0.128,0-0.279,0.028-0.458,0.099
-                  C20,100.969,20,101.429,20,101.703v274.822c0,13.714,11.157,24.871,24.871,24.871h412.258c13.714,0,24.871-11.157,24.871-24.871
-                  V104.288c0-0.28,0-0.703-0.631-0.965c-0.685-0.282-1.038,0.07-1.228,0.261c-13.388,13.405-31.128,24.477-51.301,32.017
-                  c-0.349,0.131-0.578,0.367-0.68,0.705c-0.125,0.411,0.048,0.651,0.123,0.755c12.026,16.72,18.018,36.482,17.328,57.152
-                  c-1.59,47.61-40.075,86.854-87.614,89.34c-25.7,1.348-50.108-7.642-68.717-25.303c-18.62-17.671-28.874-41.535-28.874-67.196
-                  c0-21.848,7.759-43.061,21.849-59.732c0.365-0.433,0.371-0.861,0.311-1.146c-0.102-0.479-0.407-0.627-0.538-0.69
-                  c-10.817-5.258-20.633-11.558-29.174-18.725c-0.354-0.295-0.85-0.297-1.205,0.002c-8.557,7.179-18.393,13.488-29.232,18.752
-                  c-0.134,0.065-0.412,0.2-0.508,0.653c-0.058,0.274-0.053,0.688,0.301,1.106c14.677,17.345,22.44,39.433,21.858,62.196
-                  c-0.593,23.204-10.413,45.457-27.651,62.661c-17.238,17.203-39.512,26.979-62.717,27.525c-0.751,0.018-1.506,0.026-2.255,0.026
-                  c-24.342,0.002-47.237-9.31-64.693-26.359c-17.999-17.579-27.911-41.114-27.911-66.27c0-19.378,5.934-37.942,17.16-53.687
-                  c0.319-0.447,0.285-0.871,0.201-1.147c-0.145-0.473-0.456-0.589-0.589-0.639c-21.519-8.051-40.125-20.03-53.805-34.644
-                  C21.673,100.794,21.488,100.597,21.149,100.597z"
-                />
-              </g>
-            </g>
-            <g>
-              <path d="M356.297,375.654H71c-5.523,0-10-4.478-10-10s4.477-10,10-10h285.297c5.523,0,10,4.478,10,10 S361.82,375.654,356.297,375.654z" />
-            </g>
-            <g>
-              <path d="M435,375.654h-30.497c-5.523,0-10-4.478-10-10s4.477-10,10-10H435c5.523,0,10,4.478,10,10S440.523,375.654,435,375.654z" />
-            </g>
-            <g>
-              <path
-                d="M45,288.654c-5.523,0-10-4.478-10-10v-27c0-5.522,4.477-10,10-10s10,4.478,10,10v27C55,284.177,50.523,288.654,45,288.654z"
-                filter="url(#glow)"
-                style={{ fill: "#ff0800ff" }}
-              />
-            </g>
-            <g>
-              <path
-                d="M459,288.654c-5.523,0-10-4.478-10-10v-27c0-5.522,4.477-10,10-10s10,4.478,10,10v27 C469,284.177,464.523,288.654,459,288.654z"
-                filter="url(#glow)"
-                style={{ fill: "red" }}
-              />
-            </g>
-            <g>
-              <path
-                d="M252,288.654c-5.523,0-10-4.478-10-10v-27c0-5.522,4.477-10,10-10c5.523,0,10,4.478,10,10v27 C262,284.177,257.523,288.654,252,288.654z"
-                filter="url(#glow)"
-                style={{ fill: "#ff0800ff" }}
-              />
-            </g>
-          </g>
-        </svg>
-      )}
-      {accessory === "antenna" && (
-        <g>
-          <line
-            x1="92"
-            y1="24"
-            x2="92"
-            y2="8"
-            stroke={strokeColor}
-            strokeWidth="3"
-          />
-          <circle
-            cx="92"
-            cy="6"
-            r="4"
-            fill="#fca5a5"
-            stroke={strokeColor}
-            strokeWidth="1.5"
-          />
-        </g>
-      )}
-      {accessory === "batman" && (
-        <svg
-          viewBox="0 0 300 300"
-          xmlns="http://www.w3.org/2000/svg"
-          role="img"
-          aria-label="Batman Spark accessory"
-        >
-          <defs>
-            <linearGradient id="batGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop
-                offset="0%"
-                style={{ stopColor: "#000000", stopOpacity: 1 }}
-              />
-              <stop
-                offset="100%"
-                style={{ stopColor: "#222222", stopOpacity: 1 }}
-              />
-            </linearGradient>
-            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="5" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-
-          <g filter="url(#glow)">
-            <path
-              d="
-                M150 50
-                L140 100
-                L120 80
-                L100 100
-                L90 50
-                L60 90
-                L70 140
-                L50 180
-                L80 180
-                L100 160
-                L130 180
-                L170 180
-                L200 160
-                L220 180
-                L250 180
-                L230 140
-                L240 90
-                L210 50
-                L190 100
-                L170 80
-                L150 100
-                Z
-              "
-              fill="url(#batGrad)"
-              strokeWidth="2"
-              transform="translate(0, -40)"
-            />
-          </g>
-
-          <g filter="url(#glow)" transform="translate(115,130) scale(0.09)">
-            <path
-              fill={`url(#${gradId})`}
-              stroke="black"
-              strokeWidth="1"
-              transform="translate(0, -500)"
-              d="M483.92 0S481.38 24.71 466 40.11c-11.74 11.74-24.09 12.66-40.26 15.07-9.42 1.41-29.7 3.77-34.81-.79-2.37-2.11-3-21-3.22-27.62-.21-6.92-1.36-16.52-2.82-18-.75 3.06-2.49 11.53-3.09 13.61S378.49 34.3 378 36a85.13 85.13 0 0 0-30.09 0c-.46-1.67-3.17-11.48-3.77-13.56s-2.34-10.55-3.09-13.61c-1.45 1.45-2.61 11.05-2.82 18-.21 6.67-.84 25.51-3.22 27.62-5.11 4.56-25.38 2.2-34.8.79-16.16-2.47-28.51-3.39-40.21-15.13C244.57 24.71 242 0 242 0H0s69.52 22.74 97.52 68.59c16.56 27.11 14.14 58.49 9.92 74.73C170 140 221.46 140 273 158.57c69.23 24.93 83.2 76.19 90 93.6 6.77-17.41 20.75-68.67 90-93.6 51.54-18.56 103-18.59 165.56-15.25-4.21-16.24-6.63-47.62 9.93-74.73C656.43 22.74 726 0 726 0z"
-            />
-          </g>
-          <g filter="url(#glow)">
-            <path
-              d="
-                M50 180
-                C60 220, 90 280, 150 300
-                C210 280, 240 220, 250 180
-                C240 200, 210 250, 150 270
-                C90 250, 60 200, 50 180
-                Z
-              "
-              fill="url(#batGrad)"
-              strokeWidth="2"
-              transform="translate(0, -35)"
-            />
-          </g>
-        </svg>
-      )}
-      {accessory === "trescreus" && (
-        <image
-          href={TresCreusSvg}
-          viewBox="0 0 1280 1280"
-          role="img"
-          xmlns="http://www.w3.org/2000/svg"
-          transform="translate(110,125) scale(0.2)"
-        />
-      )}
-      {accessory === "spiderman" && (
-        <image
-          href={SpidermanSvg}
-          role="img"
-          xmlns="http://www.w3.org/2000/svg"
-          transform="scale(3.5) translate(-50,-49)"
-        />
-      )}
+      {accessoryNode}
     </svg>
   );
-}
+});
 
+SparkSvg.displayName = "SparkSvg";
 // Utilidades de color
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
