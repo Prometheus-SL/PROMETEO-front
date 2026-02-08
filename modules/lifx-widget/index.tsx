@@ -49,7 +49,7 @@ export default function LifxWidget({
 
   const api = useMemo(
     () => (apiToken ? new LifxApi(apiToken) : null),
-    [apiToken]
+    [apiToken],
   );
 
   const fetchLights = useCallback(async () => {
@@ -92,7 +92,8 @@ export default function LifxWidget({
         return;
 
       isTogglingRef.current = true;
-      const newPowerState = light.power === "on" ? "off" : "on";
+      const newPowerState: LifxLight["power"] =
+        light.power === "on" ? "off" : "on";
 
       setUpdating((prev) => {
         const next = new Set([...prev, light.id]);
@@ -104,14 +105,14 @@ export default function LifxWidget({
         await api.toggleLight(light.id);
         setLights((prev) => {
           const next = prev.map((l) =>
-            l.id === light.id ? { ...l, power: newPowerState } : l
+            l.id === light.id ? { ...l, power: newPowerState } : l,
           );
           lightsRef.current = next;
           return next;
         });
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Error al cambiar el estado"
+          err instanceof Error ? err.message : "Error al cambiar el estado",
         );
       } finally {
         setUpdating((prev) => {
@@ -125,7 +126,7 @@ export default function LifxWidget({
         }, 300);
       }
     },
-    [api]
+    [api],
   );
 
   useEffect(() => {
@@ -204,7 +205,9 @@ export default function LifxWidget({
             success: true,
             message: "Actualizado. Sin luces disponibles",
           };
-        const onCount = lightsRef.current.filter((l) => l.power === "on").length;
+        const onCount = lightsRef.current.filter(
+          (l) => l.power === "on",
+        ).length;
         return {
           success: true,
           message: `Luces actualizadas. Encendidas: ${onCount}`,
@@ -317,7 +320,7 @@ export default function LifxWidget({
     const hue = light.color.hue % 360;
     const saturation = Math.max(
       0,
-      Math.min(100, Math.round(light.color.saturation * 100))
+      Math.min(100, Math.round(light.color.saturation * 100)),
     );
     const lightness = light.power === "on" ? 55 : 20;
     bulbColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
@@ -536,4 +539,3 @@ export default function LifxWidget({
     </Card>
   );
 }
-
