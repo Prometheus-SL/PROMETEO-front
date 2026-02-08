@@ -223,7 +223,7 @@ export default function SpotifyWidgetQueue({
               value={[progress]}
               max={duration}
               step={1000}
-              onValueChange={([value]) => seekToPosition(value)}
+              onValueCommit={([value]) => seekToPosition(value)}
               className="mb-2"
               disabled={!track}
             />
@@ -322,7 +322,7 @@ export default function SpotifyWidgetQueue({
               value={[volume]}
               max={100}
               step={1}
-              onValueChange={([value]) => setVolumeLevel(value)}
+              onValueCommit={([value]) => setVolumeLevel(value)}
               className="flex-1"
               disabled={!track}
             />

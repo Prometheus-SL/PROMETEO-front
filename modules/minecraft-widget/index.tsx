@@ -40,20 +40,26 @@ export default function MinecraftCard({
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const dataRef = React.useRef<McStatus | null>(null);
+  const errorRef = React.useRef<string | null>(null);
+  const inFlightRef = React.useRef(false);
   const { registerAction, unregisterAction } = useSharedContext();
 
   const address = port ? `${ipAddress}:${port}` : ipAddress;
   const displayName = title ?? "Minecraft";
 
   const fetchStatus = React.useCallback(async () => {
+    if (inFlightRef.current) return dataRef.current;
     if (!address) {
       setError("No address configured");
+      errorRef.current = "No address configured";
       setLoading(false);
       return null;
     }
+    inFlightRef.current = true;
     try {
-      setLoading(true);
+      if (!dataRef.current) setLoading(true);
       setError(null);
+      errorRef.current = null;
       const url = `https://api.mcstatus.io/v2/status/java/${encodeURIComponent(
         address
       )}`;
@@ -64,9 +70,12 @@ export default function MinecraftCard({
       dataRef.current = json;
       return json;
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      errorRef.current = message;
       return null;
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   }, [address]);
@@ -90,7 +99,10 @@ export default function MinecraftCard({
       run: async () => {
         const next = await fetchStatus();
         if (!next)
-          return { success: false, message: error ?? "No se pudo actualizar" };
+          return {
+            success: false,
+            message: errorRef.current ?? "No se pudo actualizar",
+          };
         return {
           success: true,
           message: next.online
@@ -111,7 +123,10 @@ export default function MinecraftCard({
       run: async () => {
         const current = dataRef.current ?? (await fetchStatus());
         if (!current)
-          return { success: false, message: error ?? "Sin datos del servidor" };
+          return {
+            success: false,
+            message: errorRef.current ?? "Sin datos del servidor",
+          };
         if (!current.online)
           return { success: true, message: "Servidor offline." };
         const list =
@@ -131,7 +146,7 @@ export default function MinecraftCard({
       unregisterAction(refreshId);
       unregisterAction(summaryId);
     };
-  }, [error, fetchStatus, registerAction, unregisterAction]);
+  }, [fetchStatus, registerAction, unregisterAction]);
 
   const isOnline = data?.online ?? false;
   const players = data?.players?.online ?? 0;

@@ -162,9 +162,13 @@ export default function WhatsAppPersonalWidget({
 
   const statusLoaded = useRef(false);
   const conversationsLoaded = useRef(false);
+  const statusFetchInFlight = useRef(false);
+  const conversationsFetchInFlight = useRef(false);
 
   const refreshStatus = useCallback(async () => {
+    if (statusFetchInFlight.current) return;
     if (!statusLoaded.current) setLoadingStatus(true);
+    statusFetchInFlight.current = true;
     try {
       const next = await whatsappService.getStatus();
       setStatus(next);
@@ -173,14 +177,16 @@ export default function WhatsAppPersonalWidget({
       const message = error instanceof Error ? error.message : String(error);
       setStatusError(message);
     } finally {
+      statusFetchInFlight.current = false;
       statusLoaded.current = true;
       setLoadingStatus(false);
     }
   }, []);
 
   const refreshConversations = useCallback(async () => {
-    if (status?.state !== "ready") return;
+    if (status?.state !== "ready" || conversationsFetchInFlight.current) return;
     if (!conversationsLoaded.current) setLoadingConversations(true);
+    conversationsFetchInFlight.current = true;
     try {
       const data = await whatsappService.listConversations({
         limit,
@@ -192,6 +198,7 @@ export default function WhatsAppPersonalWidget({
       const message = error instanceof Error ? error.message : String(error);
       setConversationsError(message);
     } finally {
+      conversationsFetchInFlight.current = false;
       conversationsLoaded.current = true;
       setLoadingConversations(false);
     }

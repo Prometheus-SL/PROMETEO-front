@@ -22,6 +22,38 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Meteors } from "@/components/ui/meteors";
 
+type OpenWeatherResponse = {
+  weather: { id: number; main: string; description: string; icon: string }[];
+  main: { temp: number; feels_like?: number; humidity?: number };
+  wind?: { speed?: number };
+  name: string;
+};
+
+function getWeatherIcon(id?: number, isDay = true, className = "size-10") {
+  if (!id) return <Cloud className={className} />;
+  if (id === 800)
+    return isDay ? (
+      <Sun className={className} />
+    ) : (
+      <Moon className={className} />
+    );
+  const group = Math.floor(id / 100);
+  switch (group) {
+    case 2:
+      return <CloudLightning className={className} />;
+    case 3:
+      return <CloudDrizzle className={className} />;
+    case 5:
+      return <CloudRain className={className} />;
+    case 6:
+      return <Snowflake className={className} />;
+    case 7:
+      return <Wind className={className} />;
+    default:
+      return <Cloud className={className} />;
+  }
+}
+
 export default function WeatherWidget({
   config,
 }: {
@@ -33,19 +65,24 @@ export default function WeatherWidget({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const dataRef = useRef<OpenWeatherResponse | null>(null);
+  const errorRef = useRef<string | null>(null);
+  const inFlightRef = useRef(false);
 
   const apiKey = String(config["apiKey"] ?? "");
   const lang = String(config["language"] ?? "en");
   const { registerAction, unregisterAction } = useSharedContext();
 
   const fetchWeather = useCallback(async () => {
+    if (inFlightRef.current) return dataRef.current;
     if (!apiKey) {
       setError("Configura la API key de OpenWeather");
+      errorRef.current = "Configura la API key de OpenWeather";
       setLoading(false);
       return null;
     }
     if (!city) {
       setError("Configura una ciudad");
+      errorRef.current = "Configura una ciudad";
       setLoading(false);
       return null;
     }
@@ -53,9 +90,11 @@ export default function WeatherWidget({
     const url = `${base}?q=${encodeURIComponent(
       city
     )}&units=${units}&lang=${lang}&appid=${apiKey}`;
+    inFlightRef.current = true;
     try {
-      setLoading(true);
+      if (!dataRef.current) setLoading(true);
       setError(null);
+      errorRef.current = null;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = (await res.json()) as OpenWeatherResponse;
@@ -65,8 +104,10 @@ export default function WeatherWidget({
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
       setError(message);
+      errorRef.current = message;
       return null;
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   }, [apiKey, city, units, lang]);
@@ -90,7 +131,10 @@ export default function WeatherWidget({
       run: async () => {
         const next = await fetchWeather();
         if (!next)
-          return { success: false, message: error ?? "No se pudo actualizar" };
+          return {
+            success: false,
+            message: errorRef.current ?? "No se pudo actualizar",
+          };
         const desc = next.weather?.[0]?.description ?? "sin datos";
         return {
           success: true,
@@ -110,7 +154,10 @@ export default function WeatherWidget({
       run: async () => {
         const current = dataRef.current ?? (await fetchWeather());
         if (!current)
-          return { success: false, message: error ?? "No hay datos de clima" };
+          return {
+            success: false,
+            message: errorRef.current ?? "No hay datos de clima",
+          };
         const desc = current.weather?.[0]?.description ?? "sin datos";
         const feels = current.main?.feels_like
           ? `, se siente como ${Math.round(current.main.feels_like)}º`
@@ -128,7 +175,7 @@ export default function WeatherWidget({
       unregisterAction(refreshId);
       unregisterAction(summaryId);
     };
-  }, [fetchWeather, registerAction, unregisterAction, error]);
+  }, [fetchWeather, registerAction, unregisterAction]);
 
   const cond = data?.weather?.[0];
   const isDay = cond?.icon?.includes("d") ?? true;
@@ -142,7 +189,7 @@ export default function WeatherWidget({
   const iconClass = preferLightText
     ? "size-10 drop-shadow-[0_0_6px_rgba(255,255,255,0.35)]"
     : "size-10 drop-shadow-[0_0_6px_rgba(15,23,42,0.2)]";
-  const icon = getIcon(cond?.id, isDay, iconClass);
+  const icon = getWeatherIcon(cond?.id, isDay, iconClass);
 
   const bg = (() => {
     // Color brutalista por grupo
@@ -165,38 +212,6 @@ export default function WeatherWidget({
         return isDay ? "#f59e0b" : "#4f46e5"; // claro / noche
     }
   })();
-
-  type OpenWeatherResponse = {
-    weather: { id: number; main: string; description: string; icon: string }[];
-    main: { temp: number; feels_like?: number; humidity?: number };
-    wind?: { speed?: number };
-    name: string;
-  };
-
-  function getIcon(id?: number, isDay = true, className = "size-10") {
-    if (!id) return <Cloud className={className} />;
-    if (id === 800)
-      return isDay ? (
-        <Sun className={className} />
-      ) : (
-        <Moon className={className} />
-      );
-    const group = Math.floor(id / 100);
-    switch (group) {
-      case 2:
-        return <CloudLightning className={className} />;
-      case 3:
-        return <CloudDrizzle className={className} />;
-      case 5:
-        return <CloudRain className={className} />;
-      case 6:
-        return <Snowflake className={className} />;
-      case 7:
-        return <Wind className={className} />;
-      default:
-        return <Cloud className={className} />;
-    }
-  }
 
   return (
     <Card

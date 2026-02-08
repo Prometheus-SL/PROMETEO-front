@@ -38,6 +38,7 @@ export type SpotifyPlaybackState = {
 export type SpotifyContextInfo = {
     name: string;
     type: string;
+    href?: string;
     images?: { url: string }[];
 };
 
@@ -94,6 +95,16 @@ function notifySubscribers() {
 
 // Función para actualizar el estado global
 function updateGlobalState(updates: Partial<SpotifyState>) {
+    let changed = false;
+
+    for (const key of Object.keys(updates) as Array<keyof SpotifyState>) {
+        if (globalSpotifyState[key] !== updates[key]) {
+            changed = true;
+            break;
+        }
+    }
+
+    if (!changed) return;
     Object.assign(globalSpotifyState, updates);
     notifySubscribers();
 }
@@ -101,6 +112,7 @@ function updateGlobalState(updates: Partial<SpotifyState>) {
 // ID del intervalo de polling (compartido entre todas las instancias)
 let pollingIntervalId: ReturnType<typeof setInterval> | null = null;
 let activeInstances = 0;
+const SPOTIFY_POLL_INTERVAL_MS = 1500;
 
 /**
  * Hook personalizado para gestionar el estado de Spotify
@@ -119,6 +131,8 @@ export function useSpotifyState(config: Record<string, unknown>) {
 
     // Callback para actualizar configuración (pasado desde el componente)
     const onConfigChangeRef = React.useRef<((config: Record<string, unknown>) => void) | undefined>(undefined);
+    const volumeUpdateTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pendingVolumeRef = React.useRef<number | null>(null);
 
     // Estado local que se sincroniza con el global
     const [state, setState] = React.useState<SpotifyState>({ ...globalSpotifyState });
@@ -224,6 +238,7 @@ export function useSpotifyState(config: Record<string, unknown>) {
                     contextInfo: {
                         name: data.name || "Unknown",
                         type: data.type || "context",
+                        href: contextHref,
                         images: data.images,
                     },
                 });
@@ -271,11 +286,13 @@ export function useSpotifyState(config: Record<string, unknown>) {
             updateGlobalState({
                 playbackState: data,
                 error: null,
-                auth: { ...globalSpotifyState.auth, isAuthenticated: true },
             });
 
             // Obtener información del contexto si es diferente
-            if (data.context?.href && data.context.href !== globalSpotifyState.contextInfo) {
+            if (
+                data.context?.href &&
+                data.context.href !== globalSpotifyState.contextInfo?.href
+            ) {
                 fetchContextInfo(data.context.href);
             } else if (!data.context) {
                 updateGlobalState({ contextInfo: null });
@@ -407,23 +424,42 @@ export function useSpotifyState(config: Record<string, unknown>) {
     );
 
     const setVolumeLevel = React.useCallback(async (volumePercent: number) => {
-        const { accessToken } = globalSpotifyState.auth;
-        if (!accessToken) return;
+        const normalized = Math.max(0, Math.min(100, Math.floor(volumePercent)));
+        updateGlobalState({ volume: normalized });
+        pendingVolumeRef.current = normalized;
 
-        try {
-            await fetch(
-                `https://api.spotify.com/v1/me/player/volume?volume_percent=${Math.floor(
-                    volumePercent
-                )}`,
-                {
-                    method: "PUT",
-                    headers: { Authorization: `Bearer ${accessToken}` },
-                }
-            );
-            updateGlobalState({ volume: volumePercent });
-        } catch (e) {
-            console.error("Error setting volume:", e);
+        if (volumeUpdateTimerRef.current) {
+            clearTimeout(volumeUpdateTimerRef.current);
         }
+
+        volumeUpdateTimerRef.current = setTimeout(async () => {
+            const { accessToken } = globalSpotifyState.auth;
+            if (!accessToken || pendingVolumeRef.current === null) return;
+
+            const targetVolume = pendingVolumeRef.current;
+            pendingVolumeRef.current = null;
+
+            try {
+                await fetch(
+                    `https://api.spotify.com/v1/me/player/volume?volume_percent=${targetVolume}`,
+                    {
+                        method: "PUT",
+                        headers: { Authorization: `Bearer ${accessToken}` },
+                    }
+                );
+            } catch (e) {
+                console.error("Error setting volume:", e);
+            }
+        }, 180);
+    }, []);
+
+    React.useEffect(() => {
+        return () => {
+            if (volumeUpdateTimerRef.current) {
+                clearTimeout(volumeUpdateTimerRef.current);
+                volumeUpdateTimerRef.current = null;
+            }
+        };
     }, []);
 
     const fetchQueue = React.useCallback(async () => {
@@ -614,7 +650,7 @@ export function useSpotifyState(config: Record<string, unknown>) {
         if (!pollingIntervalId) {
             pollingIntervalId = setInterval(() => {
                 fetchPlaybackState();
-            }, 1000);
+            }, SPOTIFY_POLL_INTERVAL_MS);
         }
     }, [state.auth.isAuthenticated, fetchPlaybackState]);
 
@@ -766,7 +802,7 @@ export function useSpotifyState(config: Record<string, unknown>) {
             run: async () => {
                 if (!globalSpotifyState.auth.isAuthenticated)
                     return { success: false, message: "Inicia sesión en Spotify" };
-                const nextVol = Math.min(100, (globalSpotifyState.volume ?? state.volume ?? 0) + 10);
+                const nextVol = Math.min(100, (globalSpotifyState.volume ?? 0) + 10);
                 await setVolumeLevel(nextVol);
                 return { success: true, message: `Volumen a ${Math.round(nextVol)}%.` };
             },
@@ -781,7 +817,7 @@ export function useSpotifyState(config: Record<string, unknown>) {
             run: async () => {
                 if (!globalSpotifyState.auth.isAuthenticated)
                     return { success: false, message: "Inicia sesión en Spotify" };
-                const nextVol = Math.max(0, (globalSpotifyState.volume ?? state.volume ?? 0) - 10);
+                const nextVol = Math.max(0, (globalSpotifyState.volume ?? 0) - 10);
                 await setVolumeLevel(nextVol);
                 return { success: true, message: `Volumen a ${Math.round(nextVol)}%.` };
             },
@@ -794,7 +830,7 @@ export function useSpotifyState(config: Record<string, unknown>) {
             unregisterAction(volUpId);
             unregisterAction(volDownId);
         };
-    }, [playPause, registerAction, skipNext, skipPrevious, setVolumeLevel, unregisterAction, state.volume]);
+    }, [playPause, registerAction, skipNext, skipPrevious, setVolumeLevel, unregisterAction]);
 
     return {
         // Estado
@@ -814,3 +850,5 @@ export function useSpotifyState(config: Record<string, unknown>) {
         startOAuthFlow,
     };
 }
+
+

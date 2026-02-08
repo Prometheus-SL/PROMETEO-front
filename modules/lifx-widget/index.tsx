@@ -7,6 +7,26 @@ import { GridPattern } from "@/components/ui/grid-pattern";
 import LifxApi from "./lifx-api";
 import type { LifxLight } from "./types";
 
+function shouldUpdateLights(prev: LifxLight[], next: LifxLight[]) {
+  if (prev.length !== next.length) return true;
+  for (let i = 0; i < prev.length; i += 1) {
+    const a = prev[i];
+    const b = next[i];
+    if (
+      a.id !== b.id ||
+      a.label !== b.label ||
+      a.power !== b.power ||
+      a.connected !== b.connected ||
+      a.color.hue !== b.color.hue ||
+      a.color.saturation !== b.color.saturation ||
+      a.color.kelvin !== b.color.kelvin
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export default function LifxWidget({
   config,
 }: {
@@ -20,8 +40,11 @@ export default function LifxWidget({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<Set<string>>(new Set());
+  const updatingRef = useRef<Set<string>>(new Set());
   const isTogglingRef = useRef(false);
+  const isFetchingRef = useRef(false);
   const primaryLightRef = useRef<LifxLight | null>(null);
+  const lightsRef = useRef<LifxLight[]>([]);
   const { registerAction, unregisterAction } = useSharedContext();
 
   const api = useMemo(
@@ -36,21 +59,25 @@ export default function LifxWidget({
       return;
     }
 
-    // No actualizar si hay un toggle en curso
-    if (isTogglingRef.current) return;
+    // No actualizar si hay un toggle en curso o un fetch activo.
+    if (isTogglingRef.current || isFetchingRef.current) return;
 
+    isFetchingRef.current = true;
     try {
       setError(null);
       const selector = groupFilter ? `group:"${groupFilter}"` : undefined;
       const data = await api.getLights(selector);
-      setLights(data);
+      lightsRef.current = data;
       primaryLightRef.current = data[0] ?? null;
+      setLights((prev) => (shouldUpdateLights(prev, data) ? data : prev));
       setLoading(false);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Error al obtener las luces";
       setError(message);
       setLoading(false);
+    } finally {
+      isFetchingRef.current = false;
     }
   }, [api, groupFilter]);
 
@@ -59,41 +86,47 @@ export default function LifxWidget({
     const interval = setInterval(fetchLights, refreshInterval * 1000);
     return () => clearInterval(interval);
   }, [fetchLights, refreshInterval]);
+  const toggleLight = useCallback(
+    async (light: LifxLight) => {
+      if (!api || updatingRef.current.has(light.id) || isTogglingRef.current)
+        return;
 
-  const toggleLight = async (light: LifxLight) => {
-    if (!api || updating.has(light.id) || isTogglingRef.current) return;
+      isTogglingRef.current = true;
+      const newPowerState = light.power === "on" ? "off" : "on";
 
-    isTogglingRef.current = true;
-    const newPowerState = light.power === "on" ? "off" : "on";
-
-    setUpdating((prev) => new Set([...prev, light.id]));
-
-    try {
-      // Llamar a la API y esperar respuesta
-      await api.toggleLight(light.id);
-
-      // Solo actualizar después de éxito
-      setLights((prev) =>
-        prev.map((l) =>
-          l.id === light.id ? { ...l, power: newPowerState } : l
-        )
-      );
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Error al cambiar el estado"
-      );
-    } finally {
       setUpdating((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(light.id);
-        return newSet;
+        const next = new Set([...prev, light.id]);
+        updatingRef.current = next;
+        return next;
       });
-      // Pequeño delay antes de permitir otro toggle o fetch
-      setTimeout(() => {
-        isTogglingRef.current = false;
-      }, 300);
-    }
-  };
+
+      try {
+        await api.toggleLight(light.id);
+        setLights((prev) => {
+          const next = prev.map((l) =>
+            l.id === light.id ? { ...l, power: newPowerState } : l
+          );
+          lightsRef.current = next;
+          return next;
+        });
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Error al cambiar el estado"
+        );
+      } finally {
+        setUpdating((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(light.id);
+          updatingRef.current = newSet;
+          return newSet;
+        });
+        setTimeout(() => {
+          isTogglingRef.current = false;
+        }, 300);
+      }
+    },
+    [api]
+  );
 
   useEffect(() => {
     const toggleId = "lifx-widget:toggle";
@@ -171,7 +204,7 @@ export default function LifxWidget({
             success: true,
             message: "Actualizado. Sin luces disponibles",
           };
-        const onCount = lights.filter((l) => l.power === "on").length;
+        const onCount = lightsRef.current.filter((l) => l.power === "on").length;
         return {
           success: true,
           message: `Luces actualizadas. Encendidas: ${onCount}`,
@@ -189,7 +222,6 @@ export default function LifxWidget({
     api,
     apiToken,
     fetchLights,
-    lights,
     registerAction,
     unregisterAction,
     toggleLight,
@@ -504,3 +536,4 @@ export default function LifxWidget({
     </Card>
   );
 }
+
