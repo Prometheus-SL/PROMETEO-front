@@ -26,7 +26,8 @@ export function NavUser() {
 
   if (!user) return null;
 
-  const initials = `${(user.name || user.username).charAt(0)}${(user.surname || user.username).charAt(0)}`.toUpperCase();
+  const initials =
+    `${(user.name || user.username).charAt(0)}${(user.surname || user.username).charAt(0)}`.toUpperCase();
 
   return (
     <SidebarMenu>

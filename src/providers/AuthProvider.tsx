@@ -15,7 +15,7 @@ interface AuthContextProps {
     password: string,
     name: string,
     surname: string,
-    birthday: string
+    birthday: string,
   ) => Promise<void>;
   loading: boolean;
   error: string | null;
