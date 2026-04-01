@@ -2,7 +2,7 @@ import * as React from "react";
 import { useSharedContext } from "@/hooks/useSharedContext";
 import type { SpotifyAuth, MediaSession } from "@/types/shared";
 import { SharedKeys } from "@/types/shared";
-import { getSpotifyAuth, setSpotifyAuth } from "./shared-helpers";
+import { clearSpotifyAuth, getSpotifyAuth, setSpotifyAuth } from "./shared-helpers";
 
 // Tipos de la API de Spotify
 export type SpotifyTrack = {
@@ -85,6 +85,33 @@ const globalSpotifyState: SpotifyState = {
     volume: 50,
 };
 
+function createAuthState(
+    accessToken: string,
+    refreshToken: string,
+    tokenExpiry: number
+): SpotifyAuthState {
+    const hasAccessToken = Boolean(accessToken);
+    const hasRefreshToken = Boolean(refreshToken);
+    const hasValidAccessToken = hasAccessToken && Date.now() < tokenExpiry;
+
+    return {
+        accessToken,
+        refreshToken,
+        tokenExpiry,
+        isAuthenticated: hasValidAccessToken || hasRefreshToken,
+    };
+}
+
+function hasDifferentAuth(nextAuth: SpotifyAuthState) {
+    const currentAuth = globalSpotifyState.auth;
+    return (
+        currentAuth.accessToken !== nextAuth.accessToken ||
+        currentAuth.refreshToken !== nextAuth.refreshToken ||
+        currentAuth.tokenExpiry !== nextAuth.tokenExpiry ||
+        currentAuth.isAuthenticated !== nextAuth.isAuthenticated
+    );
+}
+
 // Subscribers para notificar cambios
 const subscribers = new Set<(state: SpotifyState) => void>();
 
@@ -112,6 +139,7 @@ function updateGlobalState(updates: Partial<SpotifyState>) {
 // ID del intervalo de polling (compartido entre todas las instancias)
 let pollingIntervalId: ReturnType<typeof setInterval> | null = null;
 let activeInstances = 0;
+let refreshAccessTokenPromise: Promise<boolean> | null = null;
 const SPOTIFY_POLL_INTERVAL_MS = 1500;
 
 /**
@@ -123,7 +151,8 @@ export function useSpotifyState(config: Record<string, unknown>) {
     const clientSecret = import.meta.env.VITE_SPOTIPY_CLIENT_SECRET || "";
 
     // Acceso al contexto compartido
-    const { setShared, getShared, registerAction, unregisterAction } = useSharedContext();
+    const { setShared, getShared, removeShared, registerAction, unregisterAction } =
+        useSharedContext();
 
     // Estado local para tracking de transiciones por instancia
     const previousTrackIdRef = React.useRef<string | null>(null);
@@ -143,14 +172,17 @@ export function useSpotifyState(config: Record<string, unknown>) {
         const savedRefreshToken = String(config["refreshToken"] ?? "");
         const savedTokenExpiry = Number(config["tokenExpiry"] ?? 0);
 
-        if (savedAccessToken && savedAccessToken !== globalSpotifyState.auth.accessToken) {
+        if (!savedAccessToken && !savedRefreshToken) return;
+
+        const nextAuth = createAuthState(
+            savedAccessToken,
+            savedRefreshToken,
+            savedTokenExpiry
+        );
+
+        if (hasDifferentAuth(nextAuth)) {
             updateGlobalState({
-                auth: {
-                    accessToken: savedAccessToken,
-                    refreshToken: savedRefreshToken,
-                    tokenExpiry: savedTokenExpiry,
-                    isAuthenticated: Boolean(savedAccessToken && Date.now() < savedTokenExpiry),
-                },
+                auth: nextAuth,
             });
         }
     }, [config]);
@@ -175,49 +207,62 @@ export function useSpotifyState(config: Record<string, unknown>) {
 
     // Función para refrescar el token
     const refreshAccessToken = React.useCallback(async () => {
+        if (refreshAccessTokenPromise) return refreshAccessTokenPromise;
+
         const { refreshToken } = globalSpotifyState.auth;
         if (!refreshToken || !clientId || !clientSecret) return false;
 
-        try {
-            const response = await fetch("https://accounts.spotify.com/api/token", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
-                },
-                body: new URLSearchParams({
-                    grant_type: "refresh_token",
-                    refresh_token: refreshToken,
-                }),
-            });
+        refreshAccessTokenPromise = (async () => {
+            try {
+                const response = await fetch("https://accounts.spotify.com/api/token", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+                    },
+                    body: new URLSearchParams({
+                        grant_type: "refresh_token",
+                        refresh_token: refreshToken,
+                    }),
+                });
 
-            if (!response.ok) throw new Error("Failed to refresh token");
+                if (!response.ok) throw new Error("Failed to refresh token");
 
-            const data = await response.json();
-            const newExpiry = Date.now() + data.expires_in * 1000;
+                const data = await response.json();
+                const newExpiry = Date.now() + data.expires_in * 1000;
+                const nextAuth = createAuthState(
+                    data.access_token,
+                    data.refresh_token || refreshToken,
+                    newExpiry
+                );
 
-            updateGlobalState({
-                auth: {
-                    ...globalSpotifyState.auth,
-                    accessToken: data.access_token,
+                updateGlobalState({
+                    auth: nextAuth,
+                    error: null,
+                });
+
+                // Guardar en config
+                const newConfig = {
+                    ...config,
+                    accessToken: nextAuth.accessToken,
+                    refreshToken: nextAuth.refreshToken,
                     tokenExpiry: newExpiry,
-                    isAuthenticated: true,
-                },
-            });
+                };
+                onConfigChangeRef.current?.(newConfig);
 
-            // Guardar en config
-            const newConfig = {
-                ...config,
-                accessToken: data.access_token,
-                tokenExpiry: newExpiry,
-            };
-            onConfigChangeRef.current?.(newConfig);
+                return true;
+            } catch (e) {
+                console.error("Error refreshing token:", e);
+                updateGlobalState({
+                    auth: { ...globalSpotifyState.auth, isAuthenticated: false },
+                });
+                return false;
+            } finally {
+                refreshAccessTokenPromise = null;
+            }
+        })();
 
-            return true;
-        } catch (e) {
-            console.error("Error refreshing token:", e);
-            return false;
-        }
+        return refreshAccessTokenPromise;
     }, [clientId, clientSecret, config]);
 
     // Función para obtener información del contexto
@@ -567,12 +612,11 @@ export function useSpotifyState(config: Record<string, unknown>) {
                     const newExpiry = Date.now() + data.expires_in * 1000;
 
                     updateGlobalState({
-                        auth: {
-                            accessToken: newAccessToken,
-                            refreshToken: newRefreshToken,
-                            tokenExpiry: newExpiry,
-                            isAuthenticated: true,
-                        },
+                        auth: createAuthState(
+                            newAccessToken,
+                            newRefreshToken,
+                            newExpiry
+                        ),
                     });
 
                     const newConfig = {
@@ -654,6 +698,20 @@ export function useSpotifyState(config: Record<string, unknown>) {
         }
     }, [state.auth.isAuthenticated, fetchPlaybackState]);
 
+    React.useEffect(() => {
+        const shouldRefreshToken =
+            Boolean(state.auth.refreshToken) &&
+            (!state.auth.accessToken || Date.now() >= state.auth.tokenExpiry);
+
+        if (!shouldRefreshToken) return;
+        void refreshAccessToken();
+    }, [
+        refreshAccessToken,
+        state.auth.accessToken,
+        state.auth.refreshToken,
+        state.auth.tokenExpiry,
+    ]);
+
     // Detectar cambios de canción para animación (por instancia)
     React.useEffect(() => {
         const currentTrackId = state.playbackState?.item?.id;
@@ -693,8 +751,10 @@ export function useSpotifyState(config: Record<string, unknown>) {
                 userId: undefined, // Podríamos obtenerlo de la API si lo necesitas
             };
             setSpotifyAuth(setShared, spotifyAuth);
+        } else if (!state.auth.isAuthenticated && !state.auth.refreshToken) {
+            clearSpotifyAuth(removeShared);
         }
-    }, [state.auth, setShared]);
+    }, [removeShared, setShared, state.auth]);
 
     // Publicar media session cuando cambie la reproducción
     React.useEffect(() => {
@@ -723,17 +783,16 @@ export function useSpotifyState(config: Record<string, unknown>) {
 
     // Intentar cargar auth desde SharedContext al montar (solo si no hay en config)
     React.useEffect(() => {
-        const hasConfigAuth = Boolean(config["accessToken"]);
+        const hasConfigAuth = Boolean(config["accessToken"] || config["refreshToken"]);
         if (!hasConfigAuth) {
             const sharedAuth = getSpotifyAuth(getShared);
-            if (sharedAuth && sharedAuth.accessToken) {
+            if (sharedAuth && (sharedAuth.accessToken || sharedAuth.refreshToken)) {
                 updateGlobalState({
-                    auth: {
-                        accessToken: sharedAuth.accessToken,
-                        refreshToken: sharedAuth.refreshToken || "",
-                        tokenExpiry: sharedAuth.expiresAt,
-                        isAuthenticated: true,
-                    },
+                    auth: createAuthState(
+                        sharedAuth.accessToken,
+                        sharedAuth.refreshToken || "",
+                        sharedAuth.expiresAt
+                    ),
                 });
             }
         }

@@ -66,7 +66,7 @@ function ZodForm({
         cur = inner;
         continue;
       }
-      if (cur instanceof z.ZodEffects) {
+      if (cur instanceof z.ZodAny) {
         const def: unknown = (Reflect.get(cur, "_def") as unknown) ?? undefined;
         const inner =
           def && typeof def === "object"
