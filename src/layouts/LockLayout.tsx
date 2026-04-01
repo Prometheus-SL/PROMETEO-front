@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useState } from "react";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
@@ -5,25 +7,49 @@ import { useSharedValue } from "@/hooks/useSharedContext";
 import { SharedKeys } from "@/types/shared";
 import type { MediaSession } from "@/types/shared";
 
-interface LockLayoutProps {
-  timeLabel: string;
-  dateLabel: string;
-}
-
-function LockLayout({ timeLabel, dateLabel }: LockLayoutProps) {
+function LockLayout() {
   const mediaSession = useSharedValue<MediaSession>(SharedKeys.MEDIA_SESSION);
+  const [now, setNow] = useState(() => new Date());
+  const locale = useMemo(
+    () => (typeof navigator !== "undefined" ? navigator.language : "es-ES"),
+    []
+  );
 
-  // Mostrar fondo solo si está reproduciéndose activamente
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(new Date()), 1_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const timeLabel = useMemo(
+    () =>
+      now.toLocaleTimeString(locale, {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+        hourCycle: "h23",
+      }),
+    [locale, now]
+  );
+
+  const dateLabel = useMemo(
+    () =>
+      now.toLocaleDateString(locale, {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+    [locale, now]
+  );
+
   const showBackground = mediaSession?.isPlaying;
-  // Mostrar info si hay sesión (aunque esté pausada)
   const showMediaInfo = mediaSession !== null && mediaSession !== undefined;
 
   return (
-    <div className="absolute flex min-h-screen w-full items-center justify-center bg-black text-white overflow-hidden z-1000">
-      {/* Fondo con artwork si hay música sonando */}
+    <div className="absolute z-1000 flex min-h-screen w-full items-center justify-center overflow-hidden bg-black text-white">
       {showBackground && mediaSession?.artwork && (
         <>
-          {/* Imagen de fondo oscurecida */}
           <div
             className="absolute inset-0 bg-cover bg-center"
             style={{
@@ -31,14 +57,12 @@ function LockLayout({ timeLabel, dateLabel }: LockLayoutProps) {
               filter: "grayscale(100%) brightness(0.8) blur(4px)",
             }}
           />
-          {/* Overlay adicional para más oscuridad */}
           <div className="absolute inset-0 bg-black/60" />
         </>
       )}
 
-      {/* Contenido principal */}
-      <div className="relative z-10 flex flex-col items-center gap-8 w-full">
-        <Card className="bg-white/10 text-white shadow-2xl backdrop-blur-lg border-white/10 border-dashed w-90">
+      <div className="relative z-10 flex w-full flex-col items-center gap-8">
+        <Card className="w-90 border-dashed border-white/10 bg-white/10 text-white shadow-2xl backdrop-blur-lg">
           <CardContent className="flex flex-col items-center gap-6">
             <time
               className="text-7xl font-semibold tabular-nums"
@@ -56,16 +80,14 @@ function LockLayout({ timeLabel, dateLabel }: LockLayoutProps) {
           </CardContent>
         </Card>
 
-        {/* Información de la canción */}
         {showMediaInfo && mediaSession && (
-          <Card className="bg-white/5 text-white shadow-xl backdrop-blur-md border-white/10 animate-in fade-in duration-500 py-0 w-90">
+          <Card className="w-90 animate-in border-white/10 bg-white/5 py-0 text-white shadow-xl duration-500 fade-in backdrop-blur-md">
             <CardContent className="flex items-center gap-4 p-4">
-              {/* Info de la canción */}
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-lg truncate text-white">
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate text-lg font-semibold text-white">
                   {mediaSession.title}
                 </h3>
-                <p className="text-sm text-white/70 truncate">
+                <p className="truncate text-sm text-white/70">
                   {mediaSession.artist}
                 </p>
                 {mediaSession.timestamp && mediaSession.duration && (
@@ -83,9 +105,8 @@ function LockLayout({ timeLabel, dateLabel }: LockLayoutProps) {
                 )}
               </div>
 
-              {/* Badge de fuente */}
               <div className="flex-shrink-0">
-                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white/10 text-white/90 backdrop-blur-sm">
+                <span className="inline-flex items-center rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-white/90 backdrop-blur-sm">
                   {mediaSession.source.toUpperCase()}
                 </span>
               </div>
@@ -96,4 +117,5 @@ function LockLayout({ timeLabel, dateLabel }: LockLayoutProps) {
     </div>
   );
 }
+
 export default LockLayout;

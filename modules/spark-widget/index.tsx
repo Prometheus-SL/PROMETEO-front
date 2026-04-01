@@ -128,7 +128,7 @@ export default function SparkChispaCard({
                 INACTIVE_MOOD_CYCLE.length
             ];
       setMood((prev) => (prev === nextMood ? prev : nextMood));
-    }, 1000);
+    }, 5000);
     return () => window.clearInterval(id);
   }, [autoMood, baseMood, inactivityMs, stepMs]);
 
@@ -488,12 +488,11 @@ export default function SparkChispaCard({
         {/* Interactive particles */}
         <Particles
           className="absolute inset-0 -z-20 overflow-hidden"
-          quantity={220}
+          quantity={72}
           ease={85}
           staticity={60}
           color={accentColor}
           size={0.45}
-          refresh
         />
         <div className="pointer-events-none absolute inset-0 z-20">
           {poops.map((poop) => (
@@ -569,14 +568,6 @@ const SparkSvg = memo(function SparkSvg({
   const gazeTimeoutRef = useRef<number | null>(null);
   const [shouldAnimate, setShouldAnimate] = useState(true);
 
-  const floatAnimId = useMemo(
-    () => `spark-float-${Math.random().toString(36).slice(2)}`,
-    []
-  );
-  const haloAnimId = useMemo(
-    () => `spark-halo-${Math.random().toString(36).slice(2)}`,
-    []
-  );
   const gradId = useMemo(
     () => `spark-body-${Math.random().toString(36).slice(2)}`,
     []
@@ -667,42 +658,21 @@ const SparkSvg = memo(function SparkSvg({
     return () => query.removeListener(handleChange);
   }, []);
 
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const style = document.createElement("style");
-    style.setAttribute("data-spark-style", floatAnimId);
-    style.textContent = `
-      @keyframes ${floatAnimId} {
-        0% { transform: translateY(0px) scale(1); }
-        50% { transform: translateY(-6px) scale(1.02); }
-        100% { transform: translateY(0px) scale(1); }
-      }
-      @keyframes ${haloAnimId} {
-        0% { opacity: 0.18; filter: blur(0px); }
-        50% { opacity: 0.46; filter: blur(1.5px); }
-        100% { opacity: 0.2; filter: blur(0.2px); }
-      }
-    `;
-
-    document.head.appendChild(style);
-    return () => style.remove();
-  }, [floatAnimId, haloAnimId]);
-
   const strokeColor = useMemo(() => darken(color, 0.55), [color]);
   const lightColor = useMemo(() => lighten(color, 0.22), [color]);
   const svgAnimationStyle = useMemo<CSSProperties>(
     () =>
       shouldAnimate
-        ? { animation: `${floatAnimId} 7s ease-in-out infinite` }
+        ? { animation: "spark-widget-float 7s ease-in-out infinite" }
         : {},
-    [floatAnimId, shouldAnimate]
+    [shouldAnimate]
   );
   const sheenStyle = useMemo<CSSProperties>(
     () =>
       shouldAnimate
-        ? { animation: `${haloAnimId} 8s ease-in-out infinite`, opacity: 0.16 }
+        ? { animation: "spark-widget-halo 8s ease-in-out infinite", opacity: 0.16 }
         : { opacity: 0.12 },
-    [haloAnimId, shouldAnimate]
+    [shouldAnimate]
   );
 
   const mouth = useMemo(() => {

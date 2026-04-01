@@ -136,11 +136,43 @@ function updateGlobalState(updates: Partial<SpotifyState>) {
     notifySubscribers();
 }
 
-// ID del intervalo de polling (compartido entre todas las instancias)
-let pollingIntervalId: ReturnType<typeof setInterval> | null = null;
+// Polling compartido entre todas las instancias activas
+let pollingTimeoutId: ReturnType<typeof setTimeout> | null = null;
+let pollingFetcher: (() => Promise<void>) | null = null;
 let activeInstances = 0;
 let refreshAccessTokenPromise: Promise<boolean> | null = null;
-const SPOTIFY_POLL_INTERVAL_MS = 1500;
+const SPOTIFY_ACTIVE_POLL_INTERVAL_MS = 3000;
+const SPOTIFY_IDLE_POLL_INTERVAL_MS = 10000;
+
+function stopSpotifyPolling() {
+    if (pollingTimeoutId) {
+        clearTimeout(pollingTimeoutId);
+        pollingTimeoutId = null;
+    }
+}
+
+function getSpotifyPollIntervalMs() {
+    return globalSpotifyState.playbackState?.is_playing
+        ? SPOTIFY_ACTIVE_POLL_INTERVAL_MS
+        : SPOTIFY_IDLE_POLL_INTERVAL_MS;
+}
+
+function scheduleSpotifyPolling() {
+    stopSpotifyPolling();
+
+    if (!pollingFetcher || activeInstances === 0 || !globalSpotifyState.auth.isAuthenticated) {
+        return;
+    }
+
+    pollingTimeoutId = setTimeout(async () => {
+        if (!pollingFetcher || activeInstances === 0 || !globalSpotifyState.auth.isAuthenticated) {
+            return;
+        }
+
+        await pollingFetcher();
+        scheduleSpotifyPolling();
+    }, getSpotifyPollIntervalMs());
+}
 
 /**
  * Hook personalizado para gestionar el estado de Spotify
@@ -198,9 +230,8 @@ export function useSpotifyState(config: Record<string, unknown>) {
             activeInstances--;
 
             // Si no quedan instancias activas, detener el polling
-            if (activeInstances === 0 && pollingIntervalId) {
-                clearInterval(pollingIntervalId);
-                pollingIntervalId = null;
+            if (activeInstances === 0) {
+                stopSpotifyPolling();
             }
         };
     }, []);
@@ -685,18 +716,37 @@ export function useSpotifyState(config: Record<string, unknown>) {
 
     // Iniciar polling cuando se autentique (solo una vez para todas las instancias)
     React.useEffect(() => {
-        if (!state.auth.isAuthenticated) return;
+        if (!state.auth.isAuthenticated) {
+            stopSpotifyPolling();
+            return;
+        }
 
         // Cargar datos iniciales
-        fetchPlaybackState();
+        void fetchPlaybackState();
 
         // Iniciar polling solo si no está ya activo
-        if (!pollingIntervalId) {
-            pollingIntervalId = setInterval(() => {
-                fetchPlaybackState();
-            }, SPOTIFY_POLL_INTERVAL_MS);
-        }
     }, [state.auth.isAuthenticated, fetchPlaybackState]);
+
+    React.useEffect(() => {
+        if (!state.auth.isAuthenticated) {
+            if (activeInstances === 0) {
+                stopSpotifyPolling();
+            }
+            return;
+        }
+
+        pollingFetcher = fetchPlaybackState;
+        scheduleSpotifyPolling();
+
+        return () => {
+            if (pollingFetcher === fetchPlaybackState) {
+                pollingFetcher = null;
+            }
+            if (activeInstances <= 1) {
+                stopSpotifyPolling();
+            }
+        };
+    }, [fetchPlaybackState, state.auth.isAuthenticated, state.playbackState?.is_playing]);
 
     React.useEffect(() => {
         const shouldRefreshToken =

@@ -64,7 +64,7 @@ export default function SpotifyWidgetQueue({
     if (auth.isAuthenticated) {
       fetchQueue();
     }
-  }, [auth.isAuthenticated, playbackState?.item?.id, fetchQueue]);
+  }, [auth.isAuthenticated, fetchQueue]);
 
   const track = playbackState?.item;
   const albumArt = track?.album?.images?.[0]?.url;

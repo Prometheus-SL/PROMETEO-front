@@ -135,7 +135,7 @@ export default function WhatsAppPersonalWidget({
   config: WidgetConfig;
 }) {
   const limit = toNumber(config["limit"], 8, 3, 20);
-  const refreshSeconds = toNumber(config["refreshSeconds"], 30, 10, 180);
+  const refreshSeconds = toNumber(config["refreshSeconds"], 60, 60, 180);
   const includeGroups = Boolean(config["includeGroups"] ?? false);
   const messagesLimit = toNumber(config["messagesLimit"], 40, 10, 200);
   const refreshMs = Math.max(refreshSeconds * 1000, MIN_REFRESH_MS);
@@ -239,7 +239,7 @@ export default function WhatsAppPersonalWidget({
 
     const interval = window.setInterval(
       poll,
-      status?.state === "ready" ? Math.max(refreshMs, 20_000) : 7_000
+      status?.state === "ready" ? Math.max(refreshMs, 60_000) : 7_000
     );
 
     return () => {

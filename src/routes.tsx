@@ -1,17 +1,36 @@
-import { PrivateRoute } from "./routes/PrivateRoute";
-import LoginPage from "@/pages/LoginPage";
+import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from "react";
+
 import HomePage from "@/pages/HomePage";
-import RegisterPage from "./pages/RegisterPage";
-import AppLayout from "./layouts/AppLayout";
-import ClientLayout from "./layouts/ClientLayout";
+import LoginPage from "@/pages/LoginPage";
 import NotFoundPage from "@/pages/404Page";
-import UsersPage from "./pages/admin/UsersPage";
-import AgentsPage from "./pages/admin/AgentsPage";
-import MarketplacePage from "@/pages/MarketplacePage";
-import DashboardsPage from "./pages/DashboardsPage";
 import QRLoginPage from "@/pages/QRLoginPage";
-import ClientDashboardsPage from "./pages/ClientDashboardsPage";
 import SpotifyCallbackPage from "@/pages/SpotifyCallbackPage";
+import AppLayout from "./layouts/AppLayout";
+import RegisterPage from "./pages/RegisterPage";
+import { PrivateRoute } from "./routes/PrivateRoute";
+
+const ClientLayout = lazy(() => import("./layouts/ClientLayout"));
+const UsersPage = lazy(() => import("./pages/admin/UsersPage"));
+const AgentsPage = lazy(() => import("./pages/admin/AgentsPage"));
+const MarketplacePage = lazy(() => import("./pages/MarketplacePage"));
+const DashboardsPage = lazy(() => import("./pages/DashboardsPage"));
+const ClientDashboardsPage = lazy(() => import("./pages/ClientDashboardsPage"));
+
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
+      Loading...
+    </div>
+  );
+}
+
+function lazyElement(Component: LazyExoticComponent<ComponentType>) {
+  return (
+    <Suspense fallback={<RouteFallback />}>
+      <Component />
+    </Suspense>
+  );
+}
 
 export const appRoutes = [
   {
@@ -68,22 +87,22 @@ export const appRoutes = [
       },
       {
         path: "/dashboard",
-        element: <DashboardsPage />,
+        element: lazyElement(DashboardsPage),
         handle: { title: "Edit Dashboards" },
       },
       {
         path: "/marketplace",
-        element: <MarketplacePage />,
+        element: lazyElement(MarketplacePage),
         handle: { title: "Marketplace" },
       },
       {
         path: "/admin/users",
-        element: <UsersPage />,
+        element: lazyElement(UsersPage),
         handle: { title: "Users" },
       },
       {
         path: "/admin/agents",
-        element: <AgentsPage />,
+        element: lazyElement(AgentsPage),
         handle: { title: "Agents" },
       },
     ],
@@ -92,17 +111,16 @@ export const appRoutes = [
     path: "/client",
     element: (
       <PrivateRoute>
-        <ClientLayout />
+        {lazyElement(ClientLayout)}
       </PrivateRoute>
     ),
     children: [
       {
         index: true,
-        element: <ClientDashboardsPage />,
+        element: lazyElement(ClientDashboardsPage),
       },
     ],
   },
-  // Puedes añadir más rutas aquí
   {
     path: "*",
     element: <NotFoundPage />,

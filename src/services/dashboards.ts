@@ -1,5 +1,10 @@
 import { api } from "@/lib/api";
-import type { InstalledModule, Page, PageOrderItem } from "@/modules/types";
+import type {
+    InstalledModule,
+    Page,
+    PageOrderItem,
+    PageSummary,
+} from "@/modules/types";
 
 type ApiFailure = { success: false; message?: string };
 
@@ -18,6 +23,10 @@ export const dashboardService = {
     async listPages(): Promise<Page[]> {
         const res = await api.get<unknown | ApiFailure>("/api/v1/dashboard/pages");
         return (extract<Page[]>(res, "pages") || []).map((p) => p);
+    },
+    async listPageSummaries(): Promise<PageSummary[]> {
+        const res = await api.get<unknown | ApiFailure>("/api/v1/dashboard/pages/summary");
+        return (extract<PageSummary[]>(res, "pages") || []).map((p) => p);
     },
     async getActivePage(): Promise<Page | null> {
         const res = await api.get<unknown | ApiFailure>("/api/v1/dashboard/pages/active");

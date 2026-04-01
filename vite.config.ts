@@ -12,4 +12,32 @@ export default defineConfig({
       "@/modules": path.resolve(__dirname, "/src/"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          const normalizedId = id.replace(/\\/g, "/")
+
+          if (!normalizedId.includes("/node_modules/")) {
+            return
+          }
+          if (normalizedId.includes("/react-router")) {
+            return "router"
+          }
+          if (normalizedId.includes("/@radix-ui/")) {
+            return "radix"
+          }
+          if (normalizedId.includes("/@tanstack/react-table/")) {
+            return "table"
+          }
+          if (
+            normalizedId.includes("/framer-motion/") ||
+            normalizedId.includes("/motion/")
+          ) {
+            return "motion"
+          }
+        },
+      },
+    },
+  },
 })

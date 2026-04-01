@@ -64,6 +64,8 @@ export interface Page {
     updatedAt?: string
 }
 
+export type PageSummary = Pick<Page, "_id" | "name" | "slug" | "active" | "order">
+
 export interface PageOrderItem {
     id: string
     order: number
