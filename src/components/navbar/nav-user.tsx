@@ -26,6 +26,8 @@ export function NavUser() {
 
   if (!user) return null;
 
+  const initials = `${(user.name || user.username).charAt(0)}${(user.surname || user.username).charAt(0)}`.toUpperCase();
+
   return (
     <SidebarMenu>
       {user.birthday &&
@@ -53,7 +55,7 @@ export function NavUser() {
             >
               <Avatar className="h-8 w-8 rounded-lg grayscale">
                 <AvatarFallback className="rounded-lg">
-                  {user.name.charAt(0) + user.surname.charAt(0)}
+                  {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
@@ -77,7 +79,7 @@ export function NavUser() {
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarFallback className="rounded-lg">
-                    {user.name.charAt(0) + user.surname.charAt(0)}
+                    {initials}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">

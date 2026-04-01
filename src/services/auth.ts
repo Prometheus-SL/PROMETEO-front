@@ -7,7 +7,8 @@ export const USER_KEY = "auth_user";
 export type Tokens = {
     accessToken: string;
     refreshToken: string;
-    expiresIn?: number;
+    sessionId?: string;
+    expiresIn?: number | null;
 };
 
 export type AuthUser = {
@@ -15,10 +16,10 @@ export type AuthUser = {
     username: string;
     email: string;
     role: string;
-    name: string;
-    surname: string;
-    lastLogin: string;
-    birthday: string;
+    name?: string;
+    surname?: string;
+    lastLogin?: string;
+    birthday?: string;
 };
 
 type ApiSuccess<T> = {
@@ -28,16 +29,21 @@ type ApiSuccess<T> = {
 
 type ApiFailure = {
     success: false;
+    error?: string;
     message?: string;
 };
 
 type AuthResponse = ApiSuccess<{ user: AuthUser; tokens: Tokens }> | ApiFailure;
 
+function getApiErrorMessage(response: ApiFailure | null | undefined, fallback: string) {
+    return response?.error || response?.message || fallback;
+}
+
 export const authService = {
     async login(username: string, password: string) {
         const res = await api.post<AuthResponse>("/auth/login", { username, password }, { skipAuth: true });
         if (!res || ("success" in res && !res.success)) {
-            const msg = (res as ApiFailure)?.message || "Credenciales incorrectas";
+            const msg = getApiErrorMessage(res as ApiFailure, "Credenciales incorrectas");
             throw new Error(msg);
         }
         return (res as ApiSuccess<{ user: AuthUser; tokens: Tokens }>).data;
@@ -45,7 +51,7 @@ export const authService = {
     async register(payload: { username: string; email: string; password: string; name: string; surname: string; birthday: string; }) {
         const res = await api.post<ApiSuccess<unknown> | ApiFailure>("/auth/register", payload, { skipAuth: true });
         if (!res || ("success" in res && !res.success)) {
-            const msg = (res as ApiFailure)?.message || "Error al registrar usuario";
+            const msg = getApiErrorMessage(res as ApiFailure, "Error al registrar usuario");
             throw new Error(msg);
         }
         return res;
@@ -68,10 +74,17 @@ export const authService = {
             return false;
         }
     },
+    async logout(refreshToken?: string) {
+        await api.post<ApiSuccess<{ message: string }> | ApiFailure>(
+            "/auth/logout",
+            refreshToken ? { refreshToken } : {},
+            { retryOn401: false }
+        );
+    },
     async generateQRCode() {
         const res = await api.post<ApiSuccess<{ code: string; expiresAt: string }> | ApiFailure>("/auth/qr/generate", {}, { skipAuth: true });
         if (!res || ("success" in res && !res.success)) {
-            const msg = (res as ApiFailure)?.message || "Error generando código QR";
+            const msg = getApiErrorMessage(res as ApiFailure, "Error generando código QR");
             throw new Error(msg);
         }
         return (res as ApiSuccess<{ code: string; expiresAt: string }>).data;
@@ -79,7 +92,7 @@ export const authService = {
     async checkQRStatus(code: string) {
         const res = await api.get<ApiSuccess<{ status: string; scannedAt?: string; authenticatedAt?: string; user?: AuthUser; tokens?: Tokens }> | ApiFailure>(`/auth/qr/status/${code}`, { skipAuth: true });
         if (!res || ("success" in res && !res.success)) {
-            const msg = (res as ApiFailure)?.message || "Error verificando estado del QR";
+            const msg = getApiErrorMessage(res as ApiFailure, "Error verificando estado del QR");
             throw new Error(msg);
         }
         return (res as ApiSuccess<{ status: string; scannedAt?: string; authenticatedAt?: string; user?: AuthUser; tokens?: Tokens }>).data;
@@ -87,7 +100,7 @@ export const authService = {
     async scanQRCode(code: string) {
         const res = await api.post<ApiSuccess<{ message: string }> | ApiFailure>("/auth/qr/scan", { code }, { skipAuth: true });
         if (!res || ("success" in res && !res.success)) {
-            const msg = (res as ApiFailure)?.message || "Error escaneando código QR";
+            const msg = getApiErrorMessage(res as ApiFailure, "Error escaneando código QR");
             throw new Error(msg);
         }
         return (res as ApiSuccess<{ message: string }>).data;
@@ -95,7 +108,7 @@ export const authService = {
     async authenticateWithQR(code: string, username: string, password: string) {
         const res = await api.post<AuthResponse>("/auth/qr/authenticate", { code, username, password }, { skipAuth: true });
         if (!res || ("success" in res && !res.success)) {
-            const msg = (res as ApiFailure)?.message || "Credenciales incorrectas";
+            const msg = getApiErrorMessage(res as ApiFailure, "Credenciales incorrectas");
             throw new Error(msg);
         }
         return (res as ApiSuccess<{ user: AuthUser; tokens: Tokens }>).data;

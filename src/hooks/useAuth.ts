@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { authService, ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY, type AuthUser } from "@/services/auth";
+import { authService, ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY, type AuthUser, type Tokens } from "@/services/auth";
 
 export function useAuth() {
     const [accessToken, setAccessToken] = useState<string | null>(() => localStorage.getItem(ACCESS_TOKEN_KEY));
@@ -33,14 +33,13 @@ export function useAuth() {
         }
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const loginQR = async (tokens: any, user: AuthUser) => {
+    const loginQR = async (tokens: Tokens, user: AuthUser) => {
         setLoading(true);
         setError(null);
         try {
             localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
             localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
-            localStorage.setItem(USER_KEY, JSON.stringify(tokens.user));
+            localStorage.setItem(USER_KEY, JSON.stringify(user));
             setAccessToken(tokens.accessToken);
             setRefreshToken(tokens.refreshToken);
             setUser(user);
@@ -73,6 +72,7 @@ export function useAuth() {
     };
 
     const logout = () => {
+        void authService.logout(refreshToken || undefined);
         localStorage.removeItem(ACCESS_TOKEN_KEY);
         localStorage.removeItem(REFRESH_TOKEN_KEY);
         localStorage.removeItem(USER_KEY);

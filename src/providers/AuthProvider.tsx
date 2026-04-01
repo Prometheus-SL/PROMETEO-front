@@ -1,13 +1,13 @@
 import { createContext, useContext } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import type { AuthUser } from "@/services/auth";
+import type { AuthUser, Tokens } from "@/services/auth";
 
 interface AuthContextProps {
   accessToken: string | null;
   refreshToken: string | null;
   user: AuthUser | null;
   login: (username: string, password: string) => Promise<void>;
-  loginQR: (tokens: { accessToken: string; refreshToken: string }, user: AuthUser) => Promise<void>;
+  loginQR: (tokens: Tokens, user: AuthUser) => Promise<void>;
   logout: () => void;
   register: (
     username: string,

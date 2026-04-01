@@ -80,11 +80,31 @@ export function UserRoleDialog({ user, children, onSaved }: Props) {
               <input
                 type="radio"
                 name="role"
+                value="viewer"
+                checked={role === "viewer"}
+                onChange={() => setRole("viewer")}
+              />
+              Viewer
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="role"
                 value="user"
                 checked={role === "user"}
                 onChange={() => setRole("user")}
               />
-              Usuario
+              User
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="role"
+                value="operator"
+                checked={role === "operator"}
+                onChange={() => setRole("operator")}
+              />
+              Operator
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -94,7 +114,7 @@ export function UserRoleDialog({ user, children, onSaved }: Props) {
                 checked={role === "admin"}
                 onChange={() => setRole("admin")}
               />
-              Admin
+              Administrator
             </label>
           </div>
           <div className="flex items-center gap-3">
