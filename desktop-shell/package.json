@@ -1,0 +1,41 @@
+{
+  "name": "@prometeo/desktop-shell",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Electron shell for the PROMETEO dashboard",
+  "type": "module",
+  "main": "src/main.mjs",
+  "scripts": {
+    "start": "electron .",
+    "dev": "cross-env electron .",
+    "pack:dir": "electron-builder --dir",
+    "pack:linux": "electron-builder --linux AppImage deb",
+    "pack:linux-arm64": "electron-builder --linux AppImage deb --arm64",
+    "pack:linux-armv7l": "electron-builder --linux AppImage deb --armv7l"
+  },
+  "dependencies": {
+    "cross-env": "^10.1.0",
+    "electron": "^30.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.13.3"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "build": {
+    "appId": "com.prometeo.desktop",
+    "productName": "Prometeo Dashboard",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility"
+    }
+  }
+}

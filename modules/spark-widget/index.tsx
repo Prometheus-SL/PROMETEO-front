@@ -2,7 +2,6 @@ import type { CSSProperties } from "react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +11,7 @@ import {
 import { useSharedContext } from "@/hooks/useSharedContext";
 import type { SharedAction } from "@/contexts/SharedContext";
 import { Particles } from "@/components/ui/shadcn-io/particles";
-import { askAI } from "./ai-service";
+import { askAI, transcribeAudio } from "./ai-service";
 import PooSvg from "./complements/poo.svg";
 import { renderSparkAccessory, type Accessory } from "./spark-accessories";
 
@@ -26,6 +25,9 @@ type PoopDrop = {
 };
 
 const INACTIVE_MOOD_CYCLE: Mood[] = ["sleepy", "angry", "surprised"];
+const SPARK_SILENCE_RMS_THRESHOLD = 0.02;
+const SPARK_SILENCE_STOP_MS = 1200;
+const SPARK_NO_SPEECH_TIMEOUT_MS = 4000;
 
 export default function SparkChispaCard({
   config,
@@ -43,36 +45,36 @@ export default function SparkChispaCard({
   const darkerSurfaceColor = useMemo(() => darken(color, 0.45), [color]);
   const surfaceShadow = useMemo(
     () => toRgba(darken(color, 0.65), 0.65),
-    [color]
+    [color],
   );
   const backgroundGradient = useMemo(
     () =>
       `radial-gradient(120% 120% at 50% 0%, ${toRgba(
         lighten(color, 0.55),
-        0.35
+        0.35,
       )}, rgba(2, 6, 23, 0.94))`,
-    [color]
+    [color],
   );
   const topBackgroundGlow = useMemo(
     () =>
       `radial-gradient(circle at 50% 0%, ${toRgba(accentColor, 0.55)}, transparent 70%)`,
-    [accentColor]
+    [accentColor],
   );
   const bottomBackgroundGlow = useMemo(
     () =>
       `radial-gradient(circle at 50% 100%, ${toRgba(
         darkerSurfaceColor,
-        0.48
+        0.48,
       )}, transparent 65%)`,
-    [darkerSurfaceColor]
+    [darkerSurfaceColor],
   );
   const sparkGroundGlow = useMemo(
     () =>
       `radial-gradient(60% 80% at 50% 50%, ${toRgba(
         accentColor,
-        0.65
+        0.65,
       )}, transparent)`,
-    [accentColor]
+    [accentColor],
   );
 
   // Estado actual (puede cambiar por inactividad)
@@ -82,7 +84,7 @@ export default function SparkChispaCard({
   const spawnMin = Math.max(10000, Number(config["pooMinDelayMs"] ?? 45000));
   const spawnMax = Math.max(
     spawnMin + 1000,
-    Number(config["pooMaxDelayMs"] ?? 90000)
+    Number(config["pooMaxDelayMs"] ?? 90000),
   );
   const pooLimit = Math.max(1, Number(config["pooMaxCount"] ?? 3));
   const lastActiveRef = useRef<number>(Date.now());
@@ -97,11 +99,21 @@ export default function SparkChispaCard({
     useSharedContext();
   const [availableActions, setAvailableActions] = useState<SharedAction[]>([]);
   const [isListening, setIsListening] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [assistantMessage, setAssistantMessage] = useState<string>("");
   const [showModal, setShowModal] = useState(false);
   const [lastTranscript, setLastTranscript] = useState<string>("");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioMimeTypeRef = useRef("audio/webm");
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const audioFrameRef = useRef<number | null>(null);
+  const silenceTimeoutRef = useRef<number | null>(null);
+  const noSpeechTimeoutRef = useRef<number | null>(null);
+  const hasDetectedSpeechRef = useRef(false);
 
   const markActive = useCallback(() => {
     lastActiveRef.current = Date.now();
@@ -113,7 +125,7 @@ export default function SparkChispaCard({
       markActive();
       setPoops((prev) => prev.filter((poop) => poop.id !== id));
     },
-    [markActive]
+    [markActive],
   );
 
   useEffect(() => {
@@ -184,7 +196,7 @@ export default function SparkChispaCard({
         intentTags: ["ayuda", "qué puedes hacer", "cómo funciona", "qué haces"],
         run: () => {
           const allActions = getActions().filter(
-            (a) => a.id !== "spark-widget:help"
+            (a) => a.id !== "spark-widget:help",
           );
           const names = allActions.map((a) => a.title).join(", ");
           return {
@@ -283,23 +295,6 @@ export default function SparkChispaCard({
     }
   }, [isListening, baseMood]);
 
-  const ensureRecognition = useCallback(() => {
-    if (typeof window === "undefined") return null;
-    if (recognitionRef.current) return recognitionRef.current;
-    const Recognition =
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).SpeechRecognition ||
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).webkitSpeechRecognition;
-    if (!Recognition) return null;
-    const instance = new Recognition();
-    instance.continuous = false;
-    instance.interimResults = false;
-    instance.lang = "es-ES";
-    recognitionRef.current = instance;
-    return instance;
-  }, []);
-
   const speak = useCallback(
     (text: string, lang = "es-ES") => {
       if (typeof window === "undefined") return false;
@@ -316,7 +311,7 @@ export default function SparkChispaCard({
       window.speechSynthesis.speak(utter);
       return true;
     },
-    [setShowModal]
+    [setShowModal],
   );
 
   const normalizedActions = useMemo(
@@ -326,7 +321,7 @@ export default function SparkChispaCard({
         title: action.title.toLowerCase(),
         tags: (action.intentTags ?? []).map((tag) => tag.toLowerCase()),
       })),
-    [availableActions]
+    [availableActions],
   );
 
   const pickAction = useCallback(
@@ -348,7 +343,7 @@ export default function SparkChispaCard({
 
       return best?.action ?? null;
     },
-    [normalizedActions]
+    [normalizedActions],
   );
 
   const handleTranscript = useCallback(
@@ -389,53 +384,290 @@ export default function SparkChispaCard({
         toast.error(message);
       }
     },
-    [pickAction, speak]
+    [pickAction, speak],
   );
 
-  const handleToggleListening = useCallback(() => {
-    const recognition = ensureRecognition();
-    if (!recognition) {
-      toast.error("El navegador no soporta reconocimiento de voz.");
-      return;
+  const stopMediaStream = useCallback((stream?: MediaStream | null) => {
+    stream?.getTracks().forEach((track) => track.stop());
+  }, []);
+
+  const stopAudioMonitoring = useCallback(() => {
+    if (audioFrameRef.current !== null) {
+      window.cancelAnimationFrame(audioFrameRef.current);
+      audioFrameRef.current = null;
     }
-    if (isListening) {
-      recognition.stop();
+
+    if (silenceTimeoutRef.current !== null) {
+      window.clearTimeout(silenceTimeoutRef.current);
+      silenceTimeoutRef.current = null;
+    }
+
+    if (noSpeechTimeoutRef.current !== null) {
+      window.clearTimeout(noSpeechTimeoutRef.current);
+      noSpeechTimeoutRef.current = null;
+    }
+
+    analyserRef.current?.disconnect();
+    analyserRef.current = null;
+    sourceNodeRef.current?.disconnect();
+    sourceNodeRef.current = null;
+
+    const audioContext = audioContextRef.current;
+    audioContextRef.current = null;
+    if (audioContext && audioContext.state !== "closed") {
+      void audioContext.close().catch(() => undefined);
+    }
+
+    hasDetectedSpeechRef.current = false;
+  }, []);
+
+  const stopCurrentRecording = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+    }
+  }, []);
+
+  const startAudioMonitoring = useCallback(
+    (stream: MediaStream) => {
+      if (typeof AudioContext === "undefined") {
+        return;
+      }
+
+      stopAudioMonitoring();
+
+      const audioContext = new AudioContext();
+      const analyser = audioContext.createAnalyser();
+      const sourceNode = audioContext.createMediaStreamSource(stream);
+      const samples = new Uint8Array(analyser.fftSize);
+
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.18;
+      sourceNode.connect(analyser);
+
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+      sourceNodeRef.current = sourceNode;
+      hasDetectedSpeechRef.current = false;
+
+      void audioContext.resume().catch(() => undefined);
+
+      const monitor = () => {
+        const activeAnalyser = analyserRef.current;
+        if (!activeAnalyser) {
+          return;
+        }
+
+        activeAnalyser.getByteTimeDomainData(samples);
+
+        let sumSquares = 0;
+        for (const sample of samples) {
+          const normalized = (sample - 128) / 128;
+          sumSquares += normalized * normalized;
+        }
+
+        const rms = Math.sqrt(sumSquares / samples.length);
+
+        if (rms >= SPARK_SILENCE_RMS_THRESHOLD) {
+          hasDetectedSpeechRef.current = true;
+
+          if (noSpeechTimeoutRef.current !== null) {
+            window.clearTimeout(noSpeechTimeoutRef.current);
+            noSpeechTimeoutRef.current = null;
+          }
+
+          if (silenceTimeoutRef.current !== null) {
+            window.clearTimeout(silenceTimeoutRef.current);
+            silenceTimeoutRef.current = null;
+          }
+        } else if (
+          hasDetectedSpeechRef.current &&
+          silenceTimeoutRef.current === null
+        ) {
+          silenceTimeoutRef.current = window.setTimeout(() => {
+            silenceTimeoutRef.current = null;
+            console.info("[spark-widget:audio] auto-stop-silence");
+            stopCurrentRecording();
+          }, SPARK_SILENCE_STOP_MS);
+        }
+
+        audioFrameRef.current = window.requestAnimationFrame(monitor);
+      };
+
+      noSpeechTimeoutRef.current = window.setTimeout(() => {
+        noSpeechTimeoutRef.current = null;
+
+        if (!hasDetectedSpeechRef.current) {
+          console.info("[spark-widget:audio] auto-stop-no-speech");
+          stopCurrentRecording();
+        }
+      }, SPARK_NO_SPEECH_TIMEOUT_MS);
+
+      audioFrameRef.current = window.requestAnimationFrame(monitor);
+    },
+    [stopAudioMonitoring, stopCurrentRecording],
+  );
+
+  useEffect(() => {
+    return () => {
+      stopCurrentRecording();
+      stopAudioMonitoring();
+      stopMediaStream(mediaStreamRef.current);
+      mediaRecorderRef.current = null;
+      mediaStreamRef.current = null;
+      audioChunksRef.current = [];
+    };
+  }, [stopAudioMonitoring, stopCurrentRecording, stopMediaStream]);
+
+  const handleRecordedListening = useCallback(() => {
+    if (typeof window === "undefined") {
       return;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (event: any) => {
-      const transcript = Array.from(event.results)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((r: any) => r[0]?.transcript)
-        .join(" ")
-        .trim();
-      if (transcript) {
-        handleTranscript(transcript);
-      } else {
-        toast.error("No se escuchó nada claro.");
+    if (
+      !navigator.mediaDevices ||
+      typeof navigator.mediaDevices.getUserMedia !== "function"
+    ) {
+      toast.error("Este navegador no soporta grabacion de audio.");
+      return;
+    }
+
+    if (typeof MediaRecorder === "undefined") {
+      toast.error("Este entorno no soporta grabacion local.");
+      return;
+    }
+
+    if (isTranscribing) {
+      toast.info("Estoy procesando el audio anterior.");
+      return;
+    }
+
+    const currentRecorder = mediaRecorderRef.current;
+    if (isListening && currentRecorder) {
+      stopCurrentRecording();
+      setIsListening(false);
+      return;
+    }
+
+    const startRecording = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+        const mimeType = getPreferredRecordingMimeType();
+        const recorder = mimeType
+          ? new MediaRecorder(stream, { mimeType })
+          : new MediaRecorder(stream);
+
+        mediaStreamRef.current = stream;
+        mediaRecorderRef.current = recorder;
+        audioChunksRef.current = [];
+        audioMimeTypeRef.current =
+          recorder.mimeType || mimeType || "audio/webm";
+
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+
+        recorder.onerror = (event) => {
+          console.error("[spark-widget:audio] recorder-error", event);
+          stopAudioMonitoring();
+          stopMediaStream(stream);
+          mediaRecorderRef.current = null;
+          mediaStreamRef.current = null;
+          audioChunksRef.current = [];
+          setIsListening(false);
+          setIsTranscribing(false);
+          toast.error("Hubo un error al grabar el audio.");
+        };
+
+        recorder.onstop = async () => {
+          const chunks = audioChunksRef.current;
+          const recordedMimeType = audioMimeTypeRef.current || "audio/webm";
+          const recordedStream = mediaStreamRef.current;
+          const speechDetected = hasDetectedSpeechRef.current;
+
+          stopAudioMonitoring();
+          audioChunksRef.current = [];
+          mediaRecorderRef.current = null;
+          mediaStreamRef.current = null;
+          stopMediaStream(recordedStream);
+          setIsListening(false);
+
+          if (chunks.length === 0) {
+            toast.error("No se capturo audio.");
+            return;
+          }
+
+          if (!speechDetected) {
+            toast.error("No te oi hablar claramente.");
+            return;
+          }
+
+          const audioBlob = new Blob(chunks, { type: recordedMimeType });
+          const extension = getExtensionFromMimeType(recordedMimeType);
+
+          try {
+            console.info("[spark-widget:audio] transcribing", {
+              size: audioBlob.size,
+              mimeType: recordedMimeType,
+            });
+            setIsTranscribing(true);
+            const transcript = await transcribeAudio(
+              audioBlob,
+              `speech.${extension}`,
+            );
+
+            if (!transcript) {
+              toast.error("No se entendio nada claro.");
+              return;
+            }
+
+            await handleTranscript(transcript);
+          } catch (error) {
+            console.error("[spark-widget:audio] transcription-error", error);
+            toast.error("No pude transcribir el audio.");
+          } finally {
+            setIsTranscribing(false);
+          }
+        };
+
+        console.info("[spark-widget:audio] recording-started", {
+          mimeType: audioMimeTypeRef.current,
+        });
+        setIsListening(true);
+        recorder.start();
+        startAudioMonitoring(stream);
+      } catch (error) {
+        console.error("[spark-widget:audio] start-error", error);
+        stopAudioMonitoring();
+        stopMediaStream(mediaStreamRef.current);
+        mediaRecorderRef.current = null;
+        mediaStreamRef.current = null;
+        audioChunksRef.current = [];
+        setIsListening(false);
+        setIsTranscribing(false);
+        toast.error("No pude acceder al microfono.");
       }
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onerror = (event: any) => {
-      console.error("Speech recognition error", event);
-      toast.error("Error al escuchar.");
-      setIsListening(false);
-    };
+    void startRecording();
+  }, [
+    handleTranscript,
+    isListening,
+    isTranscribing,
+    startAudioMonitoring,
+    stopAudioMonitoring,
+    stopCurrentRecording,
+    stopMediaStream,
+  ]);
 
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    try {
-      setIsListening(true);
-      recognition.start();
-    } catch (error) {
-      console.error("Speech recognition start error", error);
-      setIsListening(false);
-    }
-  }, [ensureRecognition, handleTranscript, isListening]);
+  const handleSparkPress = useCallback(() => {
+    markActive();
+    handleRecordedListening();
+  }, [handleRecordedListening, markActive]);
 
   return (
     <>
@@ -477,11 +709,33 @@ export default function SparkChispaCard({
               }}
             />
             {/* Chispa */}
-            <SparkSvg color={color} mood={mood} accessory={accessory} />
+            <button
+              type="button"
+              aria-label={
+                isListening ? "Detener grabacion de Spark" : "Hablar con Spark"
+              }
+              onClick={handleSparkPress}
+              disabled={isTranscribing}
+              className="group/spark relative rounded-full bg-transparent p-0 transition-transform duration-300 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/75 disabled:cursor-wait disabled:opacity-80"
+            >
+              {isListening ? (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-[-8%] rounded-full border border-white/40"
+                  style={{
+                    boxShadow: `0 0 0 10px ${toRgba(accentColor, 0.12)}`,
+                  }}
+                />
+              ) : null}
+              <SparkSvg color={color} mood={mood} accessory={accessory} />
+            </button>
 
-            {/* Nombre */}
-            <div className="w-full text-center text-sm font-medium tracking-wide text-foreground/90">
-              {name || "Chispa"}
+            <div className="min-h-5 text-center text-xs font-medium text-foreground/70">
+              {isListening
+                ? "Escuchando... se parara cuando detecte silencio."
+                : isTranscribing
+                  ? "Procesando..."
+                  : "Toca a " + name + " para hablar"}
             </div>
           </div>
         </div>
@@ -517,17 +771,6 @@ export default function SparkChispaCard({
             </button>
           ))}
         </div>
-        <div className="pointer-events-auto absolute bottom-4 left-4 right-4 z-30 flex items-center justify-between gap-3">
-          <Button
-            type="button"
-            size="sm"
-            variant={isListening ? "secondary" : "outline"}
-            className="rounded-full border-foreground/40 bg-black/30 px-4 text-xs font-semibold backdrop-blur transition hover:scale-105"
-            onClick={handleToggleListening}
-          >
-            {isListening ? "Escuchando" : "Hablar"}
-          </Button>
-        </div>
       </Card>
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="bg-slate-900/90 text-foreground backdrop-blur">
@@ -543,6 +786,30 @@ export default function SparkChispaCard({
       </Dialog>
     </>
   );
+}
+
+function getPreferredRecordingMimeType() {
+  if (typeof MediaRecorder === "undefined") {
+    return "";
+  }
+
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/ogg;codecs=opus",
+  ];
+
+  return (
+    candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ??
+    ""
+  );
+}
+
+function getExtensionFromMimeType(mimeType: string) {
+  if (mimeType.includes("mp4")) return "mp4";
+  if (mimeType.includes("ogg")) return "ogg";
+  return "webm";
 }
 
 type SparkSvgProps = {
@@ -570,27 +837,27 @@ const SparkSvg = memo(function SparkSvg({
 
   const gradId = useMemo(
     () => `spark-body-${Math.random().toString(36).slice(2)}`,
-    []
+    [],
   );
   const highlightId = useMemo(
     () => `spark-highlight-${Math.random().toString(36).slice(2)}`,
-    []
+    [],
   );
   const glowFilterId = useMemo(
     () => `spark-glow-${Math.random().toString(36).slice(2)}`,
-    []
+    [],
   );
   const crownGradientId = useMemo(
     () => `spark-crown-${Math.random().toString(36).slice(2)}`,
-    []
+    [],
   );
   const batGradientId = useMemo(
     () => `spark-bat-${Math.random().toString(36).slice(2)}`,
-    []
+    [],
   );
   const batGlowFilterId = useMemo(
     () => `spark-bat-glow-${Math.random().toString(36).slice(2)}`,
-    []
+    [],
   );
 
   useEffect(() => {
@@ -665,14 +932,17 @@ const SparkSvg = memo(function SparkSvg({
       shouldAnimate
         ? { animation: "spark-widget-float 7s ease-in-out infinite" }
         : {},
-    [shouldAnimate]
+    [shouldAnimate],
   );
   const sheenStyle = useMemo<CSSProperties>(
     () =>
       shouldAnimate
-        ? { animation: "spark-widget-halo 8s ease-in-out infinite", opacity: 0.16 }
+        ? {
+            animation: "spark-widget-halo 8s ease-in-out infinite",
+            opacity: 0.16,
+          }
         : { opacity: 0.12 },
-    [shouldAnimate]
+    [shouldAnimate],
   );
 
   const mouth = useMemo(() => {
@@ -734,7 +1004,7 @@ const SparkSvg = memo(function SparkSvg({
       crownGradientId,
       batGradientId,
       batGlowFilterId,
-    ]
+    ],
   );
 
   return (
@@ -746,13 +1016,7 @@ const SparkSvg = memo(function SparkSvg({
       style={svgAnimationStyle}
     >
       <defs>
-        <filter
-          id={glowFilterId}
-          x="-50%"
-          y="-50%"
-          width="200%"
-          height="200%"
-        >
+        <filter id={glowFilterId} x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="6" result="coloredBlur" />
           <feMerge>
             <feMergeNode in="coloredBlur" />

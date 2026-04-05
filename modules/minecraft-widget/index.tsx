@@ -23,7 +23,7 @@ type McStatus = {
     max?: number;
     list?: Array<{ name_raw?: string }>;
   };
-  motd?: { clean?: string };
+  motd?: { clean?: string; html?: string };
   version?: { name_raw?: string };
 };
 
@@ -61,7 +61,7 @@ export default function MinecraftCard({
       setError(null);
       errorRef.current = null;
       const url = `https://api.mcstatus.io/v2/status/java/${encodeURIComponent(
-        address
+        address,
       )}`;
       const res = await fetch(url, { headers: { accept: "application/json" } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -158,7 +158,9 @@ export default function MinecraftCard({
     <Card
       className={cn(
         "relative h-full overflow-hidden gap-0 border border-border/60 bg-background/90 p-0 shadow-lg shadow-primary/10 transition-shadow",
-        isOnline ? "hover:shadow-emerald-500/20" : "hover:shadow-destructive/20"
+        isOnline
+          ? "hover:shadow-emerald-500/20"
+          : "hover:shadow-destructive/20",
       )}
     >
       <GridPattern
@@ -168,7 +170,7 @@ export default function MinecraftCard({
         y={-1}
         strokeDasharray="4 2"
         className={cn(
-          "pointer-events-none opacity-40 [mask-image:radial-gradient(360px_circle_at_center,white,transparent)]"
+          "pointer-events-none opacity-40 [mask-image:radial-gradient(360px_circle_at_center,white,transparent)]",
         )}
       />
       <div
@@ -176,7 +178,7 @@ export default function MinecraftCard({
           "pointer-events-none absolute inset-0 bg-gradient-to-br ",
           isOnline
             ? "from-emerald-500/15 via-primary/10 to-background"
-            : "from-destructive/20 via-primary/10 to-background"
+            : "from-destructive/20 via-primary/10 to-background",
         )}
       />
 
@@ -211,7 +213,7 @@ export default function MinecraftCard({
                 "px-3 py-1 text-xs uppercase tracking-wide",
                 isOnline
                   ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                  : "bg-destructive/20"
+                  : "bg-destructive/20",
               )}
             >
               <span
@@ -219,7 +221,7 @@ export default function MinecraftCard({
                   "size-2 rounded-full",
                   isOnline
                     ? "bg-emerald-500 dark:bg-emerald-400"
-                    : "bg-destructive"
+                    : "bg-destructive",
                 )}
                 aria-hidden="true"
               />
@@ -235,7 +237,7 @@ export default function MinecraftCard({
               <RefreshCcw
                 className={cn(
                   "size-4",
-                  loading && "animate-spin text-muted-foreground"
+                  loading && "animate-spin text-muted-foreground",
                 )}
               />
             </Button>
@@ -269,8 +271,8 @@ export default function MinecraftCard({
                 {loading
                   ? "Obtaining server status..."
                   : error
-                  ? "Could not obtain server status."
-                  : motd || "No MOTD"}
+                    ? "Could not obtain server status."
+                    : motd || "No MOTD"}
               </div>
             </div>
           </div>

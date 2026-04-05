@@ -5,6 +5,8 @@
 
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_TRANSCRIPTION_URL =
+    "https://api.groq.com/openai/v1/audio/transcriptions";
 
 export async function askAI(question: string): Promise<string> {
     if (!GROQ_API_KEY) {
@@ -46,4 +48,41 @@ export async function askAI(question: string): Promise<string> {
         console.error("Error calling Groq API:", error);
         return "Lo siento, hubo un error al procesar tu pregunta.";
     }
+}
+
+export async function transcribeAudio(
+    audio: Blob,
+    fileName = "speech.webm"
+): Promise<string> {
+    if (!GROQ_API_KEY) {
+        throw new Error(
+            "No está configurada la clave de API de Groq. Añade VITE_GROQ_API_KEY al archivo .env"
+        );
+    }
+
+    const formData = new FormData();
+    formData.append("file", audio, fileName);
+    formData.append("model", "whisper-large-v3");
+    formData.append("language", "es");
+    formData.append("response_format", "json");
+    formData.append("temperature", "0");
+
+    const response = await fetch(GROQ_TRANSCRIPTION_URL, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${GROQ_API_KEY}`,
+        },
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        throw new Error(
+            `Groq transcription error: ${response.status}${errorText ? ` - ${errorText}` : ""
+            }`
+        );
+    }
+
+    const data = (await response.json()) as { text?: string };
+    return (data.text ?? "").trim();
 }

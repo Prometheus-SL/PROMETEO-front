@@ -8,7 +8,9 @@
     "dev:host": "vite --host",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "desktop:start": "npm --prefix desktop-shell start",
+    "desktop:dev": "npm --prefix desktop-shell run dev"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.11",
