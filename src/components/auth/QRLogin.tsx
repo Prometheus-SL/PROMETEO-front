@@ -1,25 +1,45 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import QRCode from "react-qr-code";
-import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import {
-  authService,
+  CheckCircle2,
+  Clock3,
+  QrCode,
+  RefreshCw,
+  ShieldCheck,
+  Smartphone,
+} from "lucide-react";
+
+import { BorderBeam } from "@/components/ui/border-beam";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
+import {
   ACCESS_TOKEN_KEY,
   REFRESH_TOKEN_KEY,
   USER_KEY,
+  authService,
 } from "@/services/auth";
-import { Card } from "@/components/ui/card";
-import { RefreshCw, Smartphone, CheckCircle, Clock } from "lucide-react";
 
 interface QRLoginProps {
-  onBack: () => void;
+  onBack?: () => void;
+  onAuthenticated?: () => void;
+  redirectTo?: string;
+  hideBackButton?: boolean;
+  showHeader?: boolean;
+  className?: string;
 }
 
 type QRStatus = "pending" | "scanned" | "authenticated" | "expired";
 
-export default function QRLogin({ onBack }: QRLoginProps) {
-  const navigate = useNavigate();
+export default function QRLogin({
+  onBack,
+  onAuthenticated,
+  redirectTo = "/",
+  hideBackButton = false,
+  showHeader = true,
+  className,
+}: QRLoginProps) {
   const [qrData, setQrData] = useState<{
     code: string;
     expiresAt: string;
@@ -27,17 +47,17 @@ export default function QRLogin({ onBack }: QRLoginProps) {
   const [status, setStatus] = useState<QRStatus>("pending");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [timeLeft, setTimeLeft] = useState(0);
 
   const generateQR = async () => {
     setLoading(true);
     setError(null);
+
     try {
       const data = await authService.generateQRCode();
       setQrData(data);
       setStatus("pending");
 
-      // Calcular tiempo restante
       const expiresAt = new Date(data.expiresAt).getTime();
       const now = Date.now();
       setTimeLeft(Math.max(0, Math.floor((expiresAt - now) / 1000)));
@@ -48,7 +68,6 @@ export default function QRLogin({ onBack }: QRLoginProps) {
     }
   };
 
-  // Polling para verificar el estado del QR
   useEffect(() => {
     if (!qrData || status === "authenticated" || status === "expired") return;
 
@@ -62,7 +81,6 @@ export default function QRLogin({ onBack }: QRLoginProps) {
           statusData.tokens &&
           statusData.user
         ) {
-          // El QR fue autenticado exitosamente, guardamos los tokens
           localStorage.setItem(ACCESS_TOKEN_KEY, statusData.tokens.accessToken);
           localStorage.setItem(
             REFRESH_TOKEN_KEY,
@@ -70,9 +88,13 @@ export default function QRLogin({ onBack }: QRLoginProps) {
           );
           localStorage.setItem(USER_KEY, JSON.stringify(statusData.user));
 
-          // Redirigir al dashboard
-          setTimeout(() => {
-            window.location.href = "/"; 
+          window.setTimeout(() => {
+            if (onAuthenticated) {
+              onAuthenticated();
+              return;
+            }
+
+            window.location.href = redirectTo;
           }, 1000);
         }
       } catch (err) {
@@ -80,131 +102,246 @@ export default function QRLogin({ onBack }: QRLoginProps) {
       }
     };
 
-    const interval = setInterval(checkStatus, 2000); // Verificar cada 2 segundos
+    const interval = window.setInterval(checkStatus, 2000);
+    return () => window.clearInterval(interval);
+  }, [onAuthenticated, qrData, redirectTo, status]);
 
-    return () => clearInterval(interval);
-  }, [qrData, status, navigate]);
-
-  // Contador de tiempo
   useEffect(() => {
     if (timeLeft <= 0) {
       setStatus("expired");
       return;
     }
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        const newTime = prev - 1;
-        if (newTime <= 0) {
+    const timer = window.setInterval(() => {
+      setTimeLeft((previous) => {
+        const next = previous - 1;
+        if (next <= 0) {
           setStatus("expired");
         }
-        return Math.max(0, newTime);
+        return Math.max(0, next);
       });
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => window.clearInterval(timer);
   }, [timeLeft]);
 
-  // Auto-generar QR al montar el componente (solo una vez)
   useEffect(() => {
-    generateQR();
+    void generateQR();
   }, []);
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
   const getStatusIcon = () => {
     switch (status) {
       case "pending":
-        return <Smartphone className="h-5 w-5 text-blue-500" />;
+        return <Smartphone className="h-4 w-4 text-cyan-300" />;
       case "scanned":
-        return <Clock className="h-5 w-5 text-yellow-500" />;
+        return <Clock3 className="h-4 w-4 text-amber-300" />;
       case "authenticated":
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
+        return <CheckCircle2 className="h-4 w-4 text-emerald-300" />;
       case "expired":
-        return <RefreshCw className="h-5 w-5 text-red-500" />;
+        return <RefreshCw className="h-4 w-4 text-rose-300" />;
+    }
+  };
+
+  const getStatusLabel = () => {
+    switch (status) {
+      case "pending":
+        return "Esperando escaneo";
+      case "scanned":
+        return "Pendiente en el móvil";
+      case "authenticated":
+        return "Cliente autorizado";
+      case "expired":
+        return "Código expirado";
     }
   };
 
   const getStatusMessage = () => {
     switch (status) {
       case "pending":
-        return "Scan the QR code with your mobile device";
+        return "Escanea el código con el móvil autorizado para vincular esta pantalla.";
       case "scanned":
-        return "QR code scanned. Enter your credentials on the mobile device";
+        return "Código detectado. Termina el acceso en el móvil para completar la vinculación.";
       case "authenticated":
-        return "Authentication successful! Redirecting...";
+        return "Sesión validada. Preparando el cliente...";
       case "expired":
-        return "The QR code has expired. Generate a new one.";
+        return "El código ha caducado. Genera uno nuevo para volver a intentarlo.";
+    }
+  };
+
+  const getStatusClasses = () => {
+    switch (status) {
+      case "pending":
+        return "border-cyan-400/30 bg-cyan-400/10 text-cyan-100";
+      case "scanned":
+        return "border-amber-400/30 bg-amber-400/10 text-amber-100";
+      case "authenticated":
+        return "border-emerald-400/30 bg-emerald-400/10 text-emerald-100";
+      case "expired":
+        return "border-rose-400/30 bg-rose-400/10 text-rose-100";
     }
   };
 
   return (
-    <div className="w-full max-w-md mx-auto space-y-6">
-      <div className="text-center">
-        <h2 className="text-xl font-semibold mb-2">Login with QR Code</h2>
-      </div>
-      <Card className="p-6 space-y-2">
+    <div className={cn("mx-auto w-full max-w-md space-y-5", className)}>
+      {showHeader ? (
+        <div className="space-y-3 text-center">
+          <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-medium tracking-wide text-cyan-100">
+            <ShieldCheck className="h-4 w-4" />
+            Acceso seguro por QR
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-semibold text-foreground">
+              Inicia sesión desde tu móvil
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Escanea el código, confirma la autenticación en tu dispositivo y
+              este cliente quedará vinculado automáticamente.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <Card className="relative overflow-hidden border-white/10 bg-white/5 py-0 shadow-[0_24px_80px_rgba(2,6,23,0.45)] backdrop-blur-xl">
+        <BorderBeam
+          size={180}
+          duration={8}
+          borderWidth={1.5}
+          colorFrom="#67e8f9"
+          colorTo="#fbbf24"
+        />
+
         {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Spinner />
+          <div className="flex min-h-[360px] flex-col items-center justify-center gap-4 px-6 py-10 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/5">
+              <Spinner />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-white">
+                Generando código QR
+              </p>
+              <p className="text-sm text-slate-300">
+                Preparando una sesión segura para este cliente.
+              </p>
+            </div>
           </div>
         ) : error ? (
-          <div className="text-center space-y-4">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="space-y-5 px-6 py-8 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-rose-400/30 bg-rose-400/10">
+              <RefreshCw className="h-5 w-5 text-rose-300" />
+            </div>
+            <div className="space-y-2">
+              <p className="text-base font-medium text-white">
+                No pude generar el código
+              </p>
+              <p className="text-sm text-rose-200">{error}</p>
+            </div>
             <Button onClick={generateQR} variant="outline" size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Try Again
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reintentar
             </Button>
           </div>
         ) : qrData ? (
-          <div className="space-y-3">
-            {/* Código QR */}
-            <div className="flex justify-center p-4 bg-white rounded-lg">
-              <QRCode
-                size={200}
-                value={`https://prometeo.miguelprez.es/qr-login/${qrData.code}`}
-                level="M"
-              />
-            </div>
-
-            {/* Estado */}
-            <div className="flex items-center justify-center space-x-2 text-sm">
-              {getStatusIcon()}
-              <span>{getStatusMessage()}</span>
-            </div>
-
-            {/* Timer */}
-            {status !== "expired" && status !== "authenticated" && (
-              <div className="text-center text-sm text-muted-foreground">
-                Expires in: {formatTime(timeLeft)}
+          <div className="space-y-5 px-6 py-6">
+            <div className="flex items-start justify-between gap-4">
+              <div
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium",
+                  getStatusClasses()
+                )}
+              >
+                {getStatusIcon()}
+                {getStatusLabel()}
               </div>
-            )}
 
-            {/* Actions */}
-            <div className="flex space-x-2">
-              {(status === "expired" || error) && (
+              {status !== "expired" && status !== "authenticated" ? (
+                <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200">
+                  {formatTime(timeLeft)}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="grid gap-5">
+              <div className="rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(125,211,252,0.18),_transparent_55%),rgba(255,255,255,0.04)] p-4 shadow-inner">
+                <div className="mx-auto flex max-w-[280px] items-center justify-center rounded-[1.5rem] bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.25)]">
+                  <QRCode
+                    size={220}
+                    value={`https://prometeo.miguelprez.es/qr-login/${qrData.code}`}
+                    level="M"
+                  />
+                </div>
+              </div>
+
+              <div
+                className={cn(
+                  "rounded-2xl border px-4 py-3 text-sm leading-relaxed",
+                  getStatusClasses()
+                )}
+              >
+                {getStatusMessage()}
+              </div>
+
+              <div className="grid gap-3">
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <div className="mb-1 flex items-center gap-2 text-sm font-medium text-white">
+                    <QrCode className="h-4 w-4 text-cyan-300" />
+                    1. Escanea el código
+                  </div>
+                  <p className="text-sm text-slate-300">
+                    Abre la URL del móvil o el panel autorizado y escanea este
+                    QR.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <div className="mb-1 flex items-center gap-2 text-sm font-medium text-white">
+                    <Smartphone className="h-4 w-4 text-cyan-300" />
+                    2. Confirma el acceso
+                  </div>
+                  <p className="text-sm text-slate-300">
+                    Termina la autenticación en el móvil con tus credenciales.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <div className="mb-1 flex items-center gap-2 text-sm font-medium text-white">
+                    <CheckCircle2 className="h-4 w-4 text-cyan-300" />
+                    3. Recarga automática
+                  </div>
+                  <p className="text-sm text-slate-300">
+                    Cuando la sesión quede validada, esta pantalla se abrirá
+                    sola.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center">
+              {status === "expired" ? (
                 <Button
                   onClick={generateQR}
                   variant="outline"
-                  className="flex-1"
+                  className="min-w-40 border-white/15 bg-white/5 text-white hover:bg-white/10"
                 >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  New QR
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Generar nuevo QR
                 </Button>
-              )}
+              ) : null}
             </div>
           </div>
         ) : null}
       </Card>
 
-      {/* Button to go back */}
-      <Button onClick={onBack} variant="ghost" className="w-full">
-        Back to Traditional Login
-      </Button>
+      {!hideBackButton && onBack ? (
+        <Button onClick={onBack} variant="ghost" className="w-full">
+          Volver al login tradicional
+        </Button>
+      ) : null}
     </div>
   );
 }

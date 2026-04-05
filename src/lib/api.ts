@@ -129,7 +129,10 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
             localStorage.removeItem(ACCESS_TOKEN_KEY);
             localStorage.removeItem(REFRESH_TOKEN_KEY);
             localStorage.removeItem(USER_KEY);
-            window.location.replace("/login");
+            const target = window.location.pathname.startsWith("/client")
+                ? "/client"
+                : "/login";
+            window.location.replace(target);
         }
     }
     throw new ApiError(res.statusText || `Error ${res.status}`, res.status);

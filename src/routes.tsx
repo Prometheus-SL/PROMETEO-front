@@ -109,11 +109,7 @@ export const appRoutes = [
   },
   {
     path: "/client",
-    element: (
-      <PrivateRoute>
-        {lazyElement(ClientLayout)}
-      </PrivateRoute>
-    ),
+    element: lazyElement(ClientLayout),
     children: [
       {
         index: true,
