@@ -156,14 +156,16 @@ export default function HomePage() {
 
       setAgentSummary((prev) => ({ ...prev, loading: true, error: null }));
 
-      const ownerCandidates = [user.id, user.username, user.email]
-        .filter(Boolean)
-        .map((value) => value!.toLowerCase());
-
       try {
+        const shouldFetchGlobalStats =
+          user.role?.toLowerCase() === "admin" ||
+          user.role?.toLowerCase() === "operator";
+
         const [statsResult, listResult] = await Promise.allSettled([
-          agentsService.stats(),
-          agentsService.getById(user.id),
+          shouldFetchGlobalStats
+            ? agentsService.stats()
+            : Promise.resolve(null),
+          agentsService.listMine(),
         ]);
 
         const stats =
@@ -177,47 +179,12 @@ export default function HomePage() {
           ? [agentData]
           : [];
 
-        let owned = 0;
-        let runningOwned = 0;
-
-        if (ownerCandidates.length > 0 && agents.length > 0) {
-          agents.forEach((agent) => {
-            if (!agent?.user) return;
-
-            const identifiers = [
-              agent.user.email,
-              agent.user.username,
-              agent.user.name,
-              agent.user.surname,
-              agent.agentId,
-              agent._id,
-            ]
-              .filter((value): value is string => typeof value === "string")
-              .map((value) => value.toLowerCase());
-
-            const matchesOwner = identifiers.some((identifier) =>
-              ownerCandidates.some(
-                (candidate) =>
-                  identifier === candidate || identifier.includes(candidate)
-              )
-            );
-
-            if (matchesOwner) {
-              owned += 1;
-              const status =
-                typeof agent?.status === "string"
-                  ? agent.status.toLowerCase()
-                  : "";
-              if (
-                agent?.isOnline ||
-                status === "online" ||
-                status === "running"
-              ) {
-                runningOwned += 1;
-              }
-            }
-          });
-        }
+        const owned = agents.length;
+        const runningOwned = agents.filter((agent) => {
+          const status =
+            typeof agent?.status === "string" ? agent.status.toLowerCase() : "";
+          return agent?.isOnline || status === "online" || status === "running";
+        }).length;
 
         const statsError =
           statsResult.status === "rejected"
@@ -236,10 +203,10 @@ export default function HomePage() {
           setAgentSummary({
             total: stats?.agentsTotal ?? null,
             online: stats?.agentsOnline ?? null,
-            owned: ownerCandidates.length > 0 ? owned : null,
-            runningOwned: ownerCandidates.length > 0 ? runningOwned : null,
+            owned,
+            runningOwned,
             loading: false,
-            error: agentsError ?? statsError,
+            error: agentsError ?? (shouldFetchGlobalStats ? statsError : null),
           });
         }
       } catch (error) {
@@ -264,7 +231,7 @@ export default function HomePage() {
     return () => {
       active = false;
     };
-  }, [user, user?.email, user?.id, user?.username]);
+  }, [user]);
 
   const heroStats = useMemo(() => {
     const stats: Array<{ icon: LucideIcon; label: string; value: string }> = [

@@ -1,0 +1,13 @@
+{
+  "id": "hermes-volume-widget",
+  "name": "Hermes Volume",
+  "description": "Realtime volume and playback output control for your Hermes PC.",
+  "category": "utilities",
+  "size": {
+    "width": 2,
+    "height": 2
+  },
+  "entry": "./index.tsx",
+  "configSchema": "./config.ts",
+  "preview": ""
+}

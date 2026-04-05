@@ -1,0 +1,13 @@
+{
+  "id": "hermes-pc-widget",
+  "name": "Hermes System",
+  "description": "Compact live system status for your Hermes Windows agent.",
+  "category": "utilities",
+  "size": {
+    "width": 2,
+    "height": 2
+  },
+  "entry": "./index.tsx",
+  "configSchema": "./config.ts",
+  "preview": ""
+}

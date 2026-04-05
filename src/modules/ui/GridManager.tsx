@@ -1,118 +1,226 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { InstalledModule } from "../types";
-import { loadModulesIndex, loadModuleDefinition } from "../loader";
-import { Button } from "@/components/ui/button";
-import { ModuleConfigModal } from "./ModuleConfigModal";
+import {
+  type ComponentType,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Grip, Pencil, Trash2 } from "lucide-react";
+
 import { SharedContextProvider } from "@/providers/SharedContextProvider";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+import { loadModuleDefinition, loadModulesIndex } from "../loader";
+import type { InstalledModule } from "../types";
+import { ModuleConfigModal } from "./ModuleConfigModal";
 
 type GridCell = { x: number; y: number; w: number; h: number };
 
 interface GridManagerProps {
   installed: InstalledModule[];
-  onRemove?: (id: string) => void; // id de instancia (_id) o meta.id si no existe
-  onMove?: (id: string, pos: GridCell) => void; // id de instancia (_id) o meta.id si no existe
+  onRemove?: (id: string) => void;
+  onMove?: (id: string, pos: GridCell) => void;
   onUpdateConfig?: (id: string, config: Record<string, unknown>) => void;
 }
 
-// Tamaño del lienzo: 4 columnas x 5 filas
+type DragState = {
+  id: string;
+  pointerId: number;
+  offsetX: number;
+  offsetY: number;
+  startPosition: GridCell;
+};
+
 const COLS = 4;
 const ROWS = 5;
 
-// Helpers fuera del componente para no afectar dependencias de hooks
-function clampToGrid(p: GridCell): GridCell {
+function clampToGrid(position: GridCell): GridCell {
   return {
-    x: Math.min(Math.max(0, p.x), COLS - Math.max(1, p.w)),
-    y: Math.min(Math.max(0, p.y), ROWS - Math.max(1, p.h)),
-    w: Math.min(Math.max(1, p.w), COLS),
-    h: Math.min(Math.max(1, p.h), ROWS),
+    x: Math.min(Math.max(0, position.x), COLS - Math.max(1, position.w)),
+    y: Math.min(Math.max(0, position.y), ROWS - Math.max(1, position.h)),
+    w: Math.min(Math.max(1, position.w), COLS),
+    h: Math.min(Math.max(1, position.h), ROWS),
   };
 }
 
-function collides(a: GridCell, b: GridCell) {
-  return !(
-    a.x + a.w <= b.x ||
-    b.x + b.w <= a.x ||
-    a.y + a.h <= b.y ||
-    b.y + b.h <= a.y
+function sameCell(left?: GridCell | null, right?: GridCell | null) {
+  if (!left || !right) return false;
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.w === right.w &&
+    left.h === right.h
   );
 }
 
-function occupied(map: Record<string, GridCell>, ignoreId?: string) {
-  const cells: GridCell[] = [];
-  for (const [id, p] of Object.entries(map)) {
-    if (id === ignoreId) continue;
-    cells.push(p);
+function samePositionMap(
+  left: Record<string, GridCell>,
+  right: Record<string, GridCell>
+) {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
   }
-  return cells;
+
+  return leftKeys.every((key) => sameCell(left[key], right[key]));
 }
 
-function findFirstFree(map: Record<string, GridCell>, w = 1, h = 1): GridCell {
-  const taken = occupied(map);
-  for (let y = 0; y < ROWS; y++) {
-    for (let x = 0; x < COLS; x++) {
-      const candidate = clampToGrid({ x, y, w, h });
-      if (!taken.some((p) => collides(p, candidate))) return candidate;
+function collides(left: GridCell, right: GridCell) {
+  return !(
+    left.x + left.w <= right.x ||
+    right.x + right.w <= left.x ||
+    left.y + left.h <= right.y ||
+    right.y + right.h <= left.y
+  );
+}
+
+function occupied(
+  positions: Record<string, GridCell>,
+  ignoreId?: string
+): GridCell[] {
+  return Object.entries(positions)
+    .filter(([id]) => id !== ignoreId)
+    .map(([, position]) => position);
+}
+
+function findNearestFreeCell(
+  positions: Record<string, GridCell>,
+  desired: GridCell,
+  ignoreId?: string
+): GridCell {
+  const target = clampToGrid(desired);
+  const taken = occupied(positions, ignoreId);
+
+  if (!taken.some((item) => collides(item, target))) {
+    return target;
+  }
+
+  let best = target;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (let y = 0; y <= ROWS - target.h; y += 1) {
+    for (let x = 0; x <= COLS - target.w; x += 1) {
+      const candidate = { ...target, x, y };
+      if (taken.some((item) => collides(item, candidate))) {
+        continue;
+      }
+
+      const score =
+        Math.abs(candidate.x - target.x) * 10 + Math.abs(candidate.y - target.y);
+
+      if (score < bestScore) {
+        best = candidate;
+        bestScore = score;
+      }
     }
   }
-  // Si no hay hueco, colócalo arriba a la izquierda con clamp aplicado
-  return clampToGrid({ x: 0, y: 0, w, h });
+
+  return best;
 }
 
-// Obtiene el tamaño deseado del módulo a partir de su configuración o metadata
-function getDesiredSize(inst: InstalledModule): { w: number; h: number } {
-  const cfg: Record<string, unknown> = inst.config ?? {};
+function findFirstFreeCell(
+  positions: Record<string, GridCell>,
+  width = 1,
+  height = 1,
+  ignoreId?: string
+) {
+  return findNearestFreeCell(
+    positions,
+    { x: 0, y: 0, w: width, h: height },
+    ignoreId
+  );
+}
 
-  const toInt = (val: unknown): number | undefined => {
-    if (typeof val === "number") return Math.floor(val);
-    if (typeof val === "string") {
-      const n = parseInt(val, 10);
-      return Number.isFinite(n) ? Math.floor(n) : undefined;
+function getDesiredSize(moduleInstance: InstalledModule): { w: number; h: number } {
+  const config: Record<string, unknown> = moduleInstance.config ?? {};
+
+  const toInt = (value: unknown): number | undefined => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return Math.floor(value);
+    }
+    if (typeof value === "string") {
+      const parsed = parseInt(value, 10);
+      return Number.isFinite(parsed) ? Math.floor(parsed) : undefined;
     }
     return undefined;
   };
 
-  // 1) config.size como "2x3"
-  const sizeRaw: unknown = (cfg as { size?: unknown }).size;
-  if (typeof sizeRaw === "string") {
-    const m = /^(\d+)x(\d+)$/i.exec(sizeRaw);
-    if (m) {
-      return { w: Math.max(1, Number(m[1])), h: Math.max(1, Number(m[2])) };
+  const rawSize = (config as { size?: unknown }).size;
+  if (typeof rawSize === "string") {
+    const match = rawSize.match(/^(\d+)x(\d+)$/i);
+    if (match) {
+      return {
+        w: Math.max(1, Number(match[1])),
+        h: Math.max(1, Number(match[2])),
+      };
     }
   }
-  // 2) config.w / config.h numéricos o strings numéricos
-  const wNum = toInt((cfg as { w?: unknown }).w);
-  const hNum = toInt((cfg as { h?: unknown }).h);
-  if (wNum && hNum && wNum > 0 && hNum > 0) {
-    return { w: wNum, h: hNum };
+
+  const width =
+    toInt((config as { w?: unknown }).w) ??
+    toInt((config as { width?: unknown }).width);
+  const height =
+    toInt((config as { h?: unknown }).h) ??
+    toInt((config as { height?: unknown }).height);
+
+  if (width && height) {
+    return { w: width, h: height };
   }
-  // 3) config.width / config.height
-  const widthNum = toInt((cfg as { width?: unknown }).width);
-  const heightNum = toInt((cfg as { height?: unknown }).height);
-  if (widthNum && heightNum && widthNum > 0 && heightNum > 0) {
-    return { w: widthNum, h: heightNum };
-  }
-  // 4) meta.size como objeto { width, height } (según tipos)
-  const metaSize = inst.meta.size as
+
+  const metaSize = moduleInstance.meta.size as
     | { width?: unknown; height?: unknown }
     | string
     | undefined;
-  if (metaSize) {
-    // Soportar defensivamente string "2x2"
-    if (typeof metaSize === "string") {
-      const m = /^(\d+)x(\d+)$/i.exec(metaSize);
-      if (m) {
-        return { w: Math.max(1, Number(m[1])), h: Math.max(1, Number(m[2])) };
-      }
-    } else {
-      const mw = toInt(metaSize.width);
-      const mh = toInt(metaSize.height);
-      if (mw && mh && mw > 0 && mh > 0) {
-        return { w: mw, h: mh };
-      }
+
+  if (typeof metaSize === "string") {
+    const match = metaSize.match(/^(\d+)x(\d+)$/i);
+    if (match) {
+      return {
+        w: Math.max(1, Number(match[1])),
+        h: Math.max(1, Number(match[2])),
+      };
+    }
+  } else if (metaSize) {
+    const metaWidth = toInt(metaSize.width);
+    const metaHeight = toInt(metaSize.height);
+    if (metaWidth && metaHeight) {
+      return { w: metaWidth, h: metaHeight };
     }
   }
-  // 5) por defecto 1x1
+
   return { w: 1, h: 1 };
+}
+
+function buildPositionMap(
+  installed: InstalledModule[],
+  previous: Record<string, GridCell>
+) {
+  const next: Record<string, GridCell> = {};
+
+  for (const moduleInstance of installed) {
+    const id = moduleInstance._id ?? moduleInstance.meta.id;
+    const desired = getDesiredSize(moduleInstance);
+    const preferred =
+      moduleInstance.position ??
+      previous[id] ??
+      findFirstFreeCell(next, desired.w, desired.h);
+
+    next[id] = findNearestFreeCell(
+      next,
+      clampToGrid({
+        ...preferred,
+        w: desired.w,
+        h: desired.h,
+      }),
+      id
+    );
+  }
+
+  return next;
 }
 
 export function GridManager({
@@ -121,151 +229,221 @@ export function GridManager({
   onMove,
   onUpdateConfig,
 }: GridManagerProps) {
-  const [defs, setDefs] = useState<
+  const [definitions, setDefinitions] = useState<
     Record<
       string,
       {
-        Component: React.ComponentType<{
+        Component: ComponentType<{
           config: Record<string, unknown>;
           onConfigChange?: (config: Record<string, unknown>) => void;
         }>;
       }
     >
   >({});
-
-  const [dragging, setDragging] = useState<{
-    id: string;
-    offsetX: number;
-    offsetY: number;
-  } | null>(null);
   const [positions, setPositions] = useState<Record<string, GridCell>>({});
-  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [dragging, setDragging] = useState<DragState | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const editingInst = useMemo(
+
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const positionsRef = useRef<Record<string, GridCell>>({});
+
+  const editingModule = useMemo(
     () =>
       editingId
-        ? installed.find((m) => (m._id ?? m.meta.id) === editingId)
+        ? installed.find((moduleInstance) => {
+            return (moduleInstance._id ?? moduleInstance.meta.id) === editingId;
+          }) ?? null
         : null,
     [editingId, installed]
   );
 
-  // Cargar componentes dinámicos
+  useEffect(() => {
+    positionsRef.current = positions;
+  }, [positions]);
+
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+
+    void (async () => {
       const index = await loadModulesIndex();
-      const map: Record<
+      const nextDefinitions: Record<
         string,
         {
-          Component: React.ComponentType<{
+          Component: ComponentType<{
             config: Record<string, unknown>;
             onConfigChange?: (config: Record<string, unknown>) => void;
           }>;
         }
       > = {};
-      for (const item of installed) {
-        const entry = index.find((e) => e.meta.id === item.meta.id);
+
+      for (const moduleInstance of installed) {
+        const entry = index.find((item) => item.meta.id === moduleInstance.meta.id);
         if (!entry) continue;
-        const def = await loadModuleDefinition(entry);
-        map[item.meta.id] = { Component: def.Component };
+
+        const definition = await loadModuleDefinition(entry);
+        nextDefinitions[moduleInstance.meta.id] = {
+          Component: definition.Component,
+        };
       }
-      if (!cancelled) setDefs(map);
-    })();
+
+      if (!cancelled) {
+        setDefinitions(nextDefinitions);
+      }
+    })().catch((error) => {
+      if (!cancelled) {
+        console.error("Error loading grid definitions:", error);
+      }
+    });
+
     return () => {
       cancelled = true;
     };
   }, [installed]);
 
-  // Inicializar/mantener posiciones locales basadas en installed.position
   useEffect(() => {
-    setPositions((prev) => {
-      const next = { ...prev };
-      for (const i of installed) {
-        const key = i._id ?? i.meta.id;
-        const desired = getDesiredSize(i);
-        const current = next[key];
-        // Partimos de la posición guardada o de un hueco nuevo, pero siempre con el tamaño deseado
-        let candidate: GridCell = clampToGrid({
-          ...(i.position ??
-            current ?? { x: 0, y: 0, w: desired.w, h: desired.h }),
-          w: desired.w,
-          h: desired.h,
-        });
-        // Si colisiona, buscamos un hueco libre con ese tamaño
-        const others = occupied(next, key);
-        if (others.some((p) => collides(p, candidate))) {
-          candidate = findFirstFree(next, desired.w, desired.h);
-        }
-        next[key] = candidate;
+    if (dragging) return;
+
+    setPositions((previous) => {
+      const next = buildPositionMap(installed, previous);
+      if (samePositionMap(previous, next)) {
+        return previous;
       }
+
+      positionsRef.current = next;
       return next;
     });
-  }, [installed]);
+  }, [dragging, installed]);
 
-  // Utils grid (ahora importadas del scope superior)
-
-  // DnD handlers
-  function handlePointerDown(e: React.PointerEvent, id: string) {
-    // Buscar el contenedor del widget para calcular el offset correcto
-    const container = gridRef.current?.querySelector<HTMLElement>(
-      `[data-widget-id="${id}"]`
-    );
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    setDragging({
-      id,
-      offsetX: e.clientX - rect.left,
-      offsetY: e.clientY - rect.top,
-    });
-  }
-
-  function handlePointerMove(e: React.PointerEvent) {
-    if (!dragging || !gridRef.current) return;
-    const gridRect = gridRef.current.getBoundingClientRect();
-    const cellWidth = gridRect.width / COLS;
-    const cellHeight = gridRect.height / ROWS;
-    const x = Math.floor(
-      (e.clientX - gridRect.left - dragging.offsetX + cellWidth / 2) / cellWidth
-    );
-    const y = Math.floor(
-      (e.clientY - gridRect.top - dragging.offsetY + cellHeight / 2) /
-        cellHeight
-    );
-
-    setPositions((prev) => {
-      const current = prev[dragging.id] ?? { x: 0, y: 0, w: 1, h: 1 };
-      const next = clampToGrid({ ...current, x, y });
-      // Evitar colisiones simples empujando hacia abajo
-      const others = occupied(prev, dragging.id);
-      const adjusted = { ...next };
-      let safety = 0;
-      while (
-        others.some((p) => collides(p, adjusted)) &&
-        safety < ROWS * COLS
-      ) {
-        adjusted.y = Math.min(adjusted.y + 1, ROWS - adjusted.h);
-        safety++;
+  const updatePosition = useCallback((id: string, nextPosition: GridCell) => {
+    setPositions((previous) => {
+      const current = previous[id];
+      if (sameCell(current, nextPosition)) {
+        return previous;
       }
-      return { ...prev, [dragging.id]: adjusted };
+
+      const next = {
+        ...previous,
+        [id]: nextPosition,
+      };
+      positionsRef.current = next;
+      return next;
     });
-  }
+  }, []);
 
-  function handlePointerUp() {
-    if (!dragging) return;
-    const id = dragging.id;
-    setDragging(null);
-    const pos = positions[id];
-    if (pos && onMove) onMove(id, pos);
-  }
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>, id: string) => {
+      const widget = gridRef.current?.querySelector<HTMLElement>(
+        `[data-widget-id="${id}"]`
+      );
+      const startPosition = positionsRef.current[id];
 
-  // Orden de render por fila/columna
-  const items = useMemo(() => {
-    return [...installed].sort((a, b) => {
-      const ka = a._id ?? a.meta.id;
-      const kb = b._id ?? b.meta.id;
-      const pa = positions[ka] ?? { x: 0, y: 0, w: 1, h: 1 };
-      const pb = positions[kb] ?? { x: 0, y: 0, w: 1, h: 1 };
-      return pa.y - pb.y || pa.x - pb.x;
+      if (!widget || !startPosition) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const rect = widget.getBoundingClientRect();
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+
+      setDragging({
+        id,
+        pointerId: event.pointerId,
+        offsetX: event.clientX - rect.left,
+        offsetY: event.clientY - rect.top,
+        startPosition,
+      });
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!dragging) {
+      return;
+    }
+
+    const previousUserSelect = document.body.style.userSelect;
+    const previousCursor = document.body.style.cursor;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "grabbing";
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== dragging.pointerId || !gridRef.current) {
+        return;
+      }
+
+      const gridRect = gridRef.current.getBoundingClientRect();
+      const cellWidth = gridRect.width / COLS;
+      const cellHeight = gridRect.height / ROWS;
+      const nextX = Math.floor(
+        (event.clientX - gridRect.left - dragging.offsetX + cellWidth / 2) /
+          cellWidth
+      );
+      const nextY = Math.floor(
+        (event.clientY - gridRect.top - dragging.offsetY + cellHeight / 2) /
+          cellHeight
+      );
+
+      const current = positionsRef.current[dragging.id];
+      if (!current) {
+        return;
+      }
+
+      const resolved = findNearestFreeCell(
+        positionsRef.current,
+        {
+          ...current,
+          x: nextX,
+          y: nextY,
+        },
+        dragging.id
+      );
+
+      updatePosition(dragging.id, resolved);
+    };
+
+    const finishDrag = (event: PointerEvent) => {
+      if (event.pointerId !== dragging.pointerId) {
+        return;
+      }
+
+      const finalPosition = positionsRef.current[dragging.id];
+      setDragging(null);
+
+      document.body.style.userSelect = previousUserSelect;
+      document.body.style.cursor = previousCursor;
+
+      if (
+        finalPosition &&
+        !sameCell(finalPosition, dragging.startPosition) &&
+        onMove
+      ) {
+        onMove(dragging.id, finalPosition);
+      }
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", finishDrag);
+    window.addEventListener("pointercancel", finishDrag);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", finishDrag);
+      window.removeEventListener("pointercancel", finishDrag);
+      document.body.style.userSelect = previousUserSelect;
+      document.body.style.cursor = previousCursor;
+    };
+  }, [dragging, onMove, updatePosition]);
+
+  const sortedItems = useMemo(() => {
+    return [...installed].sort((left, right) => {
+      const leftId = left._id ?? left.meta.id;
+      const rightId = right._id ?? right.meta.id;
+      const leftPosition = positions[leftId] ?? { x: 0, y: 0, w: 1, h: 1 };
+      const rightPosition = positions[rightId] ?? { x: 0, y: 0, w: 1, h: 1 };
+
+      return leftPosition.y - rightPosition.y || leftPosition.x - rightPosition.x;
     });
   }, [installed, positions]);
 
@@ -273,99 +451,94 @@ export function GridManager({
     <SharedContextProvider>
       <div
         ref={gridRef}
-        className="relative select-none bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md touch-none h-[500px] w-[1024px] mx-auto"
-        style={{ aspectRatio: `${COLS}/${ROWS}` }}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        onPointerLeave={handlePointerUp}
+        className="relative mx-auto h-[500px] w-full max-w-[1024px] touch-none select-none overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
       >
-        {/* Lienzo base con fondo cuadriculado sutil */}
         <div
-          className="absolute inset-0 grid"
+          className="pointer-events-none absolute inset-0 grid"
           style={{
             gridTemplateColumns: `repeat(${COLS}, 1fr)`,
             gridTemplateRows: `repeat(${ROWS}, 1fr)`,
           }}
         >
-          {Array.from({ length: COLS * ROWS }).map((_, idx) => (
+          {Array.from({ length: COLS * ROWS }).map((_, index) => (
             <div
-              key={idx}
+              key={index}
               className="border border-dashed border-zinc-200 dark:border-zinc-800"
             />
           ))}
         </div>
 
-        {/* Widgets posicionados absolutamente */}
-        {items.map((i) => {
-          const key = i._id ?? i.meta.id;
-          const pos = positions[key] ?? { x: 0, y: 0, w: 1, h: 1 };
-          const Def = defs[i.meta.id]?.Component;
+        {sortedItems.map((moduleInstance) => {
+          const id = moduleInstance._id ?? moduleInstance.meta.id;
+          const position = positions[id] ?? { x: 0, y: 0, w: 1, h: 1 };
+          const Definition = definitions[moduleInstance.meta.id]?.Component;
+          const isDragging = dragging?.id === id;
+
           return (
             <div
-              key={key}
+              key={id}
               className="absolute p-2"
               style={{
-                left: `calc(${pos.x} / ${COLS} * 100%)`,
-                top: `calc(${pos.y} / ${ROWS} * 100%)`,
-                width: `calc(${pos.w} / ${COLS} * 100%)`,
-                height: `calc(${pos.h} / ${ROWS} * 100%)`,
+                left: `calc(${position.x} / ${COLS} * 100%)`,
+                top: `calc(${position.y} / ${ROWS} * 100%)`,
+                width: `calc(${position.w} / ${COLS} * 100%)`,
+                height: `calc(${position.h} / ${ROWS} * 100%)`,
+                zIndex: isDragging ? 30 : 10,
               }}
             >
               <div
-                className="h-full w-full shadow-sm overflow-hidden group relative"
-                data-widget-id={key}
+                data-widget-id={id}
+                className={cn(
+                  "group relative h-full w-full overflow-hidden rounded-lg border bg-background shadow-sm transition-shadow",
+                  isDragging
+                    ? "border-primary/60 shadow-xl ring-2 ring-primary/25"
+                    : "border-border hover:shadow-md"
+                )}
               >
-                {/* Barra de acciones */}
-                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-10">
+                <div className="absolute right-2 top-2 z-20 flex items-center gap-1 rounded-md bg-background/90 p-1 shadow-sm backdrop-blur-sm">
                   <Button
-                    size="icon"
+                    size="icon-sm"
                     variant="secondary"
-                    className="h-7 w-7 cursor-grab active:cursor-grabbing"
-                    title="Move"
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handlePointerDown(e, key);
-                    }}
+                    className="cursor-grab active:cursor-grabbing"
+                    title="Move widget"
+                    onPointerDown={(event) => handlePointerDown(event, id)}
                   >
-                    ≡
+                    <Grip className="size-4" />
                   </Button>
                   <Button
-                    size="icon"
+                    size="icon-sm"
                     variant="secondary"
-                    className="h-7 w-7 cursor-pointer"
-                    title="Edit configuration"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingId(key);
+                    title="Edit widget"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setEditingId(id);
                     }}
                   >
-                    ✎
+                    <Pencil className="size-4" />
                   </Button>
                   <Button
-                    size="icon"
+                    size="icon-sm"
                     variant="destructive"
-                    className="h-7 w-7 cursor-pointer"
-                    title="Delete"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemove?.(key);
+                    title="Delete widget"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRemove?.(id);
                     }}
                   >
-                    ×
+                    <Trash2 className="size-4" />
                   </Button>
                 </div>
+
                 <div className="h-full w-full">
-                  {Def ? (
-                    <Def
-                      config={i.config}
-                      onConfigChange={(newConfig) => {
-                        onUpdateConfig?.(key, newConfig);
+                  {Definition ? (
+                    <Definition
+                      config={moduleInstance.config}
+                      onConfigChange={(config) => {
+                        onUpdateConfig?.(id, config);
                       }}
                     />
                   ) : (
-                    <div className="h-full grid place-items-center text-sm text-zinc-500">
+                    <div className="grid h-full place-items-center text-sm text-zinc-500">
                       Loading...
                     </div>
                   )}
@@ -375,21 +548,20 @@ export function GridManager({
           );
         })}
 
-        {/* Modal de edición de configuración */}
-        {editingId && editingInst && (
+        {editingId && editingModule ? (
           <ModuleConfigModal
             key={`edit-${editingId}`}
-            meta={editingInst.meta}
-            open={!!editingId}
+            meta={editingModule.meta}
+            open={Boolean(editingId)}
             onClose={() => setEditingId(null)}
             onSave={(config) => {
               onUpdateConfig?.(editingId, config);
               setEditingId(null);
             }}
             mode="edit"
-            initialConfig={editingInst.config}
+            initialConfig={editingModule.config}
           />
-        )}
+        ) : null}
       </div>
     </SharedContextProvider>
   );

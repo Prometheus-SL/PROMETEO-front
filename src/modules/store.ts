@@ -134,12 +134,26 @@ export function useMarketplaceStore() {
 
     function setModulePosition(id: string, position?: InstalledModule["position"]) {
         // Actualiza estado local
-        setState((s) => ({
-            ...s,
-            installed: s.installed.map((i) =>
+        setState((s) => {
+            const installed = s.installed.map((i) =>
                 (i._id === id || i.meta.id === id) ? { ...i, position } : i
-            ),
-        }))
+            )
+            const pages = s.pages.map((p) =>
+                p._id === s.currentPageId
+                    ? {
+                        ...p,
+                        modules: p.modules.map((m) =>
+                            (m._id === id || m.meta.id === id) ? { ...m, position } : m
+                        ),
+                    }
+                    : p
+            )
+            return {
+                ...s,
+                installed,
+                pages,
+            }
+        })
         // Persistencia individual inmediata si hay _id
         const pageId = state.currentPageId
         const mod = state.installed.find((m) => m._id === id || m.meta.id === id)

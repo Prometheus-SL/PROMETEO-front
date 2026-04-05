@@ -76,7 +76,7 @@ export function AgentDataDialog({ agentId, children }: Props) {
                   </div>
                 )}
                 <pre className="whitespace-pre-wrap break-words rounded bg-muted p-2 text-xs">
-                  {JSON.stringify(it.data.data, null, 2)}
+                  {JSON.stringify(it.data, null, 2)}
                 </pre>
               </div>
             ))}
