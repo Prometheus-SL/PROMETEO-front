@@ -1,0 +1,41 @@
+[
+    {
+        "id": "spotify-widget",
+        "name": "Spotify Now Playing",
+        "description": "Display and control your current Spotify playback with full controls, progress slider, and recently played tracks.",
+        "category": "entertainment",
+        "size": {
+            "width": 2,
+            "height": 2
+        },
+        "entry": "./index2x2.tsx",
+        "configSchema": "./config.ts",
+        "preview": ""
+    },
+    {
+        "id": "spotify-widget-compact",
+        "name": "Spotify Now Playing (Compact)",
+        "description": "Display and control your current Spotify playback with full controls, progress slider, and recently played tracks.",
+        "category": "entertainment",
+        "size": {
+            "width": 2,
+            "height": 1
+        },
+        "entry": "./index2x1.tsx",
+        "configSchema": "./config.ts",
+        "preview": ""
+    },
+    {
+        "id": "spotify-widget-queue",
+        "name": "Spotify Now Playing (With Queue)",
+        "description": "Full Spotify player with playback queue on the right side. Click on any track in the queue to play it.",
+        "category": "entertainment",
+        "size": {
+            "width": 3,
+            "height": 3
+        },
+        "entry": "./index3x3.tsx",
+        "configSchema": "./config.ts",
+        "preview": ""
+    }
+]

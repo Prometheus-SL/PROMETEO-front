@@ -1,0 +1,13 @@
+{
+  "id": "minecraft-widget",
+  "name": "Minecraft Server Info",
+  "description": "A widget to display information about a Minecraft server.",
+  "category": "utilities",
+  "size": {
+    "width": 2,
+    "height": 2
+  },
+  "entry": "./index.tsx",
+  "configSchema": "./config.ts",
+  "preview": ""
+}

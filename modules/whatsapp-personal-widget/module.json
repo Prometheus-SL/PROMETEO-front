@@ -1,0 +1,12 @@
+{
+  "id": "whatsapp-personal-widget",
+  "name": "WhatsApp",
+  "description": "A widget to display your WhatsApp conversations.",
+  "category": "communications",
+  "size": {
+    "width": 2,
+    "height": 3
+  },
+  "entry": "./index.tsx",
+  "configSchema": "./config.ts"
+}
