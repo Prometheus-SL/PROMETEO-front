@@ -69,8 +69,13 @@ export class LifxApi {
         saturation: number,
         brightness?: number
     ): Promise<void> {
+        const normalizedHue = ((Math.round(hue) % 360) + 360) % 360;
+        const normalizedSaturation = Math.max(
+            0,
+            Math.min(1, saturation / 100)
+        );
         const body: Record<string, unknown> = {
-            color: `hsl(${hue},${saturation}%,50%)`,
+            color: `hue:${normalizedHue} saturation:${normalizedSaturation.toFixed(3)}`,
         };
 
         if (brightness !== undefined) {
@@ -87,7 +92,7 @@ export class LifxApi {
         await this.request(`/lights/${lightId}/state`, {
             method: "PUT",
             body: JSON.stringify({
-                color: `kelvin:${Math.max(1500, Math.min(4000, kelvin))}`,
+                color: `kelvin:${Math.max(1500, Math.min(9000, kelvin))}`,
             }),
         });
     }

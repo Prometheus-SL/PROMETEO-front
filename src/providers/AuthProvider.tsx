@@ -19,6 +19,7 @@ interface AuthContextProps {
   ) => Promise<void>;
   loading: boolean;
   error: string | null;
+  clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);

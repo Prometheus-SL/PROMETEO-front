@@ -1,10 +1,16 @@
-import { Music2 } from "lucide-react";
-import { Card, CardDescription, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { GridPattern } from "@/components/ui/grid-pattern";
-import { useSpotifyState } from "./useSpotifyState";
 import { Progress } from "@/components/ui/progress";
+import {
+  WidgetContent,
+  WidgetSection,
+  WidgetShell,
+} from "@/modules/ui/WidgetShell";
+
+import { useSpotifyState } from "./useSpotifyState";
+import {
+  SpotifyArtwork,
+  SpotifyConnectState,
+  SpotifyTransportControls,
+} from "./widget-ui";
 
 export default function SpotifyWidgetCompact({
   config,
@@ -13,129 +19,92 @@ export default function SpotifyWidgetCompact({
   config: Record<string, unknown>;
   onConfigChange?: (config: Record<string, unknown>) => void;
 }) {
-  // Usar el hook compartido
-  const { auth, playbackState, isTransitioning, startOAuthFlow } =
-    useSpotifyState(config);
+  const {
+    auth,
+    playbackState,
+    isTransitioning,
+    playPause,
+    skipNext,
+    skipPrevious,
+    toggleShuffle,
+    toggleRepeat,
+    startOAuthFlow,
+  } = useSpotifyState(config);
 
   const track = playbackState?.item;
   const albumArt = track?.album?.images?.[0]?.url;
   const progress = playbackState?.progress_ms ?? 0;
   const duration = track?.duration_ms ?? 0;
-
-  const formatTime = (ms: number) => {
-    const seconds = Math.floor(ms / 1000);
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
+  const progressPercent = duration
+    ? Math.max(0, Math.min(100, (progress / duration) * 100))
+    : 0;
 
   if (!auth.isAuthenticated) {
     return (
-      <Card className="relative border border-border/60 bg-background/90 shadow-lg shadow-primary/10">
-        <GridPattern
-          width={30}
-          height={30}
-          x={-1}
-          y={-1}
-          strokeDasharray="4 2"
-          className="pointer-events-none opacity-40 [mask-image:radial-gradient(360px_circle_at_center,white,transparent)]"
-        />
-        <div className="absolute inset-0 bg-gradient-to-br from-green-500/15 via-primary/10 to-background" />
-
-        <CardHeader className="relative pb-2 flex flex-col">
-          <CardDescription className="text-xs flex justify-center">
-            <Button
-              onClick={() => startOAuthFlow(onConfigChange)}
-              variant="default"
-              size="sm"
-            >
-              Connect Spotify
-            </Button>
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <SpotifyConnectState
+        title="Spotify Compact"
+        message="Conecta tu cuenta para ver la reproduccion actual."
+        compact
+        onConnect={() => startOAuthFlow(onConfigChange)}
+      />
     );
   }
 
   return (
-    <Card className="relative h-full overflow-hidden border border-border/60 bg-background/90 shadow-lg shadow-primary/10">
-      <GridPattern
-        width={30}
-        height={30}
-        x={-1}
-        y={-1}
-        strokeDasharray="4 2"
-        className="pointer-events-none opacity-40 [mask-image:radial-gradient(360px_circle_at_center,white,transparent)]"
-      />
+    <WidgetShell >
       <div
-        className="absolute inset-0 bg-gradient-to-br from-green-500/15 via-primary/10 to-background"
+        className="absolute inset-0 bg-black/40"
         style={{
-          backgroundImage: albumArt
-            ? `linear-gradient(to bottom, rgba(0,0,0,0.5), rgba(0,0,0,0.85)), url(${albumArt})`
-            : undefined,
+          backgroundImage: `url(${albumArt})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
+          filter: "blur(5px) brightness(0.5)",
         }}
       />
-      {albumArt && (
-        <div className="absolute inset-0 backdrop-blur-xs bg-background/40 rounded-xl" />
-      )}
-
-      <div className="relative flex h-full items-center gap-3 p-3">
-        {/* Álbum */}
-        {albumArt ? (
-          <img
+      <WidgetContent className="flex h-full flex-col pt-1.5 pb-1.5">
+        <WidgetSection
+          accent="emerald"
+          className="flex min-h-0 flex-1 items-center gap-2.5 bg-background/82 px-2 py-2"
+        >
+          <SpotifyArtwork
             src={albumArt}
             alt="Album art"
-            className={cn(
-              "size-16 rounded-lg shadow-xl transition-all duration-500 ease-in-out shrink-0",
-              isTransitioning
-                ? "scale-90 opacity-40 blur-sm"
-                : "scale-100 opacity-100 blur-0"
-            )}
+            className="size-12 rounded-xl"
+            iconClassName="size-5"
+            isTransitioning={isTransitioning}
           />
-        ) : (
-          <div className="grid size-16 place-items-center rounded-lg border border-border/40 bg-muted shrink-0">
-            <Music2 className="size-8 text-muted-foreground" />
-          </div>
-        )}
 
-        {/* Info y controles */}
-        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-          {/* Título y artista */}
-          <div
-            className={cn(
-              "min-w-0 transition-all duration-500 ease-in-out",
-              isTransitioning
-                ? "opacity-30 translate-x-2"
-                : "opacity-100 translate-x-0"
-            )}
-          >
-            <h3 className="truncate text-sm font-bold text-foreground drop-shadow-md">
-              {track?.name ?? "No track playing"}
-            </h3>
-            <p className="truncate text-xs text-foreground/80 drop-shadow-sm">
-              {track?.artists?.map((a) => a.name).join(", ") ??
-                "Unknown artist"}
-            </p>
-          </div>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">
+                {track?.name ?? "No track playing"}
+              </p>
+              <p className="text-muted-foreground truncate text-[11px]">
+                {track?.artists?.map((artist) => artist.name).join(", ") ||
+                  "Start playback to see music here"}
+              </p>
+            </div>
 
-          {/* Barra de progreso */}
-          <div className="flex items-center gap-2 mx-0">
-            <span className="text-[10px] text-foreground/70 w-9 text-right">
-              {formatTime(progress)}
-            </span>
             <Progress
-              value={Math.max(0, Math.min(100, (progress / duration) * 100))}
-              max={100}
-              className="flex-1"
+              value={progressPercent}
+              className="h-1.5 bg-emerald-500/10 [&_[data-slot=progress-indicator]]:bg-emerald-500"
             />
-            <span className="text-[10px] text-foreground/70 w-9">
-              {formatTime(duration)}
-            </span>
           </div>
-        </div>
-      </div>
-    </Card>
+
+          <SpotifyTransportControls
+            compact
+            canControl={Boolean(track)}
+            isPlaying={Boolean(playbackState?.is_playing)}
+            shuffleEnabled={playbackState?.shuffle_state}
+            repeatState={playbackState?.repeat_state}
+            onToggleShuffle={toggleShuffle}
+            onPrevious={skipPrevious}
+            onTogglePlay={playPause}
+            onNext={skipNext}
+            onToggleRepeat={toggleRepeat}
+          />
+        </WidgetSection>
+      </WidgetContent>
+    </WidgetShell>
   );
 }

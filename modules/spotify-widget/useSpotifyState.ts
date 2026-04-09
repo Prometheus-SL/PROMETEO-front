@@ -144,6 +144,12 @@ let refreshAccessTokenPromise: Promise<boolean> | null = null;
 const SPOTIFY_ACTIVE_POLL_INTERVAL_MS = 3000;
 const SPOTIFY_IDLE_POLL_INTERVAL_MS = 10000;
 
+function wait(ms: number) {
+    return new Promise<void>((resolve) => {
+        window.setTimeout(resolve, ms);
+    });
+}
+
 function stopSpotifyPolling() {
     if (pollingTimeoutId) {
         clearTimeout(pollingTimeoutId);
@@ -385,6 +391,26 @@ export function useSpotifyState(config: Record<string, unknown>) {
     }, [refreshAccessToken, fetchContextInfo]);
 
     // Controles de reproducción
+    const fetchQueue = React.useCallback(async () => {
+        const { accessToken } = globalSpotifyState.auth;
+        if (!accessToken) return;
+
+        try {
+            const response = await fetch("https://api.spotify.com/v1/me/player/queue", {
+                headers: { Authorization: `Bearer ${accessToken}` },
+            });
+
+            if (!response.ok) return;
+
+            const data = await response.json();
+            const queue = data.queue || [];
+
+            updateGlobalState({ queue });
+        } catch (e) {
+            console.error("Error fetching queue:", e);
+        }
+    }, []);
+
     const playPause = React.useCallback(async () => {
         const { accessToken } = globalSpotifyState.auth;
         const { playbackState } = globalSpotifyState;
@@ -402,20 +428,30 @@ export function useSpotifyState(config: Record<string, unknown>) {
         }
     }, [fetchPlaybackState]);
 
-    const skipNext = React.useCallback(async () => {
+    const skipNext = React.useCallback(async (syncQueue = true) => {
         const { accessToken } = globalSpotifyState.auth;
         if (!accessToken) return;
 
         try {
-            await fetch("https://api.spotify.com/v1/me/player/next", {
+            const response = await fetch("https://api.spotify.com/v1/me/player/next", {
                 method: "POST",
                 headers: { Authorization: `Bearer ${accessToken}` },
             });
-            setTimeout(fetchPlaybackState, 300);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            await wait(350);
+            await fetchPlaybackState();
+
+            if (syncQueue) {
+                await fetchQueue();
+            }
         } catch (e) {
             console.error("Error skipping:", e);
         }
-    }, [fetchPlaybackState]);
+    }, [fetchPlaybackState, fetchQueue]);
 
     const skipPrevious = React.useCallback(async () => {
         const { accessToken } = globalSpotifyState.auth;
@@ -538,25 +574,23 @@ export function useSpotifyState(config: Record<string, unknown>) {
         };
     }, []);
 
-    const fetchQueue = React.useCallback(async () => {
-        const { accessToken } = globalSpotifyState.auth;
-        if (!accessToken) return;
+    const advanceToQueueIndex = React.useCallback(async (targetIndex: number) => {
+        const { playbackState, queue } = globalSpotifyState;
+        if (!playbackState?.device) return;
+
+        const normalizedIndex = Math.max(0, Math.floor(targetIndex));
+        const steps = Math.min(queue.length, normalizedIndex + 1);
+
+        if (!steps) return;
 
         try {
-            const response = await fetch("https://api.spotify.com/v1/me/player/queue", {
-                headers: { Authorization: `Bearer ${accessToken}` },
-            });
-
-            if (!response.ok) return;
-
-            const data = await response.json();
-            const queue = data.queue || [];
-
-            updateGlobalState({ queue });
+            for (let step = 0; step < steps; step += 1) {
+                await skipNext(step === steps - 1);
+            }
         } catch (e) {
-            console.error("Error fetching queue:", e);
+            console.error("Error advancing queue:", e);
         }
-    }, []);
+    }, [skipNext]);
 
     const playTrack = React.useCallback(async (uri: string) => {
         const { accessToken } = globalSpotifyState.auth;
@@ -955,6 +989,7 @@ export function useSpotifyState(config: Record<string, unknown>) {
         seekToPosition,
         setVolumeLevel,
         fetchQueue,
+        advanceToQueueIndex,
         playTrack,
         startOAuthFlow,
     };

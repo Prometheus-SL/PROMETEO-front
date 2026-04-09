@@ -51,6 +51,59 @@ async function parseResponse<T>(res: Response, asText?: boolean): Promise<T> {
     return (await res.text()) as unknown as T;
 }
 
+function getErrorMessageFromPayload(payload: unknown, fallback: string) {
+    if (typeof payload === "string" && payload.trim()) {
+        return payload.trim();
+    }
+
+    if (!payload || typeof payload !== "object") {
+        return fallback;
+    }
+
+    const data = payload as Record<string, unknown>;
+    const details = data.details;
+    const errors = data.errors;
+
+    if (Array.isArray(errors)) {
+        const firstError = errors.find(
+            (item) => item && typeof item === "object" && typeof (item as { message?: unknown }).message === "string"
+        ) as { message?: string } | undefined;
+
+        if (firstError?.message?.trim()) {
+            return firstError.message.trim();
+        }
+    }
+
+    if (Array.isArray(details)) {
+        const detailMessage = details
+            .map((item) => {
+                if (typeof item === "string") return item.trim();
+                if (item && typeof item === "object" && typeof (item as { message?: unknown }).message === "string") {
+                    return ((item as { message: string }).message).trim();
+                }
+                return "";
+            })
+            .filter(Boolean)
+            .join(" ");
+
+        if (detailMessage) {
+            return detailMessage;
+        }
+    }
+
+    if (typeof details === "string" && details.trim()) {
+        return details.trim();
+    }
+
+    return (
+        (typeof data.error === "string" && data.error.trim()) ||
+        (typeof data.message === "string" && data.message.trim()) ||
+        (typeof data.detail === "string" && data.detail.trim()) ||
+        (typeof data.title === "string" && data.title.trim()) ||
+        fallback
+    );
+}
+
 function buildHeaders(init?: HeadersInit, token?: string | null): HeadersInit {
     const headers = new Headers(init);
     if (!headers.has("Accept")) headers.set("Accept", "application/json");
@@ -100,42 +153,40 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
     if (res.ok) return parseResponse<T>(res, asText);
 
     // Intento de refresh en 401
-    if (res.status === 401 && retryOn401 && tryRefreshTokens) {
+    if (res.status === 401 && !skipAuth && retryOn401 && tryRefreshTokens) {
         const refreshed = await tryRefreshTokens();
         if (refreshed) {
             return request<T>(endpoint, { ...options, retryOn401: false });
         }
     }
 
-    // Construimos ApiError con el mejor mensaje disponible
+    let errData: unknown;
+
     try {
-        const errData = await parseResponse<unknown>(res);
-        let message: string = res.statusText || `Error ${res.status}`;
-
-        if (typeof errData === "string") {
-            message = errData;
-        } else if (errData && typeof errData === "object") {
-            const obj = errData as Record<string, unknown>;
-            message =
-                (typeof obj.error === "string" && obj.error) ||
-                (Array.isArray(obj.errors) && typeof obj.errors[0]?.message === "string" && obj.errors[0].message) ||
-                (typeof obj.detail === "string" && obj.detail) ||
-                (typeof obj.title === "string" && obj.title);
-
-        }
-        throw new ApiError(message, res.status, errData);
+        errData = await parseResponse<unknown>(res);
     } catch {
-        if (res.statusText === "Unauthorized") {
-            localStorage.removeItem(ACCESS_TOKEN_KEY);
-            localStorage.removeItem(REFRESH_TOKEN_KEY);
-            localStorage.removeItem(USER_KEY);
-            const target = window.location.pathname.startsWith("/client")
-                ? "/client"
-                : "/login";
+        errData = undefined;
+    }
+
+    if (res.status === 401 && !skipAuth) {
+        localStorage.removeItem(ACCESS_TOKEN_KEY);
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+
+        const target = window.location.pathname.startsWith("/client")
+            ? "/client"
+            : "/login";
+
+        if (window.location.pathname !== target) {
             window.location.replace(target);
         }
     }
-    throw new ApiError(res.statusText || `Error ${res.status}`, res.status);
+
+    throw new ApiError(
+        getErrorMessageFromPayload(errData, res.statusText || `Error ${res.status}`),
+        res.status,
+        errData
+    );
 };
 
 export const api = {

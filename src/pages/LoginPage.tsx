@@ -1,11 +1,18 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { EyeClosedIcon, EyeIcon, QrCode } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/providers/AuthProvider";
-
-import { Link, useNavigate } from "react-router-dom";
-import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { Field, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldSet,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import Background from "@/components/common/background";
 import {
   InputGroup,
@@ -13,25 +20,32 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { EyeClosedIcon, EyeIcon, QrCode } from "lucide-react";
 import { BorderBeam } from "@/components/ui/border-beam";
 import QRLogin from "@/components/auth/QRLogin";
 
+function getLoginErrors(identifier: string, password: string) {
+  return {
+    identifier: identifier.trim()
+      ? null
+      : "Introduce tu email o nombre de usuario.",
+    password: password ? null : "Introduce tu contrasena.",
+  };
+}
+
 export default function LoginPage() {
-  const { login, loading, error, accessToken } = useAuthContext();
-  const [username, setUsername] = useState("");
+  const { login, loading, error, accessToken, clearError } = useAuthContext();
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showQRLogin, setShowQRLogin] = useState(false);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const navigate = useNavigate();
 
-  // Logo definition
-  const logo = {
-    url: "/",
-    src: "/logo.svg",
-    alt: "Prometeo Logo",
-    title: "Prometeo",
-  };
+  const validationErrors = getLoginErrors(identifier, password);
+
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
 
   useEffect(() => {
     if (accessToken) {
@@ -39,14 +53,30 @@ export default function LoginPage() {
     }
   }, [accessToken, navigate]);
 
-  const handleSubmit = () => {
-    login(username, password);
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAttemptedSubmit(true);
+
+    const trimmedIdentifier = identifier.trim();
+    const nextErrors = getLoginErrors(trimmedIdentifier, password);
+
+    if (nextErrors.identifier || nextErrors.password) {
+      return;
+    }
+
+    await login(trimmedIdentifier, password);
+  };
+
+  const logo = {
+    url: "/",
+    src: "/logo.svg",
+    alt: "Prometeo Logo",
+    title: "Prometeo",
   };
 
   return (
     <Background>
       <div className="flex h-screen w-screen items-center justify-center">
-        {/* Logo */}
         <div className="flex flex-col items-center gap-6 lg:justify-start">
           <a href={logo.url}>
             <img
@@ -57,101 +87,136 @@ export default function LoginPage() {
             />
           </a>
 
-          {/* Contenedor de login con toggle QR/Normal */}
           <div className="relative min-w-sm border-muted bg-background flex w-full max-w-sm flex-col items-center gap-y-4 rounded-md border px-6 py-8 shadow-md">
             <h1 className="text-xl font-semibold">Welcome to Prometeo</h1>
 
             {!showQRLogin ? (
-              // Login normal
               <div className="w-full max-w-md space-y-4">
-                <FieldSet>
-                  <FieldGroup>
-                    <Field>
-                      <FieldLabel htmlFor="email">Email</FieldLabel>
-                      <Input
-                        type="email"
-                        placeholder="Email"
-                        className="text-sm"
-                        required
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            handleSubmit();
-                          }
-                        }}
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="password">Password</FieldLabel>
-
-                      <InputGroup>
-                        <InputGroupInput
-                          type={showPassword ? "text" : "password"}
-                          placeholder="Password"
+                <form onSubmit={handleSubmit} noValidate>
+                  <FieldSet>
+                    <FieldGroup>
+                      <Field>
+                        <FieldLabel htmlFor="login-identifier">
+                          Email or username
+                        </FieldLabel>
+                        <Input
+                          id="login-identifier"
+                          type="text"
+                          placeholder="name@example.com"
                           className="text-sm"
-                          required
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              handleSubmit();
+                          value={identifier}
+                          autoComplete="username"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          autoFocus
+                          aria-invalid={
+                            attemptedSubmit &&
+                            Boolean(validationErrors.identifier)
+                          }
+                          onChange={(e) => {
+                            if (error) {
+                              clearError();
                             }
+                            setIdentifier(e.target.value);
                           }}
                         />
-                        <InputGroupAddon align="inline-end">
-                          <InputGroupButton
-                            onClick={() => setShowPassword(!showPassword)}
-                            size="icon-xs"
-                          >
-                            {showPassword ? (
-                              <EyeIcon className="h-4 w-4" />
-                            ) : (
-                              <EyeClosedIcon className="h-4 w-4" />
-                            )}
-                          </InputGroupButton>
-                        </InputGroupAddon>
-                      </InputGroup>
-                    </Field>
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      onClick={handleSubmit}
-                      disabled={loading}
-                    >
-                      {loading ? (
-                        <>
-                          <Spinner />
-                          Loading...
-                        </>
-                      ) : (
-                        "Login"
-                      )}
-                    </Button>
-                    {error && (
-                      <div className="text-sm text-red-600">{error}</div>
-                    )}
-                  </FieldGroup>
-                </FieldSet>
+                        {attemptedSubmit && (
+                          <FieldError>{validationErrors.identifier}</FieldError>
+                        )}
+                      </Field>
 
-                {/* Botón para cambiar a QR */}
+                      <Field>
+                        <FieldLabel htmlFor="login-password">
+                          Password
+                        </FieldLabel>
+
+                        <InputGroup>
+                          <InputGroupInput
+                            id="login-password"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Password"
+                            className="text-sm"
+                            value={password}
+                            autoComplete="current-password"
+                            aria-invalid={
+                              attemptedSubmit &&
+                              Boolean(validationErrors.password)
+                            }
+                            onChange={(e) => {
+                              if (error) {
+                                clearError();
+                              }
+                              setPassword(e.target.value);
+                            }}
+                          />
+                          <InputGroupAddon align="inline-end">
+                            <InputGroupButton
+                              onClick={() => setShowPassword(!showPassword)}
+                              size="icon-xs"
+                            >
+                              {showPassword ? (
+                                <EyeIcon className="h-4 w-4" />
+                              ) : (
+                                <EyeClosedIcon className="h-4 w-4" />
+                              )}
+                            </InputGroupButton>
+                          </InputGroupAddon>
+                        </InputGroup>
+                        {attemptedSubmit && (
+                          <FieldError>{validationErrors.password}</FieldError>
+                        )}
+                      </Field>
+
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={loading}
+                      >
+                        {loading ? (
+                          <>
+                            <Spinner />
+                            Signing in...
+                          </>
+                        ) : (
+                          "Login"
+                        )}
+                      </Button>
+
+                      {error && (
+                        <div
+                          role="alert"
+                          className="rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-600"
+                        >
+                          {error}
+                        </div>
+                      )}
+                    </FieldGroup>
+                  </FieldSet>
+                </form>
+
                 <div className="flex items-center justify-center">
                   <Button
-                    onClick={() => setShowQRLogin(true)}
+                    onClick={() => {
+                      clearError();
+                      setShowQRLogin(true);
+                    }}
                     variant="outline"
                     size="sm"
                     className="w-full"
                   >
-                    <QrCode className="h-4 w-4 mr-2" />
-                    Login con código QR
+                    <QrCode className="mr-2 h-4 w-4" />
+                    Login con codigo QR
                   </Button>
                 </div>
               </div>
             ) : (
-              // Login QR
               <div className="w-full">
-                <QRLogin onBack={() => setShowQRLogin(false)} />
+                <QRLogin
+                  onBack={() => {
+                    clearError();
+                    setShowQRLogin(false);
+                  }}
+                />
               </div>
             )}
             <BorderBeam duration={8} size={100} />

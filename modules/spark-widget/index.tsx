@@ -1,13 +1,13 @@
 import type { CSSProperties } from "react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSharedContext } from "@/hooks/useSharedContext";
 import type { SharedAction } from "@/contexts/SharedContext";
 import { Particles } from "@/components/ui/shadcn-io/particles";
@@ -671,107 +671,97 @@ export default function SparkChispaCard({
 
   return (
     <>
-      <Card
-        className="group relative h-full w-full overflow-hidden rounded-2xl border bg-transparent p-6 backdrop-blur-md transition-[transform,box-shadow] duration-500"
+      <div
+        className="absolute inset-0 rounded-[inherit]"
         style={{
           background: backgroundGradient,
           borderColor,
           boxShadow: `0 18px 50px ${surfaceShadow}, inset 0 0 24px ${glowColor}`,
         }}
-        onMouseMove={markActive}
-        onPointerDown={markActive}
-        onTouchStart={markActive}
-      >
-        <div
-          className="pointer-events-none absolute inset-0"
-          aria-hidden="true"
-        >
-          <div
-            className="absolute inset-x-[-28%] top-[-35%] h-[65%] blur-[120px] opacity-60"
-            style={{
-              background: topBackgroundGlow,
-            }}
-          />
-          <div
-            className="absolute inset-x-[-25%] bottom-[-45%] h-[70%] blur-[140px] opacity-70"
-            style={{
-              background: bottomBackgroundGlow,
-            }}
-          />
-        </div>
-        <div className="relative flex h-full w-full items-center justify-center overflow-visible">
-          <div className="relative flex flex-col items-center justify-center gap-3">
-            <div
-              aria-hidden="true"
-              className="absolute inset-x-[-35%] top-[58%] -z-10 h-40 blur-[100px] opacity-80 transition-opacity duration-500 group-hover:opacity-100"
-              style={{
-                background: sparkGroundGlow,
-              }}
-            />
-            {/* Chispa */}
-            <button
-              type="button"
-              aria-label={
-                isListening ? "Detener grabacion de Spark" : "Hablar con Spark"
-              }
-              onClick={handleSparkPress}
-              disabled={isTranscribing}
-              className="group/spark relative rounded-full bg-transparent p-0 transition-transform duration-300 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/75 disabled:cursor-wait disabled:opacity-80"
-            >
-              {isListening ? (
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-[-8%] rounded-full border border-white/40"
-                  style={{
-                    boxShadow: `0 0 0 10px ${toRgba(accentColor, 0.12)}`,
-                  }}
-                />
-              ) : null}
-              <SparkSvg color={color} mood={mood} accessory={accessory} />
-            </button>
+      />
 
-            <div className="min-h-5 text-center text-xs font-medium text-foreground/70">
-              {isListening
-                ? "Escuchando... se parara cuando detecte silencio."
-                : isTranscribing
-                  ? "Procesando..."
-                  : "Toca a " + name + " para hablar"}
-            </div>
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div
+          className="absolute inset-x-[-28%] top-[-35%] h-[65%] blur-[120px] opacity-60"
+          style={{ background: topBackgroundGlow }}
+        />
+        <div
+          className="absolute inset-x-[-25%] bottom-[-45%] h-[70%] blur-[140px] opacity-70"
+          style={{ background: bottomBackgroundGlow }}
+        />
+      </div>
+
+      <div className="relative flex h-full w-full items-center justify-center overflow-visible">
+        <div className="relative flex flex-col items-center justify-center gap-3">
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-[-35%] top-[58%] -z-10 h-40 blur-[100px] opacity-80"
+            style={{ background: sparkGroundGlow }}
+          />
+
+          <button
+            type="button"
+            aria-label={
+              isListening ? "Detener grabacion de Spark" : "Hablar con Spark"
+            }
+            onClick={handleSparkPress}
+            disabled={isTranscribing}
+            className="group/spark relative rounded-full bg-transparent p-0 transition-transform duration-300 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/75 disabled:cursor-wait disabled:opacity-80"
+          >
+            {isListening ? (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-[-8%] rounded-full border border-white/40"
+                style={{
+                  boxShadow: `0 0 0 10px ${toRgba(accentColor, 0.12)}`,
+                }}
+              />
+            ) : null}
+            <SparkSvg color={color} mood={mood} accessory={accessory} />
+          </button>
+
+          <div className="min-h-5 text-center text-xs font-medium text-foreground/80">
+            {isListening
+              ? "Escuchando. Se parara cuando detecte silencio."
+              : isTranscribing
+                ? "Procesando..."
+                : `Toca a ${name} para hablar`}
           </div>
         </div>
-        {/* Interactive particles */}
-        <Particles
-          className="absolute inset-0 -z-20 overflow-hidden"
-          quantity={72}
-          ease={85}
-          staticity={60}
-          color={accentColor}
-          size={0.45}
-        />
-        <div className="pointer-events-none absolute inset-0 z-20">
-          {poops.map((poop) => (
-            <button
-              key={poop.id}
-              type="button"
-              aria-label="Limpiar caca"
-              onClick={() => handlePoopClick(poop.id)}
-              className="pointer-events-auto absolute origin-center drop-shadow-[0_4px_12px_rgba(0,0,0,0.45)] transition-transform duration-200 hover:scale-110 focus-visible:scale-110"
-              style={{
-                left: `${poop.left}%`,
-                top: `${poop.top}%`,
-                transform: `translate(-50%, -50%) rotate(${poop.rotation}deg) scale(${poop.scale})`,
-              }}
-            >
-              <img
-                src={PooSvg}
-                alt=""
-                className="h-14 w-14 select-none"
-                draggable={false}
-              />
-            </button>
-          ))}
-        </div>
-      </Card>
+      </div>
+
+      <Particles
+        className="absolute inset-0 overflow-hidden"
+        quantity={28}
+        ease={85}
+        staticity={60}
+        color={accentColor}
+        size={0.45}
+      />
+
+      <div className="pointer-events-none absolute inset-0 ">
+        {poops.map((poop) => (
+          <button
+            key={poop.id}
+            type="button"
+            aria-label="Limpiar caca"
+            onClick={() => handlePoopClick(poop.id)}
+            className="pointer-events-auto absolute origin-center drop-shadow-[0_4px_12px_rgba(0,0,0,0.45)] transition-transform duration-200 hover:scale-110 focus-visible:scale-110"
+            style={{
+              left: `${poop.left}%`,
+              top: `${poop.top}%`,
+              transform: `translate(-50%, -50%) rotate(${poop.rotation}deg) scale(${poop.scale})`,
+            }}
+          >
+            <img
+              src={PooSvg}
+              alt=""
+              className="h-12 w-12 select-none"
+              draggable={false}
+            />
+          </button>
+        ))}
+      </div>
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="bg-slate-900/90 text-foreground backdrop-blur">
           <DialogHeader>
@@ -779,9 +769,11 @@ export default function SparkChispaCard({
               {lastTranscript.charAt(0).toUpperCase() + lastTranscript.slice(1)}
             </DialogTitle>
           </DialogHeader>
-          <div className="text-sm text-foreground/80">
-            {assistantMessage || "..."}
-          </div>
+          <ScrollArea className="max-h-[50vh]">
+            <div className="pr-2 text-sm text-foreground/80">
+              {assistantMessage || "..."}
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </>

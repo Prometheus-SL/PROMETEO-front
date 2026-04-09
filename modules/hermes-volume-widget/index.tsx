@@ -1,19 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RefreshCw, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
+import TallHorizontalSlider from "@/components/ui/big-slider";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { cn } from "@/lib/utils";
+  WidgetContent,
+  WidgetSection,
+  WidgetShell,
+  WidgetState,
+  WidgetStatus,
+} from "@/modules/ui/WidgetShell";
 
 import { useHermesPc } from "../hermes-pc-widget/useHermesPc";
 
@@ -44,37 +41,51 @@ export default function HermesVolumeWidget({
   });
 
   const audio = snapshot?.audio;
-  const host = snapshot?.system?.hostname || agent?.computerInfo?.hostname || agent?.name;
+  const host =
+    snapshot?.system?.hostname || agent?.computerInfo?.hostname || agent?.name;
+  const isBusy = Boolean(pendingCommandId);
+  const volumeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sliderValue, setSliderValue] = useState<number[]>([
-    audio?.volumePercent ?? 0,
+    Math.max(0, Math.min(100, audio?.volumePercent ?? 0)),
   ]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState(
-    audio?.defaultOutputId ?? ""
-  );
 
   useEffect(() => {
-    setSliderValue([audio?.volumePercent ?? 0]);
+    setSliderValue([Math.max(0, Math.min(100, audio?.volumePercent ?? 0))]);
   }, [audio?.volumePercent]);
 
   useEffect(() => {
-    setSelectedDeviceId(audio?.defaultOutputId ?? "");
-  }, [audio?.defaultOutputId]);
+    return () => {
+      if (volumeDebounceRef.current) {
+        clearTimeout(volumeDebounceRef.current);
+        volumeDebounceRef.current = null;
+      }
+    };
+  }, []);
 
-  const isBusy = Boolean(pendingCommandId);
-
-  async function handleVolumeCommit(nextValue: number[]) {
-    const next = Math.max(0, Math.min(100, Math.round(nextValue[0] ?? 0)));
-    setSliderValue([next]);
-
+  async function handleVolumeCommit(level: number) {
     try {
-      await sendCommand("volume_set", { level: next });
+      await sendCommand("volume_set", { level });
     } catch (commandError) {
       toast.error(
         commandError instanceof Error
           ? commandError.message
-          : "No se pudo cambiar el volumen"
+          : "No se pudo cambiar el volumen",
       );
     }
+  }
+
+  function handleVolumeChange(nextValue: number) {
+    const next = Math.max(0, Math.min(100, Math.round(nextValue)));
+    setSliderValue([next]);
+
+    if (volumeDebounceRef.current) {
+      clearTimeout(volumeDebounceRef.current);
+    }
+
+    volumeDebounceRef.current = setTimeout(() => {
+      void handleVolumeCommit(next);
+      volumeDebounceRef.current = null;
+    }, 180);
   }
 
   async function handleMuteToggle() {
@@ -84,204 +95,273 @@ export default function HermesVolumeWidget({
       toast.error(
         commandError instanceof Error
           ? commandError.message
-          : "No se pudo cambiar el mute"
+          : "No se pudo cambiar el mute",
       );
     }
   }
 
-  async function handleOutputChange(deviceId: string) {
-    setSelectedDeviceId(deviceId);
+  async function handleCycleOutput() {
+    const devices = audio?.outputDevices ?? [];
+    if (devices.length <= 1) return;
+
+    const currentIndex = Math.max(
+      0,
+      devices.findIndex((device) => device.id === audio?.defaultOutputId),
+    );
+    const nextDevice = devices[(currentIndex + 1) % devices.length];
+    if (!nextDevice) return;
+
     try {
-      await sendCommand("audio_output_set", { deviceId });
+      await sendCommand("audio_output_set", { deviceId: nextDevice.id });
     } catch (commandError) {
       toast.error(
         commandError instanceof Error
           ? commandError.message
-          : "No se pudo cambiar la salida de audio"
+          : "No se pudo cambiar la salida de audio",
       );
     }
   }
 
   if (loading && !agent && !snapshot) {
     return (
-      <Card className="flex h-full items-center justify-center border-none bg-[radial-gradient(circle_at_top,#1d2438,#050816)] px-4 text-xs text-slate-300">
-        Loading Hermes volume...
-      </Card>
+      <WidgetShell accent="sky">
+        <WidgetContent className="flex items-center">
+          <WidgetState
+            accent="sky"
+            tone="info"
+            icon={<RefreshCw className="size-5 animate-spin" />}
+            title={title}
+            message="Cargando audio del equipo Hermes."
+          />
+        </WidgetContent>
+      </WidgetShell>
     );
   }
 
   if (!agent) {
     return (
-      <Card className="flex h-full flex-col justify-between border-none bg-[radial-gradient(circle_at_top,#1d2438,#050816)] p-3 text-slate-50">
-        <div className="flex items-center gap-2 text-sky-200">
-          <Volume2 className="size-4" />
-          <span className="text-xs uppercase tracking-[0.22em]">{title}</span>
-        </div>
-        <div className="space-y-1">
-          <p className="text-sm font-medium">No Hermes agent available.</p>
-          <p className="text-xs text-slate-400">
-            Añade un Hermes conectado o selecciona un agentId válido.
-          </p>
-        </div>
-      </Card>
+      <WidgetShell accent="sky">
+        <WidgetContent className="flex items-center">
+          <WidgetState
+            accent="sky"
+            icon={<Volume2 className="size-5" />}
+            title={title}
+            message={
+              mode === "agent"
+                ? "No encuentro el Hermes configurado para este widget."
+                : "Todavia no hay un agente Hermes disponible."
+            }
+          />
+        </WidgetContent>
+      </WidgetShell>
     );
   }
 
   if (!audio?.available) {
     return (
-      <Card className="flex h-full flex-col justify-between border-none bg-[radial-gradient(circle_at_top,#1d2438,#050816)] p-3 text-slate-50">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 text-sky-200">
-              <Volume2 className="size-4" />
-              <span className="text-xs uppercase tracking-[0.22em]">{title}</span>
-            </div>
-            <h3 className="mt-1 text-base font-semibold">{host || agent.agentId}</h3>
-          </div>
-          <Badge className="rounded-full border-none bg-amber-400/15 px-2 py-0.5 text-[10px] text-amber-200">
-            Unavailable
-          </Badge>
-        </div>
-        <p className="text-xs text-slate-300">
-          {audio?.error || "Audio control no disponible en este equipo."}
-        </p>
-      </Card>
+      <WidgetShell accent="sky">
+        <WidgetContent className="flex items-center">
+          <WidgetState
+            accent="sky"
+            tone="warning"
+            icon={<VolumeX className="size-5" />}
+            title="Audio no disponible"
+            message={audio?.error || "Este equipo no expone control de audio."}
+          />
+        </WidgetContent>
+      </WidgetShell>
     );
   }
 
+  const outputDevices = audio.outputDevices ?? [];
+  const currentOutputIndex = Math.max(
+    0,
+    outputDevices.findIndex((device) => device.id === audio.defaultOutputId),
+  );
+  const outputLabel = audio.defaultOutputName || "No playback output";
+  const canCycleOutput =
+    outputDevices.length > 1 && !isBusy && agent.status === "online";
+  const controlTone =
+    lastCommandResult?.success === false
+      ? "danger"
+      : isBusy
+        ? "info"
+        : audio.muted
+          ? "warning"
+          : agent.status === "online"
+            ? "success"
+            : "warning";
+  const controlLabel =
+    lastCommandResult?.success === false
+      ? "Error"
+      : isBusy
+        ? "Syncing"
+        : audio.muted
+          ? "Muted"
+          : agent.status === "online"
+            ? "Ready"
+            : "Offline";
+
   return (
-    <Card className="relative h-full py-1 overflow-hidden border-none bg-[radial-gradient(circle_at_10%_10%,rgba(56,189,248,0.2),transparent_28%),radial-gradient(circle_at_90%_0%,rgba(14,165,233,0.15),transparent_26%),linear-gradient(135deg,#071019,#102033_55%,#060b14)] text-slate-50 shadow-[0_18px_45px_rgba(2,6,23,0.35)]">
-      <div className="flex h-full flex-col gap-2.5 p-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-sky-200/80">
+    <WidgetShell accent="sky">
+      <WidgetContent className="flex h-full flex-col gap-2 pt-2 pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-start gap-2">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-sky-500/25 bg-sky-500/12 text-sky-200 shadow-sm">
               {audio.muted ? (
-                <VolumeX className="size-4 shrink-0" />
+                <VolumeX className="size-4" />
               ) : (
-                <Volume2 className="size-4 shrink-0" />
+                <Volume2 className="size-4" />
               )}
-              <span className="truncate text-[10px] uppercase tracking-[0.24em]">
-                {title}
-              </span>
             </div>
-            <div className="mt-1 flex items-center gap-2">
-              <h3 className="truncate text-base font-semibold leading-none">
+
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <p className="truncate text-sm font-semibold">{title}</p>
+                <WidgetStatus
+                  tone={agent.status === "online" ? "success" : "warning"}
+                  className="h-4 px-1.5 text-[8px]"
+                >
+                  {agent.status === "online" ? "Online" : "Offline"}
+                </WidgetStatus>
+              </div>
+              <p className="text-muted-foreground truncate text-[11px] leading-4">
                 {host || agent.agentId}
-              </h3>
-              <Badge
-                className={cn(
-                  "rounded-full border-none px-2 py-0.5 text-[10px]",
-                  agent.status === "online"
-                    ? "bg-emerald-400/15 text-emerald-200"
-                    : "bg-amber-400/15 text-amber-200"
-                )}
-              >
-                {agent.status === "online" ? "Online" : "Offline"}
-              </Badge>
+              </p>
             </div>
-            <p className="mt-1 truncate text-[11px] text-slate-300">
-              {audio.defaultOutputName || "No playback output"}
-            </p>
           </div>
 
-          <div className="flex items-center gap-1">
-            <Badge className="rounded-full border-none bg-white/10 px-2 py-0.5 text-[10px] text-slate-100">
-              {audio.muted ? "Muted" : `${audio.volumePercent ?? 0}%`}
-            </Badge>
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="ghost"
-              className="text-slate-200 hover:bg-white/10 hover:text-white"
-              onClick={() => void reload(true)}
-              disabled={isBusy}
-              title="Refresh audio state"
-            >
-              <RefreshCw className={cn("size-4", isBusy && "animate-spin")} />
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
           <Button
             type="button"
-            size="icon-sm"
-            variant="secondary"
-            className="shrink-0 bg-white/10 text-white hover:bg-white/15"
-            onClick={() => void handleMuteToggle()}
-            disabled={isBusy || agent.status !== "online"}
-            title={audio.muted ? "Unmute" : "Mute"}
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 rounded-lg bg-background/80"
+            onClick={() => void reload(true)}
+            disabled={isBusy || loading}
+            title="Refresh audio state"
           >
-            {audio.muted ? (
-              <VolumeX className="size-4" />
-            ) : (
-              <Volume2 className="size-4" />
-            )}
-          </Button>
-
-          <div className="min-w-0 flex-1">
-            <Slider
-              value={sliderValue}
-              max={100}
-              step={1}
-              className="[&_[data-slot=slider-range]]:bg-sky-400 [&_[data-slot=slider-thumb]]:border-sky-300/60 [&_[data-slot=slider-thumb]]:bg-white"
-              onValueChange={setSliderValue}
-              onValueCommit={(value) => {
-                void handleVolumeCommit(value);
-              }}
-              disabled={isBusy || agent.status !== "online"}
+            <RefreshCw
+              className={`size-4 ${isBusy || loading ? "animate-spin" : ""}`}
             />
+          </Button>
+        </div>
+
+        <WidgetSection
+          accent="sky"
+          className="relative flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-3 py-3"
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.14),transparent_40%)]" />
+
+          <div className="relative flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-background/75 shadow-sm">
+                {audio.muted ? (
+                  <VolumeX className="size-5 text-muted-foreground" />
+                ) : (
+                  <Volume2 className="size-5 text-muted-foreground" />
+                )}
+              </div>
+
+              <div>
+                <p className="text-muted-foreground text-[8px] font-medium uppercase tracking-[0.16em]">
+                  Volume
+                </p>
+                <p className="mt-1 text-[1.55rem] font-semibold leading-none">
+                  {sliderValue[0] ?? 0}%
+                </p>
+              </div>
+            </div>
+
+            <div className="min-w-0 text-right">
+              <WidgetStatus tone={controlTone} className="h-5 px-2 text-[10px]">
+                {controlLabel}
+              </WidgetStatus>
+              <p className="text-muted-foreground mt-2 max-w-44 truncate text-[11px]">
+                {outputLabel}
+              </p>
+            </div>
           </div>
 
-          <span className="w-10 text-right text-sm font-semibold text-white">
-            {sliderValue[0] ?? 0}%
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Select
-            value={selectedDeviceId || audio.defaultOutputId || undefined}
-            onValueChange={(value) => {
-              void handleOutputChange(value);
-            }}
-            disabled={
-              isBusy ||
-              agent.status !== "online" ||
-              !audio.outputDevices?.length
-            }
-          >
-            <SelectTrigger
-              size="sm"
-              className="w-full border-white/10 bg-white/[0.04] text-xs text-slate-100"
+          <div className="relative flex items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-10 min-w-12 rounded-xl px-2 text-[10px] font-semibold leading-none"
+              onClick={() => void handleCycleOutput()}
+              disabled={!canCycleOutput}
+              title={
+                outputDevices.length > 1
+                  ? "Cambiar salida de audio"
+                  : "Solo hay una salida disponible"
+              }
             >
-              <SelectValue placeholder="Select output device" />
-            </SelectTrigger>
-            <SelectContent className="border-white/10 bg-slate-950 text-slate-100">
-              {(audio.outputDevices ?? []).map((device) => (
-                <SelectItem key={device.id} value={device.id}>
-                  {device.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <div className="flex flex-col items-center gap-0.5">
+                <span>OUT</span>
+                <span className="text-[9px] text-muted-foreground">
+                  {outputDevices.length ? currentOutputIndex + 1 : 0}/
+                  {outputDevices.length}
+                </span>
+              </div>
+            </Button>
 
-          {lastCommandResult?.success === false ? (
-            <Badge className="rounded-full border-none bg-rose-400/15 px-2 py-0.5 text-[10px] text-rose-200">
-              Error
-            </Badge>
-          ) : isBusy ? (
-            <Badge className="rounded-full border-none bg-sky-400/15 px-2 py-0.5 text-[10px] text-sky-100">
-              Syncing
-            </Badge>
-          ) : null}
-        </div>
+            <div className="min-w-0 flex-1">
+              <TallHorizontalSlider
+                value={sliderValue[0] ?? 0}
+                onChange={handleVolumeChange}
+                disabled={isBusy || agent.status !== "online"}
+                theme="custom"
+                customTheme={{
+                  track: "bg-muted border border-border",
+                  fill: "bg-sky-500",
+                  thumb:
+                    "bg-background border border-sky-200 dark:border-sky-900 shadow-sm",
+                  thumbRing: "ring-4 ring-sky-500/15",
+                  valueBadge:
+                    "bg-background/95 border border-sky-200 dark:border-sky-900 shadow-sm backdrop-blur",
+                  valueText: "text-foreground",
+                  label: "text-foreground",
+                  helper: "text-muted-foreground",
+                }}
+                heightClassName="h-10"
+                showValueInside
+                showPercentage
+              />
+            </div>
+
+            <Button
+              type="button"
+              size="icon"
+              variant="secondary"
+              className="h-10 w-10 rounded-xl"
+              onClick={() => void handleMuteToggle()}
+              disabled={isBusy || agent.status !== "online"}
+              title={audio.muted ? "Unmute" : "Mute"}
+            >
+              {audio.muted ? (
+                <VolumeX className="size-4" />
+              ) : (
+                <Volume2 className="size-4" />
+              )}
+            </Button>
+          </div>
+
+          <div className="relative flex items-center justify-between gap-3 text-[11px]">
+            <span className="text-muted-foreground">Output</span>
+            <span className="truncate text-right text-muted-foreground">
+              {outputLabel}
+            </span>
+          </div>
+        </WidgetSection>
 
         {error ? (
-          <div className="rounded-lg bg-rose-400/10 px-2.5 py-1.5 text-[11px] text-rose-100">
-            {error}
-          </div>
+          <WidgetSection
+            accent="sky"
+            className="border-destructive/25 bg-destructive/5"
+          >
+            <p className="text-sm text-destructive">{error}</p>
+          </WidgetSection>
         ) : null}
-      </div>
-    </Card>
+      </WidgetContent>
+    </WidgetShell>
   );
 }

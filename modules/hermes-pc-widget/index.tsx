@@ -1,9 +1,15 @@
+import type { ReactNode } from "react";
 import { Activity, Cpu, HardDrive, Monitor, RefreshCw } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
+import {
+  WidgetContent,
+  WidgetSection,
+  WidgetShell,
+  WidgetState,
+  WidgetStatus,
+} from "@/modules/ui/WidgetShell";
 
 import { useHermesPc } from "./useHermesPc";
 
@@ -21,30 +27,42 @@ function formatPercent(value?: number) {
   return `${Math.max(0, Math.round(Number(value) || 0))}%`;
 }
 
-function MiniMetric({
-  icon: Icon,
+function HermesMetricRow({
+  icon,
   label,
   value,
   progress,
 }: {
-  icon: typeof Cpu;
+  icon: ReactNode;
   label: string;
   value: string;
   progress: number;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.04] px-2.5 py-2">
+    <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] text-cyan-100/70">
-          <Icon className="size-3.5 text-cyan-300" />
-          {label}
+        <div className="flex min-w-0 items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          {icon}
+          <span className="truncate">{label}</span>
+        </div>
+        <span className="shrink-0 text-sm font-semibold leading-none">
+          {value}
         </span>
-        <span className="text-sm font-semibold text-white">{value}</span>
       </div>
+
       <Progress
         value={progress}
-        className="mt-2 h-1.5 bg-white/10 [&_[data-slot=progress-indicator]]:bg-cyan-300"
+        className="h-1.5 bg-sky-500/10 [&_[data-slot=progress-indicator]]:bg-sky-500"
       />
+    </div>
+  );
+}
+
+function HermesInfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-[11px]">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="truncate text-right font-medium">{value}</span>
     </div>
   );
 }
@@ -59,7 +77,7 @@ export default function HermesPcWidget({
   const agentId = String(config["agentId"] ?? "");
   const refreshFallbackMs = Number(config["refreshFallbackMs"] ?? 30000);
 
-  const { loading, error, agent, snapshot } = useHermesPc({
+  const { loading, error, agent, snapshot, reload } = useHermesPc({
     mode,
     agentId,
     title,
@@ -77,115 +95,131 @@ export default function HermesPcWidget({
   ]
     .filter(Boolean)
     .join(" ");
-  const networkLabel =
-    snapshot?.network?.ip || agent?.computerInfo?.network?.ip || "";
+  const lastUpdate = formatRelative(snapshot?.timestamp || snapshot?.sampledAt);
+  const lastSeen = formatRelative(agent?.lastSeen || agent?.lastData);
 
   if (loading && !agent && !snapshot) {
     return (
-      <Card className="flex h-full items-center justify-center border-none bg-[radial-gradient(circle_at_top,#11253a,#030712)] px-4 text-xs text-slate-300">
-        Loading Hermes system...
-      </Card>
+      <WidgetShell accent="sky">
+        <WidgetContent className="flex items-center">
+          <WidgetState
+            accent="sky"
+            tone="info"
+            icon={<RefreshCw className="size-5 animate-spin" />}
+            title={title}
+            message="Cargando estado del agente Hermes."
+          />
+        </WidgetContent>
+      </WidgetShell>
     );
   }
 
   if (!agent) {
     return (
-      <Card className="flex h-full flex-col justify-between border-none bg-[radial-gradient(circle_at_top,#11253a,#030712)] p-3 text-slate-50">
-        <div className="flex items-center gap-2 text-cyan-200">
-          <Monitor className="size-4" />
-          <span className="text-xs uppercase tracking-[0.22em]">{title}</span>
-        </div>
-        <div className="space-y-1">
-          <p className="text-sm font-medium">No Hermes agent available.</p>
-          <p className="text-xs text-slate-400">
-            {mode === "agent"
-              ? "Revisa el agentId configurado."
-              : "Auto mode elegirá tu Hermes online más reciente."}
-          </p>
-        </div>
-      </Card>
+      <WidgetShell accent="sky">
+        <WidgetContent className="flex items-center">
+          <WidgetState
+            accent="sky"
+            icon={<Monitor className="size-5" />}
+            title={title}
+            message={
+              mode === "agent"
+                ? "No encuentro el Hermes configurado para este widget."
+                : "Todavia no hay un agente Hermes disponible."
+            }
+          />
+        </WidgetContent>
+      </WidgetShell>
     );
   }
 
   return (
-    <Card className="relative h-full py-1 overflow-hidden border-none bg-[radial-gradient(circle_at_15%_10%,rgba(34,211,238,0.18),transparent_28%),radial-gradient(circle_at_85%_0%,rgba(59,130,246,0.14),transparent_22%),linear-gradient(135deg,#08111d,#0b1f34_52%,#060c17)] text-slate-50 shadow-[0_18px_45px_rgba(2,6,23,0.35)]">
-      <div className="flex h-full flex-col gap-2.5 p-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-cyan-200/80">
-              <Monitor className="size-4 shrink-0" />
-              <span className="truncate text-[10px] uppercase tracking-[0.24em]">
-                {title}
-              </span>
+    <WidgetShell accent="sky">
+      <WidgetContent className="flex h-full flex-col gap-2 pt-2 pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-start gap-2">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-sky-500/25 bg-sky-500/12 text-sky-200 shadow-sm">
+              <Monitor className="size-4" />
             </div>
-            <div className="mt-1 flex items-center gap-2">
-              <h3 className="truncate text-lg font-semibold leading-none">
+
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <p className="truncate text-sm font-semibold">{title}</p>
+                <WidgetStatus
+                  tone={agent.status === "online" ? "success" : "warning"}
+                  className="h-4 px-1.5 text-[8px]"
+                >
+                  {agent.status === "online" ? "Online" : "Offline"}
+                </WidgetStatus>
+              </div>
+
+              <p className="text-muted-foreground truncate text-[11px] leading-4">
                 {host || agent.agentId}
-              </h3>
-              <Badge
-                className={cn(
-                  "rounded-full border-none px-2 py-0.5 text-[10px]",
-                  agent.status === "online"
-                    ? "bg-emerald-400/15 text-emerald-200"
-                    : "bg-amber-400/15 text-amber-200",
-                )}
-              >
-                {agent.status === "online" ? "Online" : "Offline"}
-              </Badge>
-            </div>
-            <p className="mt-1 truncate text-[11px] text-slate-300">
-              {[osLabel, networkLabel].filter(Boolean).join(" • ") ||
-                "Windows agent"}
-            </p>
-          </div>
-
-          <div className="hidden min-w-[84px] rounded-xl border border-white/10 bg-black/15 px-2.5 py-2 text-right md:block">
-            <div className="flex items-center justify-end gap-1 text-[10px] uppercase tracking-[0.16em] text-slate-400">
-              <RefreshCw className="size-3" />
-              Update
-            </div>
-            <div className="mt-1 text-sm font-semibold text-slate-100">
-              {formatRelative(snapshot?.timestamp || snapshot?.sampledAt)}
+              </p>
             </div>
           </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 rounded-lg bg-background/80"
+            onClick={() => void reload(true)}
+            disabled={loading}
+            title="Refresh Hermes status"
+          >
+            <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
+          </Button>
         </div>
 
-        <div className="grid min-h-0 grid-cols-3 gap-2">
-          <MiniMetric
-            icon={Cpu}
-            label="CPU"
-            value={formatPercent(cpuUsage)}
-            progress={cpuUsage}
-          />
-          <MiniMetric
-            icon={Activity}
-            label="RAM"
-            value={formatPercent(memoryUsage)}
-            progress={memoryUsage}
-          />
-          <MiniMetric
-            icon={HardDrive}
-            label={primaryDisk?.drive || "Disk"}
-            value={formatPercent(primaryDisk?.percent)}
-            progress={primaryDisk?.percent ?? 0}
-          />
-        </div>
+        <WidgetSection
+          accent="sky"
+          className="relative flex min-h-0 flex-1 overflow-hidden px-3 py-3"
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.14),transparent_42%)]" />
 
-        <div className="flex items-center justify-between gap-3 text-[11px] text-slate-300">
-          <span className="truncate font-mono text-slate-100">
-            {agent.agentId}
-          </span>
-          <span className="shrink-0">
-            Seen {formatRelative(agent.lastSeen || agent.lastData)}
-          </span>
-        </div>
+          <div className="relative grid min-h-0 flex-1 grid-cols-[minmax(0,1.15fr)_minmax(9.5rem,0.85fr)] gap-3">
+            <div className="min-w-0 space-y-2">
+              <HermesMetricRow
+                icon={<Cpu className="size-3.5" />}
+                label="CPU"
+                value={formatPercent(cpuUsage)}
+                progress={cpuUsage}
+              />
+              <HermesMetricRow
+                icon={<Activity className="size-3.5" />}
+                label="RAM"
+                value={formatPercent(memoryUsage)}
+                progress={memoryUsage}
+              />
+              <HermesMetricRow
+                icon={<HardDrive className="size-3.5" />}
+                label={primaryDisk?.drive || "Disk"}
+                value={formatPercent(primaryDisk?.percent)}
+                progress={primaryDisk?.percent ?? 0}
+              />
+            </div>
+
+            <div className="flex min-h-0 min-w-0 flex-col justify-center rounded-xl border border-border/50 bg-background/70 px-2.5 py-2 shadow-sm">
+              <div className="flex flex-col justify-center space-y-1.5">
+                <HermesInfoRow label="OS" value={osLabel || "Windows agent"} />
+                <HermesInfoRow label="Agent" value={agent.agentId} />
+                <HermesInfoRow label="Seen" value={lastSeen} />
+                <HermesInfoRow label="Upd" value={lastUpdate} />
+              </div>
+            </div>
+          </div>
+        </WidgetSection>
 
         {error ? (
-          <div className="rounded-lg bg-rose-400/10 px-2.5 py-1.5 text-[11px] text-rose-100">
-            {error}
-          </div>
+          <WidgetSection
+            accent="sky"
+            className="border-destructive/25 bg-destructive/5"
+          >
+            <p className="text-sm text-destructive">{error}</p>
+          </WidgetSection>
         ) : null}
-      </div>
-    </Card>
+      </WidgetContent>
+    </WidgetShell>
   );
 }

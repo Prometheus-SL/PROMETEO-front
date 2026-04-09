@@ -1,5 +1,13 @@
-import { useState } from "react";
-import { authService, ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY, type AuthUser, type Tokens } from "@/services/auth";
+import { useCallback, useState } from "react";
+import {
+    authService,
+    ACCESS_TOKEN_KEY,
+    REFRESH_TOKEN_KEY,
+    USER_KEY,
+    getAuthErrorMessage,
+    type AuthUser,
+    type Tokens
+} from "@/services/auth";
 
 export function useAuth() {
     const [accessToken, setAccessToken] = useState<string | null>(() => localStorage.getItem(ACCESS_TOKEN_KEY));
@@ -11,23 +19,31 @@ export function useAuth() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const persistSession = (tokens: Tokens, userData: AuthUser) => {
+        localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
+        localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+        localStorage.setItem(USER_KEY, JSON.stringify(userData));
+        setAccessToken(tokens.accessToken);
+        setRefreshToken(tokens.refreshToken);
+        setUser(userData);
+    };
+
+    const clearError = useCallback(() => {
+        setError(null);
+    }, []);
+
+    const performLogin = async (username: string, password: string) => {
+        const data = await authService.login(username, password);
+        persistSession(data.tokens, data.user);
+    };
+
     const login = async (username: string, password: string) => {
         setLoading(true);
         setError(null);
         try {
-            const data = await authService.login(username, password);
-            localStorage.setItem(ACCESS_TOKEN_KEY, data.tokens.accessToken);
-            localStorage.setItem(REFRESH_TOKEN_KEY, data.tokens.refreshToken);
-            localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-            setAccessToken(data.tokens.accessToken);
-            setRefreshToken(data.tokens.refreshToken);
-            setUser(data.user);
+            await performLogin(username, password);
         } catch (e: unknown) {
-            if (e instanceof Error) {
-                setError(e.message);
-            } else {
-                setError("Error de autenticación");
-            }
+            setError(getAuthErrorMessage(e, "No se pudo iniciar sesion."));
         } finally {
             setLoading(false);
         }
@@ -37,18 +53,9 @@ export function useAuth() {
         setLoading(true);
         setError(null);
         try {
-            localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
-            localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
-            localStorage.setItem(USER_KEY, JSON.stringify(user));
-            setAccessToken(tokens.accessToken);
-            setRefreshToken(tokens.refreshToken);
-            setUser(user);
+            persistSession(tokens, user);
         } catch (e: unknown) {
-            if (e instanceof Error) {
-                setError(e.message);
-            } else {
-                setError("Error de autenticación");
-            }
+            setError(getAuthErrorMessage(e, "No se pudo iniciar sesion."));
         } finally {
             setLoading(false);
         }
@@ -57,15 +64,19 @@ export function useAuth() {
     const register = async (username: string, email: string, password: string, name: string, surname: string, birthday: string) => {
         setLoading(true);
         setError(null);
+
         try {
             await authService.register({ username, email, password, name, surname, birthday });
-            await login(username, password);
         } catch (e: unknown) {
-            if (e instanceof Error) {
-                setError(e.message);
-            } else {
-                setError("Error de registro");
-            }
+            setError(getAuthErrorMessage(e, "No se pudo crear la cuenta."));
+            setLoading(false);
+            return;
+        }
+
+        try {
+            await performLogin(username, password);
+        } catch {
+            setError("La cuenta se creo, pero no pudimos iniciar sesion automaticamente. Prueba desde login.");
         } finally {
             setLoading(false);
         }
@@ -82,5 +93,5 @@ export function useAuth() {
         window.location.replace("/login");
     };
 
-    return { accessToken, refreshToken, user, login, logout, loading, error, register, loginQR };
+    return { accessToken, refreshToken, user, login, logout, loading, error, register, loginQR, clearError };
 }

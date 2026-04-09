@@ -1,18 +1,18 @@
 import * as React from "react";
-import { Globe2, RefreshCcw } from "lucide-react";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Globe2, RefreshCw, Server, Users } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { GridPattern } from "@/components/ui/grid-pattern";
+import { Progress } from "@/components/ui/progress";
 import { useSharedContext } from "@/hooks/useSharedContext";
+import { cn } from "@/lib/utils";
+import {
+  WidgetContent,
+  WidgetHeader,
+  WidgetSection,
+  WidgetShell,
+  WidgetState,
+  WidgetStatus,
+} from "@/modules/ui/WidgetShell";
 
 type McStatus = {
   online: boolean;
@@ -27,37 +27,85 @@ type McStatus = {
   version?: { name_raw?: string };
 };
 
+function formatTimeLabel(value: number | null) {
+  if (!value) return "Sin actualizar";
+  return new Date(value).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatRefreshLabel(seconds: number) {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds % 60 === 0) return `${seconds / 60}m`;
+  return `${Math.round(seconds / 60)}m`;
+}
+
+function normalizeMotd(value?: string) {
+  return value?.replace(/\s+/g, " ").trim() ?? "";
+}
+
+function formatPlayerSummary(
+  isOnline: boolean,
+  players: number,
+  playerNames: string[],
+) {
+  if (!isOnline) return "El servidor no responde ahora mismo.";
+  if (players === 0) return "No hay jugadores conectados.";
+  if (playerNames.length === 0) return "Hay jugadores conectados.";
+  if (playerNames.length <= 3) return playerNames.join(", ");
+  return `${playerNames.slice(0, 3).join(", ")} +${playerNames.length - 3}`;
+}
+
 export default function MinecraftCard({
   config,
 }: {
   config: Record<string, unknown>;
 }) {
-  const ipAddress = String(config["ipAddress"] ?? "play.example.com");
-  const port = Number(config["port"] ?? null);
-  const title = String(config["name"] ?? "");
-  const refreshSecs = Number(config["refreshSecs"] ?? 600);
+  const ipAddress = String(config["ipAddress"] ?? "play.example.com").trim();
+  const portValue = config["port"];
+  const parsedPort =
+    typeof portValue === "number"
+      ? portValue
+      : typeof portValue === "string" && portValue.trim()
+        ? Number(portValue)
+        : Number.NaN;
+  const port =
+    Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : undefined;
+  const title = String(config["name"] ?? "").trim();
+  const refreshSecs = Math.max(10, Number(config["refreshSecs"] ?? 600) || 600);
+
   const [data, setData] = React.useState<McStatus | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = React.useState<number | null>(null);
   const dataRef = React.useRef<McStatus | null>(null);
   const errorRef = React.useRef<string | null>(null);
   const inFlightRef = React.useRef(false);
   const { registerAction, unregisterAction } = useSharedContext();
 
   const address = port ? `${ipAddress}:${port}` : ipAddress;
-  const displayName = title ?? "Minecraft";
+  const displayName = title || "Minecraft";
 
   const fetchStatus = React.useCallback(async () => {
     if (inFlightRef.current) return dataRef.current;
     if (!address) {
-      setError("No address configured");
-      errorRef.current = "No address configured";
+      setError("Configura la direccion del servidor.");
+      errorRef.current = "Configura la direccion del servidor.";
       setLoading(false);
+      setRefreshing(false);
       return null;
     }
+
+    const hasCachedData = Boolean(dataRef.current);
     inFlightRef.current = true;
     try {
-      if (!dataRef.current) setLoading(true);
+      if (hasCachedData) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError(null);
       errorRef.current = null;
       const url = `https://api.mcstatus.io/v2/status/java/${encodeURIComponent(
@@ -68,6 +116,7 @@ export default function MinecraftCard({
       const json = (await res.json()) as McStatus;
       setData(json);
       dataRef.current = json;
+      setLastUpdatedAt(Date.now());
       return json;
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
@@ -77,12 +126,26 @@ export default function MinecraftCard({
     } finally {
       inFlightRef.current = false;
       setLoading(false);
+      setRefreshing(false);
     }
   }, [address]);
 
   React.useEffect(() => {
-    fetchStatus();
-    const id = setInterval(fetchStatus, refreshSecs * 1000);
+    dataRef.current = null;
+    errorRef.current = null;
+    inFlightRef.current = false;
+    setData(null);
+    setError(null);
+    setLastUpdatedAt(null);
+    setLoading(true);
+    setRefreshing(false);
+  }, [address]);
+
+  React.useEffect(() => {
+    void fetchStatus();
+    const id = window.setInterval(() => {
+      void fetchStatus();
+    }, refreshSecs * 1000);
     return () => clearInterval(id);
   }, [fetchStatus, refreshSecs]);
 
@@ -148,142 +211,200 @@ export default function MinecraftCard({
     };
   }, [fetchStatus, registerAction, unregisterAction]);
 
+  if (!address) {
+    return (
+      <WidgetShell accent="amber">
+        <WidgetContent className="flex items-center">
+          <WidgetState
+            accent="amber"
+            icon={<Server className="size-3" />}
+            title={displayName}
+            message="Configura la direccion del servidor para consultar el estado."
+          />
+        </WidgetContent>
+      </WidgetShell>
+    );
+  }
+
+  if (loading && !data) {
+    return (
+      <WidgetShell accent="amber">
+        <WidgetContent className="flex items-center">
+          <WidgetState
+            accent="amber"
+            tone="info"
+            icon={<RefreshCw className="size-5 animate-spin" />}
+            title={displayName}
+            message="Consultando el estado del servidor."
+          />
+        </WidgetContent>
+      </WidgetShell>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <WidgetShell accent="rose">
+        <WidgetContent className="flex items-center">
+          <WidgetState
+            accent="rose"
+            tone="danger"
+            icon={<Server className="size-3" />}
+            title="No pude consultar Minecraft"
+            message={error}
+            action={
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-9 rounded-lg px-4"
+                onClick={() => void fetchStatus()}
+              >
+                Reintentar
+              </Button>
+            }
+          />
+        </WidgetContent>
+      </WidgetShell>
+    );
+  }
+
   const isOnline = data?.online ?? false;
   const players = data?.players?.online ?? 0;
   const maxPlayers = data?.players?.max ?? 0;
-  const motd = data?.motd?.clean ?? "";
+  const motd = normalizeMotd(data?.motd?.clean);
   const version = data?.version?.name_raw ?? "";
+  const accent = isOnline ? "emerald" : "amber";
+  const playerNames =
+    data?.players?.list
+      ?.map((player) => player.name_raw?.trim())
+      .filter((name): name is string => Boolean(name)) ?? [];
+  const playerSummary = formatPlayerSummary(isOnline, players, playerNames);
+  const playerFill =
+    isOnline && maxPlayers > 0
+      ? Math.min(100, Math.max(0, (players / maxPlayers) * 100))
+      : 0;
+  const motdText = isOnline
+    ? motd || "Sin mensaje configurado."
+    : "El servidor esta fuera de linea.";
 
   return (
-    <Card
-      className={cn(
-        "relative h-full overflow-hidden gap-0 border border-border/60 bg-background/90 p-0 shadow-lg shadow-primary/10 transition-shadow",
-        isOnline
-          ? "hover:shadow-emerald-500/20"
-          : "hover:shadow-destructive/20",
-      )}
-    >
-      <GridPattern
-        width={30}
-        height={30}
-        x={-1}
-        y={-1}
-        strokeDasharray="4 2"
-        className={cn(
-          "pointer-events-none opacity-40 [mask-image:radial-gradient(360px_circle_at_center,white,transparent)]",
-        )}
-      />
-      <div
-        className={cn(
-          "pointer-events-none absolute inset-0 bg-gradient-to-br ",
-          isOnline
-            ? "from-emerald-500/15 via-primary/10 to-background"
-            : "from-destructive/20 via-primary/10 to-background",
-        )}
-      />
-
-      <CardHeader className="relative  py-4 pb-0">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-2">
-            <CardTitle className="flex flex-wrap items-center gap-2 text-xl">
-              {displayName || "Minecraft"}
-              {version && (
-                <Badge
-                  className="bg-background/60 text-foreground"
-                  variant="secondary"
-                >
-                  {version}
-                </Badge>
-              )}
-            </CardTitle>
-            <CardDescription className="flex flex-wrap items-center gap-2 text-sm">
-              <Badge
-                variant="outline"
-                className="bg-background/70 text-foreground backdrop-blur supports-[backdrop-filter]:bg-background/50"
-              >
-                <Globe2 className="size-3.5" />
-                {address ?? "N/A"}
-              </Badge>
-            </CardDescription>
-          </div>
-          <CardAction className="flex items-center gap-2 align-items-">
-            <Badge
-              variant={isOnline ? "secondary" : "destructive"}
+    <WidgetShell accent={accent}>
+      <WidgetHeader
+        accent={accent}
+        compact
+        icon={<Globe2 className="size-3.5 shrink-0" />}
+        title={displayName}
+        description={
+          <span
+            className="inline-flex min-w-0 items-center gap-1 truncate"
+            title={address}
+          >
+            <span className="truncate font-mono text-[10px]">{address}</span>
+          </span>
+        }
+        status={
+          <WidgetStatus tone={isOnline ? "success" : "warning"}>
+            {isOnline ? "Online" : "Offline"}
+          </WidgetStatus>
+        }
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 rounded-lg bg-background/80"
+            onClick={() => void fetchStatus()}
+            disabled={loading || refreshing}
+            title="Actualizar estado del servidor"
+            aria-label="Actualizar estado del servidor"
+          >
+            <RefreshCw
               className={cn(
-                "px-3 py-1 text-xs uppercase tracking-wide",
-                isOnline
-                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                  : "bg-destructive/20",
+                "size-4",
+                (loading || refreshing) && "animate-spin text-muted-foreground",
               )}
-            >
-              <span
-                className={cn(
-                  "size-2 rounded-full",
-                  isOnline
-                    ? "bg-emerald-500 dark:bg-emerald-400"
-                    : "bg-destructive",
-                )}
-                aria-hidden="true"
-              />
-              {loading ? "Refreshing..." : isOnline ? "Online" : "Offline"}
-            </Badge>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={fetchStatus}
-              disabled={loading}
-              className="border-border/40 bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/50"
-            >
-              <RefreshCcw
-                className={cn(
-                  "size-4",
-                  loading && "animate-spin text-muted-foreground",
-                )}
-              />
-            </Button>
-          </CardAction>
-        </div>
-      </CardHeader>
+            />
+          </Button>
+        }
+      />
 
-      <CardContent className="relative  flex flex-col gap-6 pb-6">
-        <div className="grid gap-4 sm:grid-cols-[minmax(0,100px)_1fr] sm:items-center">
-          <div className="rounded-xl border border-border/50 bg-background/70 px-4 py-3 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Players
+      <WidgetContent className="grid min-h-0 flex-1 grid-cols-[156px_minmax(0,1fr)] gap-2 pt-0">
+        <WidgetSection
+          accent={accent}
+          className="flex min-h-0 flex-col justify-between"
+        >
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <Users className="size-3.5 text-muted-foreground" />
+              <p className="text-muted-foreground text-[8px] font-medium uppercase tracking-[0.16em]">
+                Jugadores
+              </p>
             </div>
-            <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-4xl font-semibold tabular-nums text-foreground">
+
+            <div className="flex items-end justify-between gap-2">
+              <p className="text-[2rem] font-semibold leading-none tabular-nums">
                 {isOnline ? players : "--"}
+              </p>
+              <span className="text-muted-foreground text-[12px]">
+                {isOnline
+                  ? maxPlayers
+                    ? `/ ${maxPlayers}`
+                    : "online"
+                  : "sin senal"}
               </span>
-              {maxPlayers ? (
-                <span className="text-sm text-muted-foreground">
-                  of {maxPlayers}
-                </span>
-              ) : null}
             </div>
-          </div>
-          <div className="rounded-xl border border-border/50 bg-background/70 px-4 py-3 shadow-sm h-full">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              MOTD
-            </div>
-            <div className="mt-1 flex items-baseline gap-2 mt-4">
-              <div className="font-medium text-foreground text-xl leading-snug">
-                {loading
-                  ? "Obtaining server status..."
-                  : error
-                    ? "Could not obtain server status."
-                    : motd || "No MOTD"}
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {error ? (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/15 px-3 py-2 text-sm text-destructive">
-            Error: {error}
+            <p className="text-muted-foreground line-clamp-2 text-[11px] leading-4">
+              {playerSummary}
+            </p>
           </div>
-        ) : null}
-      </CardContent>
-    </Card>
+
+          <Progress
+            value={playerFill}
+            className={cn(
+              "mt-2 h-1.5 bg-border/60",
+              accent === "emerald"
+                ? "[&_[data-slot=progress-indicator]]:bg-emerald-500"
+                : "[&_[data-slot=progress-indicator]]:bg-amber-500",
+            )}
+          />
+        </WidgetSection>
+
+        <WidgetSection accent={accent} className="flex min-h-0 flex-col">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-muted-foreground text-[8px] font-medium uppercase tracking-[0.16em]">
+              MOTD
+            </p>
+            {version ? (
+              <span className="truncate text-[10px] text-muted-foreground">
+                {version}
+              </span>
+            ) : null}
+          </div>
+
+          <p
+            className={cn(
+              "mt-1 line-clamp-2 text-sm leading-[1.15rem]",
+              !motd && "text-muted-foreground",
+            )}
+          >
+            {motdText}
+          </p>
+
+          <div className="mt-auto flex items-center justify-between gap-2 pt-2 text-[10px] text-muted-foreground">
+            <span className={cn("truncate", error && "text-destructive")}>
+              {error
+                ? "Ultimo refresh con error"
+                : refreshing
+                  ? "Actualizando..."
+                  : `Act. ${formatTimeLabel(lastUpdatedAt)}`}
+            </span>
+            <span className="shrink-0">
+              Auto {formatRefreshLabel(refreshSecs)}
+            </span>
+          </div>
+        </WidgetSection>
+      </WidgetContent>
+    </WidgetShell>
   );
 }

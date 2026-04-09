@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import QRCode from "react-qr-code";
+import { type ComponentType, type SVGProps, useEffect, useState } from "react";
+import QRCodeModule from "react-qr-code";
 import {
   CheckCircle2,
   Clock3,
@@ -20,6 +20,30 @@ import {
   USER_KEY,
   authService,
 } from "@/services/auth";
+
+type QRCodeProps = SVGProps<SVGSVGElement> & {
+  value: string;
+  size?: number;
+  level?: "L" | "M" | "Q" | "H";
+  bgColor?: string;
+  fgColor?: string;
+  title?: string;
+};
+
+// `react-qr-code` llega como CJS en Vite y su default puede ser un objeto con el componente dentro.
+const QRCode =
+  (
+    QRCodeModule as unknown as {
+      QRCode?: ComponentType<QRCodeProps>;
+      default?: ComponentType<QRCodeProps>;
+    }
+  ).QRCode ??
+  (
+    QRCodeModule as unknown as {
+      default?: ComponentType<QRCodeProps>;
+    }
+  ).default ??
+  (QRCodeModule as unknown as ComponentType<QRCodeProps>);
 
 interface QRLoginProps {
   onBack?: () => void;
@@ -84,7 +108,7 @@ export default function QRLogin({
           localStorage.setItem(ACCESS_TOKEN_KEY, statusData.tokens.accessToken);
           localStorage.setItem(
             REFRESH_TOKEN_KEY,
-            statusData.tokens.refreshToken
+            statusData.tokens.refreshToken,
           );
           localStorage.setItem(USER_KEY, JSON.stringify(statusData.user));
 
@@ -252,7 +276,7 @@ export default function QRLogin({
               <div
                 className={cn(
                   "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium",
-                  getStatusClasses()
+                  getStatusClasses(),
                 )}
               >
                 {getStatusIcon()}
@@ -280,7 +304,7 @@ export default function QRLogin({
               <div
                 className={cn(
                   "rounded-2xl border px-4 py-3 text-sm leading-relaxed",
-                  getStatusClasses()
+                  getStatusClasses(),
                 )}
               >
                 {getStatusMessage()}

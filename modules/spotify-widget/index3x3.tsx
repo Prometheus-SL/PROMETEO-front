@@ -1,36 +1,148 @@
-import {
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  Shuffle,
-  Repeat,
-  Repeat1,
-  Music2,
-  Volume2,
-  VolumeX,
-  Monitor,
-  Smartphone,
-  Tablet,
-  Speaker,
-  Tv,
-  Clock,
-} from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
-import { cn } from "@/lib/utils";
-import { GridPattern } from "@/components/ui/grid-pattern";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useSpotifyState } from "./useSpotifyState";
 import * as React from "react";
+import { Music2, Volume2, VolumeX } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Slider } from "@/components/ui/slider";
+import {
+  WidgetContent,
+  WidgetSection,
+  WidgetShell,
+  WidgetStatus,
+} from "@/modules/ui/WidgetShell";
+import { cn } from "@/lib/utils";
+
+import { useSpotifyState } from "./useSpotifyState";
+import {
+  formatSpotifyTime,
+  SpotifyArtwork,
+  SpotifyTransportControls,
+} from "./widget-ui";
+
+function SpotifyQueueConnectState({
+  error,
+  onConnect,
+}: {
+  error?: string | null;
+  onConnect: () => void;
+}) {
+  return (
+    <WidgetShell accent="emerald">
+      <WidgetContent className="flex h-full flex-col gap-3 pt-3 pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-emerald-500/25 bg-emerald-500/12 text-emerald-200 shadow-sm">
+              <Music2 className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <p className="truncate text-[1.05rem] font-semibold leading-none">
+                  Spotify Queue
+                </p>
+                <WidgetStatus tone="neutral" className="h-4 px-1.5 text-[8px]">
+                  Offline
+                </WidgetStatus>
+              </div>
+              <p className="text-muted-foreground mt-1 truncate text-[11px] leading-4">
+                Playback queue
+              </p>
+            </div>
+          </div>
+
+          <WidgetStatus tone="neutral" className="h-5 px-2 text-[10px]">
+            Connect
+          </WidgetStatus>
+        </div>
+
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.45fr)_minmax(16rem,0.95fr)] gap-3">
+          <WidgetSection
+            accent="emerald"
+            className="relative flex min-h-0 flex-col overflow-hidden p-4"
+          >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.16),transparent_40%)]" />
+
+            <div className="relative flex h-full flex-col justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <SpotifyArtwork
+                  className="size-28 rounded-[1.5rem] bg-background/95"
+                  iconClassName="size-10"
+                />
+
+                <div className="min-w-0 flex-1 space-y-3 pt-1">
+                  <div className="space-y-2">
+                    <p className="text-[1.6rem] font-semibold leading-tight">
+                      Conecta Spotify
+                    </p>
+                    <p className="text-muted-foreground text-sm leading-6">
+                      {error ||
+                        "Conecta tu cuenta para ver la cola, controlar la reproduccion y cambiar de pista desde el dashboard."}
+                    </p>
+                  </div>
+
+                  <WidgetStatus tone="neutral" className="h-5 px-2 text-[10px]">
+                    Playback queue
+                  </WidgetStatus>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1.5 opacity-60">
+                  <Slider value={[0]} max={100} step={1} disabled />
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>0:00</span>
+                    <span>0:00</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <SpotifyTransportControls
+                    canControl={false}
+                    isPlaying={false}
+                    repeatState="off"
+                    onToggleShuffle={() => undefined}
+                    onPrevious={() => undefined}
+                    onTogglePlay={() => undefined}
+                    onNext={() => undefined}
+                    onToggleRepeat={() => undefined}
+                  />
+
+                  <Button
+                    type="button"
+                    className="h-11 rounded-2xl px-5"
+                    onClick={onConnect}
+                  >
+                    Connect Spotify
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </WidgetSection>
+
+          <WidgetSection
+            accent="emerald"
+            className="flex min-h-0 flex-col overflow-hidden p-0"
+          >
+            <div className="border-b border-border/50 px-3 py-3">
+              <p className="text-muted-foreground text-[10px] font-medium uppercase tracking-[0.2em]">
+                Queue
+              </p>
+              <p className="mt-1 text-sm font-semibold">
+                Up next will appear here
+              </p>
+            </div>
+
+            <div className="flex min-h-0 flex-1 items-center justify-center p-4 text-center">
+              <p className="text-muted-foreground text-sm leading-6">
+                The upcoming tracks list is available as soon as Spotify is
+                connected.
+              </p>
+            </div>
+          </WidgetSection>
+        </div>
+      </WidgetContent>
+    </WidgetShell>
+  );
+}
 
 export default function SpotifyWidgetQueue({
   config,
@@ -39,7 +151,6 @@ export default function SpotifyWidgetQueue({
   config: Record<string, unknown>;
   onConfigChange?: (config: Record<string, unknown>) => void;
 }) {
-  // Usar el hook compartido
   const {
     auth,
     playbackState,
@@ -55,338 +166,186 @@ export default function SpotifyWidgetQueue({
     seekToPosition,
     setVolumeLevel,
     fetchQueue,
-    playTrack,
+    advanceToQueueIndex,
     startOAuthFlow,
   } = useSpotifyState(config);
 
-  // Cargar la cola cuando se autentique o cuando cambie la canción
   React.useEffect(() => {
     if (auth.isAuthenticated) {
-      fetchQueue();
+      void fetchQueue();
     }
-  }, [auth.isAuthenticated, fetchQueue]);
+  }, [auth.isAuthenticated, fetchQueue, playbackState?.item?.id]);
 
   const track = playbackState?.item;
   const albumArt = track?.album?.images?.[0]?.url;
   const progress = playbackState?.progress_ms ?? 0;
   const duration = track?.duration_ms ?? 0;
-
-  const formatTime = (ms: number) => {
-    const seconds = Math.floor(ms / 1000);
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  // Función para obtener el icono según el tipo de dispositivo
-  const getDeviceIcon = (deviceType?: string) => {
-    if (!deviceType) return <Speaker className="size-3" />;
-
-    const type = deviceType.toLowerCase();
-    switch (type) {
-      case "computer":
-        return <Monitor className="size-3" />;
-      case "smartphone":
-        return <Smartphone className="size-3" />;
-      case "tablet":
-        return <Tablet className="size-3" />;
-      case "speaker":
-        return <Speaker className="size-3" />;
-      case "tv":
-      case "cast_video":
-      case "chromecast":
-        return <Tv className="size-3" />;
-      default:
-        return <Speaker className="size-3" />;
-    }
-  };
+  const albumName = track?.album?.name;
 
   if (!auth.isAuthenticated) {
     return (
-      <Card className="relative h-full overflow-hidden border border-border/60 bg-background/90 shadow-lg shadow-primary/10">
-        <GridPattern
-          width={30}
-          height={30}
-          x={-1}
-          y={-1}
-          strokeDasharray="4 2"
-          className="pointer-events-none opacity-40 [mask-image:radial-gradient(360px_circle_at_center,white,transparent)]"
-        />
-        <div className="absolute inset-0 bg-gradient-to-br from-green-500/15 via-primary/10 to-background" />
-
-        <CardHeader className="relative">
-          <CardTitle className="flex items-center gap-2">
-            <Music2 className="size-5" />
-            Spotify Queue
-          </CardTitle>
-          <CardDescription>
-            Connect your Spotify account to view playback queue
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="relative flex flex-col items-center justify-center gap-4">
-          <p className="text-center text-sm text-muted-foreground">
-            Authenticate with Spotify to display your current playback and
-            queue.
-          </p>
-          <Button
-            onClick={() => startOAuthFlow(onConfigChange)}
-            variant="default"
-            size="lg"
-          >
-            Connect Spotify
-          </Button>
-          {error && (
-            <p className="text-center text-sm text-destructive">{error}</p>
-          )}
-        </CardContent>
-      </Card>
+      <SpotifyQueueConnectState
+        error={error}
+        onConnect={() => startOAuthFlow(onConfigChange)}
+      />
     );
   }
 
   return (
-    <Card className="relative h-full overflow-hidden border border-border/60 bg-background/90 shadow-lg shadow-primary/10 py-0">
-      <GridPattern
-        width={30}
-        height={30}
-        x={-1}
-        y={-1}
-        strokeDasharray="4 2"
-        className="pointer-events-none opacity-40 [mask-image:radial-gradient(360px_circle_at_center,white,transparent)]"
-      />
+    <WidgetShell>
       <div
-        className="absolute inset-0 bg-gradient-to-br from-green-500/15 via-primary/10 to-background"
+        className="absolute inset-0 bg-black/40"
         style={{
-          backgroundImage: albumArt
-            ? `linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0.8)), url(${albumArt})`
-            : undefined,
+          backgroundImage: `url(${albumArt})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
+          filter: "blur(5px) brightness(0.5)",
         }}
       />
-      {albumArt && (
-        <div className="absolute inset-0 backdrop-blur-xs bg-background/40 rounded-xl" />
-      )}
+      <WidgetContent className="flex h-full flex-col gap-3 pt-3 pb-3">
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.45fr)_minmax(16rem,0.95fr)] gap-3">
+          <WidgetSection className="relative flex min-h-0 flex-col overflow-hidden p-4">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.16),transparent_40%)]" />
 
-      <div className="relative flex h-full gap-3 p-0">
-        {/* Columna izquierda: Player principal */}
-        <div className="flex-1 flex flex-col min-w-0 my-4 ms-4">
-          {/* Álbum y info de canción */}
-          <div className="mb-4 flex items-center gap-4">
-            {albumArt ? (
-              <img
-                src={albumArt}
-                alt="Album art"
-                className={cn(
-                  "size-28 rounded-xl shadow-2xl transition-all duration-500 ease-in-out",
-                  isTransitioning
-                    ? "scale-90 opacity-40 blur-sm"
-                    : "scale-100 opacity-100 blur-0"
-                )}
-              />
+            <div className="relative flex h-full flex-col justify-between gap-4">
+              <div className="relative flex items-center gap-3">
+                <SpotifyArtwork
+                  src={albumArt}
+                  alt="Album art"
+                  className="size-28 rounded-[1.5rem]"
+                  iconClassName="size-10"
+                  isTransitioning={isTransitioning}
+                />
+
+                <div className="min-w-0 flex-1 space-y-1 gap-3">
+                  <p className="line-clamp-2 text-[1.3rem] font-semibold leading-tight">
+                    {track?.name ?? "No track playing"}
+                  </p>
+                  <p className="text-muted-foreground mt-1 line-clamp-1 text-sm">
+                    {track?.artists?.map((artist) => artist.name).join(", ") || "No active artists"}
+                  </p>
+                  {albumName && (
+                    <p className="text-muted-foreground mt-1 line-clamp-1 text-[11px]">
+                      {albumName}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Slider
+                    value={[progress]}
+                    max={duration || 1}
+                    step={1000}
+                    onValueCommit={([value]) => seekToPosition(value)}
+                    disabled={!track}
+                  />
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{formatSpotifyTime(progress)}</span>
+                    <span>{formatSpotifyTime(duration)}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <SpotifyTransportControls
+                    canControl={Boolean(track)}
+                    isPlaying={Boolean(playbackState?.is_playing)}
+                    shuffleEnabled={playbackState?.shuffle_state}
+                    repeatState={playbackState?.repeat_state}
+                    onToggleShuffle={toggleShuffle}
+                    onPrevious={skipPrevious}
+                    onTogglePlay={playPause}
+                    onNext={skipNext}
+                    onToggleRepeat={toggleRepeat}
+                  />
+
+                  <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-border/60 bg-background/80 px-3 py-2 shadow-sm">
+                    {Math.round(volume) === 0 ? (
+                      <VolumeX className="size-4 text-muted-foreground" />
+                    ) : (
+                      <Volume2 className="size-4 text-muted-foreground" />
+                    )}
+                    <div className="w-28">
+                      <Slider
+                        value={[volume]}
+                        max={100}
+                        step={1}
+                        onValueCommit={([value]) => setVolumeLevel(value)}
+                        disabled={!track}
+                      />
+                    </div>
+                    <span className="w-10 text-right text-xs text-muted-foreground">
+                      {Math.round(volume)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </WidgetSection>
+
+          <WidgetSection
+            accent="emerald"
+            className="flex min-h-0 flex-col overflow-hidden p-0"
+          >
+            <div className="flex items-center justify-between gap-2 border-b border-border/50 px-3 py-1.5">
+              <div>
+                <p className="text-sm font-semibold">Queue</p>
+              </div>
+              <WidgetStatus tone="neutral" className="h-5 px-2 text-[10px]">
+                {queue.length} tracks
+              </WidgetStatus>
+            </div>
+
+            {queue.length ? (
+              <ScrollArea className="min-h-0 flex-1">
+                <div className="space-y-1 p-1">
+                  {queue.map((item, index) => {
+                    return (
+                      <button
+                        type="button"
+                        key={`${item.uri}-${index}`}
+                        onClick={() => void advanceToQueueIndex(index)}
+                        className={cn(
+                          "grid w-full min-w-0 grid-cols-[2rem_minmax(0,1fr)_3.25rem] items-center gap-3 overflow-hidden rounded-xl border border-border/60 bg-background/85 p-2.5 text-left transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30",
+                        )}
+                      >
+                        <SpotifyArtwork
+                          src={item.album.images?.[0]?.url}
+                          alt=""
+                          className="size-8 rounded-sm"
+                          iconClassName="size-5"
+                        />
+
+                        <div className="min-w-0 overflow-hidden">
+                          <p className="truncate text-sm font-semibold">
+                            {item.name}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {item.artists
+                              .map((artist) => artist.name)
+                              .join(", ")}
+                          </p>
+                        </div>
+
+                        <span className="w-[3.25rem] shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                          {formatSpotifyTime(item.duration_ms)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
             ) : (
-              <div className="grid size-28 place-items-center rounded-xl border border-border/40 bg-muted">
-                <Music2 className="size-16 text-muted-foreground" />
+              <div className="flex min-h-0 flex-1 items-center justify-center p-4 text-center">
+                <p className="text-muted-foreground text-sm leading-6">
+                  Start playback and Spotify will fill this queue automatically.
+                </p>
               </div>
             )}
-
-            <div
-              className={cn(
-                "min-w-0 flex-1 transition-all duration-500 ease-in-out",
-                isTransitioning
-                  ? "opacity-30 translate-x-3"
-                  : "opacity-100 translate-x-0"
-              )}
-            >
-              <h3 className="truncate text-xl font-bold text-foreground drop-shadow-md mb-1">
-                {track?.name ?? "No track playing"}
-              </h3>
-              <p className="truncate text-base text-foreground/80 drop-shadow-sm mb-2">
-                {track?.artists?.map((a) => a.name).join(", ") ??
-                  "Unknown artist"}
-              </p>
-              <Badge
-                variant="secondary"
-                className="bg-background/80 text-xs px-2 py-1 flex items-center gap-1.5 w-fit"
-              >
-                {getDeviceIcon(playbackState?.device?.type)}
-                <span className="truncate max-w-[150px]">
-                  {playbackState?.device?.name ?? "No device"}
-                </span>
-              </Badge>
-            </div>
-          </div>
-
-          {/* Barra de progreso */}
-          <div className="mb-3">
-            <Slider
-              value={[progress]}
-              max={duration}
-              step={1000}
-              onValueCommit={([value]) => seekToPosition(value)}
-              className="mb-2"
-              disabled={!track}
-            />
-            <div className="flex justify-between text-xs text-foreground/70">
-              <span>{formatTime(progress)}</span>
-              <span>{formatTime(duration)}</span>
-            </div>
-          </div>
-
-          {/* Controles */}
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleShuffle}
-              disabled={!track}
-              className={cn(
-                "size-9",
-                playbackState?.shuffle_state && "text-green-400"
-              )}
-              title="Shuffle"
-            >
-              <Shuffle className="size-4" />
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={skipPrevious}
-              disabled={!track}
-              className="size-9"
-              title="Previous"
-            >
-              <SkipBack className="size-4" />
-            </Button>
-
-            <Button
-              variant="default"
-              size="icon"
-              onClick={playPause}
-              disabled={!track}
-              className="size-12"
-              title={playbackState?.is_playing ? "Pause" : "Play"}
-            >
-              {playbackState?.is_playing ? (
-                <Pause className="size-5" />
-              ) : (
-                <Play className="size-5" />
-              )}
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={skipNext}
-              disabled={!track}
-              className="size-9"
-              title="Next"
-            >
-              <SkipForward className="size-4" />
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleRepeat}
-              disabled={!track}
-              className={cn(
-                "size-9",
-                playbackState?.repeat_state !== "off" && "text-green-400"
-              )}
-              title={
-                playbackState?.repeat_state === "track"
-                  ? "Repeat track"
-                  : playbackState?.repeat_state === "context"
-                  ? "Repeat playlist"
-                  : "Repeat off"
-              }
-            >
-              {playbackState?.repeat_state === "track" ? (
-                <Repeat1 className="size-4" />
-              ) : (
-                <Repeat className="size-4" />
-              )}
-            </Button>
-          </div>
-
-          {/* Control de volumen */}
-          <div className="flex items-center gap-3">
-            {volume === 0 ? (
-              <VolumeX className="size-4 text-foreground/70 shrink-0" />
-            ) : (
-              <Volume2 className="size-4 text-foreground/70 shrink-0" />
-            )}
-            <Slider
-              value={[volume]}
-              max={100}
-              step={1}
-              onValueCommit={([value]) => setVolumeLevel(value)}
-              className="flex-1"
-              disabled={!track}
-            />
-            <span className="text-xs text-foreground/70 w-10 text-right font-medium">
-              {Math.round(volume)}%
-            </span>
-          </div>
+          </WidgetSection>
         </div>
-
-        {/* Columna derecha: Cola de reproducción */}
-        <div className="w-64 flex flex-col bg-background/70 backdrop-blur-sm border border-border/40 shadow-md rounded-exl">
-          <div className="p-3 border-b border-border/40">
-            <h4 className="font-semibold text-sm flex items-center gap-2">
-              <Clock className="size-4" />
-              Queue
-              <span className="text-muted-foreground font-normal">
-                ({queue.length})
-              </span>
-            </h4>
-          </div>
-
-          <ScrollArea className="flex-1">
-            <div className="p-2 space-y-1">
-              {queue.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                  <Music2 className="size-8 mb-2 opacity-50" />
-                  <p className="text-sm">No tracks in queue</p>
-                </div>
-              ) : (
-                queue.map((queueTrack, index) => (
-                  <button
-                    key={`${queueTrack.id}-${index}`}
-                    onClick={() => playTrack(queueTrack.uri)}
-                    className="w-full flex items-center gap-2 p-0.5 rounded-md hover:bg-accent/50 transition-colors group text-left"
-                  >
-                    {queueTrack.album?.images?.[0]?.url ? (
-                      <img
-                        src={queueTrack.album.images[0].url}
-                        alt={queueTrack.name}
-                        className="size-10 rounded object-cover shrink-0"
-                      />
-                    ) : (
-                      <div className="size-10 rounded bg-muted grid place-items-center shrink-0">
-                        <Music2 className="size-5 text-muted-foreground" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate group-hover:text-foreground">
-                        {queueTrack.name}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground truncate">
-                        {queueTrack.artists.map((a) => a.name).join(", ")}
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground shrink-0">
-                      {formatTime(queueTrack.duration_ms)}
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        </div>
-      </div>
-    </Card>
+      </WidgetContent>
+    </WidgetShell>
   );
 }
