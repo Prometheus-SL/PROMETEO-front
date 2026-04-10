@@ -13,6 +13,7 @@ import {
   Tablet,
   Tv,
 } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -42,7 +43,7 @@ type SpotifyConnectStateProps = {
   message: string;
   error?: string | null;
   compact?: boolean;
-  onConnect: () => void;
+  action?: ReactNode;
 };
 
 type SpotifyArtworkProps = {
@@ -120,7 +121,7 @@ function SpotifyConnectState({
   message,
   error,
   compact = false,
-  onConnect,
+  action,
 }: SpotifyConnectStateProps) {
   if (compact) {
     return (
@@ -133,15 +134,7 @@ function SpotifyConnectState({
             title={title}
             message={error || "Conecta Spotify para usar el widget."}
             className="gap-2 px-3 py-2.5"
-            action={
-              <Button
-                type="button"
-                className="h-8 rounded-lg px-3 text-xs"
-                onClick={onConnect}
-              >
-                Connect
-              </Button>
-            }
+            action={action}
           />
         </WidgetContent>
       </WidgetShell>
@@ -163,15 +156,7 @@ function SpotifyConnectState({
           icon={<Music2 className="size-5" />}
           title="Spotify no conectado"
           message={error || message}
-          action={
-            <Button
-              type="button"
-              className="h-9 rounded-lg px-4"
-              onClick={onConnect}
-            >
-              Connect Spotify
-            </Button>
-          }
+          action={action}
         />
       </WidgetContent>
     </WidgetShell>

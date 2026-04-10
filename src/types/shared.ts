@@ -13,16 +13,7 @@ export interface MediaSession {
     duration?: number;
 }
 
-export interface SpotifyAuth {
-    accessToken: string;
-    refreshToken?: string;
-    expiresAt: number;
-    userId?: string;
-}
-
 // Helpers tipados (opcional, para mejorar DX)
 export const SharedKeys = {
     MEDIA_SESSION: "mediaSession",
-    SPOTIFY_AUTH: "spotify.auth",
-    SPOTIFY_CURRENT_TRACK: "spotify.currentTrack",
 } as const;

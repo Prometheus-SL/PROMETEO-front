@@ -1,6 +1,8 @@
 import { Volume2, VolumeX } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 
 import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
 import {
   WidgetContent,
   WidgetSection,
@@ -17,7 +19,7 @@ import {
 
 export default function SpotifyWidget({
   config,
-  onConfigChange,
+  onConfigChange: _onConfigChange,
 }: {
   config: Record<string, unknown>;
   onConfigChange?: (config: Record<string, unknown>) => void;
@@ -35,22 +37,41 @@ export default function SpotifyWidget({
     toggleRepeat,
     seekToPosition,
     setVolumeLevel,
-    startOAuthFlow,
   } = useSpotifyState(config);
+  const location = useLocation();
 
   const track = playbackState?.item;
   const albumArt = track?.album?.images?.[0]?.url;
   const progress = playbackState?.progress_ms ?? 0;
   const duration = track?.duration_ms ?? 0;
   const artists = track?.artists?.map((artist) => artist.name).join(", ");
+  const isClientSurface = location.pathname.startsWith("/client");
+
+  const emptyMessage = isClientSurface
+    ? auth.status === "reauth_required"
+      ? "Spotify necesita reconexion desde Account. El widget no puede iniciar sesion desde este cliente."
+      : "Spotify se vincula desde Account. Este cliente reutilizara la cuenta automaticamente."
+    : auth.status === "reauth_required"
+    ? "Spotify necesita reconexion. Abre Account para restaurar la vinculacion."
+    : "Vincula tu cuenta desde Account para controlar la reproduccion actual.";
 
   if (!auth.isAuthenticated) {
     return (
       <SpotifyConnectState
         title="Spotify Player"
-        message="Conecta tu cuenta para controlar la reproduccion actual."
+        message={emptyMessage}
         error={error}
-        onConnect={() => startOAuthFlow(onConfigChange)}
+        action={
+          !isClientSurface ? (
+            <Button asChild type="button" className="h-9 rounded-lg px-4">
+              <Link to="/account">
+                {auth.status === "reauth_required"
+                  ? "Reconnect in Account"
+                  : "Open Account"}
+              </Link>
+            </Button>
+          ) : undefined
+        }
       />
     );
   }

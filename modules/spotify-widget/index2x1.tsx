@@ -1,3 +1,6 @@
+import { Link, useLocation } from "react-router-dom";
+
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
   WidgetContent,
@@ -14,7 +17,7 @@ import {
 
 export default function SpotifyWidgetCompact({
   config,
-  onConfigChange,
+  onConfigChange: _onConfigChange,
 }: {
   config: Record<string, unknown>;
   onConfigChange?: (config: Record<string, unknown>) => void;
@@ -22,14 +25,15 @@ export default function SpotifyWidgetCompact({
   const {
     auth,
     playbackState,
+    error,
     isTransitioning,
     playPause,
     skipNext,
     skipPrevious,
     toggleShuffle,
     toggleRepeat,
-    startOAuthFlow,
   } = useSpotifyState(config);
+  const location = useLocation();
 
   const track = playbackState?.item;
   const albumArt = track?.album?.images?.[0]?.url;
@@ -38,14 +42,32 @@ export default function SpotifyWidgetCompact({
   const progressPercent = duration
     ? Math.max(0, Math.min(100, (progress / duration) * 100))
     : 0;
+  const isClientSurface = location.pathname.startsWith("/client");
+
+  const emptyMessage = isClientSurface
+    ? auth.status === "reauth_required"
+      ? "Spotify needs reconnection from Account before this client can use it."
+      : "Spotify linking is managed from Account and reused automatically here."
+    : auth.status === "reauth_required"
+    ? "Spotify needs reconnection. Open Account to restore it."
+    : "Link your Spotify account from Account to see the current playback.";
 
   if (!auth.isAuthenticated) {
     return (
       <SpotifyConnectState
         title="Spotify Compact"
-        message="Conecta tu cuenta para ver la reproduccion actual."
+        message={emptyMessage}
         compact
-        onConnect={() => startOAuthFlow(onConfigChange)}
+        error={error}
+        action={
+          !isClientSurface ? (
+            <Button asChild type="button" className="h-8 rounded-lg px-3 text-xs">
+              <Link to="/account">
+                {auth.status === "reauth_required" ? "Reconnect" : "Account"}
+              </Link>
+            </Button>
+          ) : undefined
+        }
       />
     );
   }

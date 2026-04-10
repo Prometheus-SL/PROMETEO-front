@@ -16,6 +16,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { AdminBadge } from "../admin/admin-badge";
 import { ConfettiButton } from "../ui/confetti";
@@ -98,9 +99,9 @@ export function NavUser() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>Account</DropdownMenuItem>
-              <DropdownMenuItem>Agents</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/account">Account</Link>
+              </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout}>Log out</DropdownMenuItem>

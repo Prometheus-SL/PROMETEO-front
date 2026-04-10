@@ -57,7 +57,7 @@ function sameCell(left?: GridCell | null, right?: GridCell | null) {
 
 function samePositionMap(
   left: Record<string, GridCell>,
-  right: Record<string, GridCell>
+  right: Record<string, GridCell>,
 ) {
   const leftKeys = Object.keys(left);
   const rightKeys = Object.keys(right);
@@ -80,7 +80,7 @@ function collides(left: GridCell, right: GridCell) {
 
 function occupied(
   positions: Record<string, GridCell>,
-  ignoreId?: string
+  ignoreId?: string,
 ): GridCell[] {
   return Object.entries(positions)
     .filter(([id]) => id !== ignoreId)
@@ -90,7 +90,7 @@ function occupied(
 function findNearestFreeCell(
   positions: Record<string, GridCell>,
   desired: GridCell,
-  ignoreId?: string
+  ignoreId?: string,
 ): GridCell {
   const target = clampToGrid(desired);
   const taken = occupied(positions, ignoreId);
@@ -110,7 +110,8 @@ function findNearestFreeCell(
       }
 
       const score =
-        Math.abs(candidate.x - target.x) * 10 + Math.abs(candidate.y - target.y);
+        Math.abs(candidate.x - target.x) * 10 +
+        Math.abs(candidate.y - target.y);
 
       if (score < bestScore) {
         best = candidate;
@@ -126,16 +127,19 @@ function findFirstFreeCell(
   positions: Record<string, GridCell>,
   width = 1,
   height = 1,
-  ignoreId?: string
+  ignoreId?: string,
 ) {
   return findNearestFreeCell(
     positions,
     { x: 0, y: 0, w: width, h: height },
-    ignoreId
+    ignoreId,
   );
 }
 
-function getDesiredSize(moduleInstance: InstalledModule): { w: number; h: number } {
+function getDesiredSize(moduleInstance: InstalledModule): {
+  w: number;
+  h: number;
+} {
   const config: Record<string, unknown> = moduleInstance.config ?? {};
 
   const toInt = (value: unknown): number | undefined => {
@@ -197,7 +201,7 @@ function getDesiredSize(moduleInstance: InstalledModule): { w: number; h: number
 
 function buildPositionMap(
   installed: InstalledModule[],
-  previous: Record<string, GridCell>
+  previous: Record<string, GridCell>,
 ) {
   const next: Record<string, GridCell> = {};
 
@@ -216,7 +220,7 @@ function buildPositionMap(
         w: desired.w,
         h: desired.h,
       }),
-      id
+      id,
     );
   }
 
@@ -250,11 +254,11 @@ export function GridManager({
   const editingModule = useMemo(
     () =>
       editingId
-        ? installed.find((moduleInstance) => {
+        ? (installed.find((moduleInstance) => {
             return (moduleInstance._id ?? moduleInstance.meta.id) === editingId;
-          }) ?? null
+          }) ?? null)
         : null,
-    [editingId, installed]
+    [editingId, installed],
   );
 
   useEffect(() => {
@@ -277,7 +281,9 @@ export function GridManager({
       > = {};
 
       for (const moduleInstance of installed) {
-        const entry = index.find((item) => item.meta.id === moduleInstance.meta.id);
+        const entry = index.find(
+          (item) => item.meta.id === moduleInstance.meta.id,
+        );
         if (!entry) continue;
 
         const definition = await loadModuleDefinition(entry);
@@ -333,7 +339,7 @@ export function GridManager({
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLButtonElement>, id: string) => {
       const widget = gridRef.current?.querySelector<HTMLElement>(
-        `[data-widget-id="${id}"]`
+        `[data-widget-id="${id}"]`,
       );
       const startPosition = positionsRef.current[id];
 
@@ -355,7 +361,7 @@ export function GridManager({
         startPosition,
       });
     },
-    []
+    [],
   );
 
   useEffect(() => {
@@ -378,11 +384,11 @@ export function GridManager({
       const cellHeight = gridRect.height / ROWS;
       const nextX = Math.floor(
         (event.clientX - gridRect.left - dragging.offsetX + cellWidth / 2) /
-          cellWidth
+          cellWidth,
       );
       const nextY = Math.floor(
         (event.clientY - gridRect.top - dragging.offsetY + cellHeight / 2) /
-          cellHeight
+          cellHeight,
       );
 
       const current = positionsRef.current[dragging.id];
@@ -397,7 +403,7 @@ export function GridManager({
           x: nextX,
           y: nextY,
         },
-        dragging.id
+        dragging.id,
       );
 
       updatePosition(dragging.id, resolved);
@@ -443,7 +449,9 @@ export function GridManager({
       const leftPosition = positions[leftId] ?? { x: 0, y: 0, w: 1, h: 1 };
       const rightPosition = positions[rightId] ?? { x: 0, y: 0, w: 1, h: 1 };
 
-      return leftPosition.y - rightPosition.y || leftPosition.x - rightPosition.x;
+      return (
+        leftPosition.y - rightPosition.y || leftPosition.x - rightPosition.x
+      );
     });
   }, [installed, positions]);
 
@@ -492,7 +500,7 @@ export function GridManager({
                   "group relative h-full w-full overflow-hidden rounded-lg border bg-background shadow-sm transition-shadow",
                   isDragging
                     ? "border-primary/60 shadow-xl ring-2 ring-primary/25"
-                    : "border-border hover:shadow-md"
+                    : "border-border hover:shadow-md",
                 )}
               >
                 <div className="absolute right-2 top-2 z-20 flex items-center gap-1 rounded-md bg-background/90 p-1 shadow-sm backdrop-blur-sm">

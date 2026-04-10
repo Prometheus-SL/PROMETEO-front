@@ -250,6 +250,19 @@ export function ModuleConfigModal({
     );
   }, [schema, initialConfigMemo]);
 
+  const handleSave = () => {
+    if (!schema) {
+      onSave(form, pageId ?? state.currentPageId);
+      return;
+    }
+
+    const parsed = schema.safeParse(form);
+    onSave(
+      parsed.success ? (parsed.data as Record<string, unknown>) : form,
+      pageId ?? state.currentPageId
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
@@ -289,7 +302,7 @@ export function ModuleConfigModal({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => onSave(form, pageId ?? state.currentPageId)}>
+          <Button onClick={handleSave}>
             {mode === "edit" ? "Guardar" : "Save"}
           </Button>
         </DialogFooter>

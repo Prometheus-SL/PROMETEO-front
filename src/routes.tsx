@@ -1,14 +1,15 @@
 import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from "react";
 
 import HomePage from "@/pages/HomePage";
+import LinkedAccountCallbackPage from "@/pages/LinkedAccountCallbackPage";
 import LoginPage from "@/pages/LoginPage";
 import NotFoundPage from "@/pages/404Page";
 import QRLoginPage from "@/pages/QRLoginPage";
-import SpotifyCallbackPage from "@/pages/SpotifyCallbackPage";
 import AppLayout from "./layouts/AppLayout";
 import RegisterPage from "./pages/RegisterPage";
 import { PrivateRoute } from "./routes/PrivateRoute";
 
+const AccountPage = lazy(() => import("./pages/AccountPage"));
 const ClientLayout = lazy(() => import("./layouts/ClientLayout"));
 const UsersPage = lazy(() => import("./pages/admin/UsersPage"));
 const AgentsPage = lazy(() => import("./pages/admin/AgentsPage"));
@@ -46,8 +47,8 @@ export const appRoutes = [
     element: <QRLoginPage />,
   },
   {
-    path: "/spotify-callback",
-    element: <SpotifyCallbackPage />,
+    path: "/linked-account-callback",
+    element: <LinkedAccountCallbackPage />,
   },
   {
     path: "/",
@@ -61,6 +62,7 @@ export const appRoutes = [
         routes: [
           { title: "Home", url: "/" },
           { title: "Dashboards", url: "/dashboard" },
+          { title: "Account", url: "/account" },
         ],
         adminOnly: false,
         title: "Principal",
@@ -94,6 +96,11 @@ export const appRoutes = [
         path: "/marketplace",
         element: lazyElement(MarketplacePage),
         handle: { title: "Marketplace" },
+      },
+      {
+        path: "/account",
+        element: lazyElement(AccountPage),
+        handle: { title: "Account" },
       },
       {
         path: "/admin/users",

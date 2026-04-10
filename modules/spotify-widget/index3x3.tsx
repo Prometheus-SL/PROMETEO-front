@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Music2, Volume2, VolumeX } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -21,10 +22,12 @@ import {
 
 function SpotifyQueueConnectState({
   error,
-  onConnect,
+  action,
+  isClientSurface,
 }: {
   error?: string | null;
-  onConnect: () => void;
+  action?: React.ReactNode;
+  isClientSurface: boolean;
 }) {
   return (
     <WidgetShell accent="emerald">
@@ -50,7 +53,7 @@ function SpotifyQueueConnectState({
           </div>
 
           <WidgetStatus tone="neutral" className="h-5 px-2 text-[10px]">
-            Connect
+            Managed in Account
           </WidgetStatus>
         </div>
 
@@ -71,11 +74,13 @@ function SpotifyQueueConnectState({
                 <div className="min-w-0 flex-1 space-y-3 pt-1">
                   <div className="space-y-2">
                     <p className="text-[1.6rem] font-semibold leading-tight">
-                      Conecta Spotify
+                      Link Spotify in Account
                     </p>
                     <p className="text-muted-foreground text-sm leading-6">
                       {error ||
-                        "Conecta tu cuenta para ver la cola, controlar la reproduccion y cambiar de pista desde el dashboard."}
+                        (isClientSurface
+                          ? "This client reuses the Spotify account linked in Account. It cannot start the login flow from here."
+                          : "Open Account to link Spotify once and reuse it across every dashboard widget.")}
                     </p>
                   </div>
 
@@ -106,13 +111,7 @@ function SpotifyQueueConnectState({
                     onToggleRepeat={() => undefined}
                   />
 
-                  <Button
-                    type="button"
-                    className="h-11 rounded-2xl px-5"
-                    onClick={onConnect}
-                  >
-                    Connect Spotify
-                  </Button>
+                  {action}
                 </div>
               </div>
             </div>
@@ -133,8 +132,8 @@ function SpotifyQueueConnectState({
 
             <div className="flex min-h-0 flex-1 items-center justify-center p-4 text-center">
               <p className="text-muted-foreground text-sm leading-6">
-                The upcoming tracks list is available as soon as Spotify is
-                connected.
+                The upcoming tracks list appears automatically once Spotify is
+                linked to this account.
               </p>
             </div>
           </WidgetSection>
@@ -146,7 +145,7 @@ function SpotifyQueueConnectState({
 
 export default function SpotifyWidgetQueue({
   config,
-  onConfigChange,
+  onConfigChange: _onConfigChange,
 }: {
   config: Record<string, unknown>;
   onConfigChange?: (config: Record<string, unknown>) => void;
@@ -167,8 +166,8 @@ export default function SpotifyWidgetQueue({
     setVolumeLevel,
     fetchQueue,
     advanceToQueueIndex,
-    startOAuthFlow,
   } = useSpotifyState(config);
+  const location = useLocation();
 
   React.useEffect(() => {
     if (auth.isAuthenticated) {
@@ -181,12 +180,24 @@ export default function SpotifyWidgetQueue({
   const progress = playbackState?.progress_ms ?? 0;
   const duration = track?.duration_ms ?? 0;
   const albumName = track?.album?.name;
+  const isClientSurface = location.pathname.startsWith("/client");
 
   if (!auth.isAuthenticated) {
     return (
       <SpotifyQueueConnectState
         error={error}
-        onConnect={() => startOAuthFlow(onConfigChange)}
+        isClientSurface={isClientSurface}
+        action={
+          !isClientSurface ? (
+            <Button asChild type="button" className="h-11 rounded-2xl px-5">
+              <Link to="/account">
+                {auth.status === "reauth_required"
+                  ? "Reconnect in Account"
+                  : "Open Account"}
+              </Link>
+            </Button>
+          ) : undefined
+        }
       />
     );
   }
