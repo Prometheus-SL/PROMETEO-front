@@ -12,7 +12,6 @@ import {
   Link2,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
   Unplug,
   UserRound,
 } from "lucide-react";

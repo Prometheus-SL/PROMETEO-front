@@ -399,7 +399,7 @@ export default function HomePage() {
                           ? `${agentSummary.runningOwned} active${
                               agentSummary.runningOwned === 1 ? "" : "s"
                             }`
-                          : "No active"
+                          : "0 active"
                         : agentSummary.online !== null
                           ? `${agentSummary.online} globals`
                           : agentSummary.error
