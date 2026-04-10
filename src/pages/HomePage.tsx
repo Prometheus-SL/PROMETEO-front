@@ -128,12 +128,12 @@ export default function HomePage() {
 
   const lastLoginLabel = useMemo(
     () => getRelativeTimeFromNow(user?.lastLogin),
-    [user?.lastLogin]
+    [user?.lastLogin],
   );
 
   const birthdayInfo = useMemo(
     () => getBirthdayInfo(user?.birthday),
-    [user?.birthday]
+    [user?.birthday],
   );
 
   useEffect(() => {
@@ -176,8 +176,8 @@ export default function HomePage() {
         const agents = Array.isArray(agentData)
           ? agentData
           : agentData
-          ? [agentData]
-          : [];
+            ? [agentData]
+            : [];
 
         const owned = agents.length;
         const runningOwned = agents.filter((agent) => {
@@ -255,14 +255,14 @@ export default function HomePage() {
     const ownedValue = agentSummary.loading
       ? "Loading..."
       : agentSummary.owned !== null
-      ? agentSummary.owned === 0
-        ? "No agents"
-        : `${agentSummary.owned}`
-      : agentSummary.error
-      ? "Not available"
-      : agentSummary.total !== null
-      ? `${agentSummary.total} global`
-      : "No data";
+        ? agentSummary.owned === 0
+          ? "No agents"
+          : `${agentSummary.owned}`
+        : agentSummary.error
+          ? "Not available"
+          : agentSummary.total !== null
+            ? `${agentSummary.total} global`
+            : "No data";
 
     stats.push({
       icon: Bot,
@@ -273,19 +273,24 @@ export default function HomePage() {
     const runningValue = agentSummary.loading
       ? "Loading..."
       : agentSummary.runningOwned !== null
-      ? agentSummary.runningOwned > 0
-        ? `${agentSummary.runningOwned} active`
-        : "None active"
-      : agentSummary.online !== null
-      ? `${agentSummary.online} globals`
-      : agentSummary.error
-      ? "Not available"
-      : "No data";
+        ? agentSummary.runningOwned > 0
+          ? `${agentSummary.runningOwned} active`
+          : "None active"
+        : agentSummary.online !== null
+          ? `${agentSummary.online} globals`
+          : agentSummary.error
+            ? "Not available"
+            : "No data";
 
     stats.push({
       icon: Activity,
       label: "Running agents",
-      value: runningValue,
+      value:
+        runningValue == "Loading..."
+          ? "Loading..."
+          : agentSummary.runningOwned === 0
+            ? "0 active"
+            : `${agentSummary.runningOwned} active`,
     });
 
     return stats;
@@ -374,14 +379,14 @@ export default function HomePage() {
                     agentSummary.loading
                       ? "Loading..."
                       : agentSummary.owned !== null
-                      ? agentSummary.owned === 0
-                        ? "No agents"
-                        : `${agentSummary.owned} agent${
-                            agentSummary.owned === 1 ? "" : "s"
-                          }`
-                      : agentSummary.error
-                      ? "Not available"
-                      : "No data"
+                        ? agentSummary.owned === 0
+                          ? "No agents"
+                          : `${agentSummary.owned} agent${
+                              agentSummary.owned === 1 ? "" : "s"
+                            }`
+                        : agentSummary.error
+                          ? "Not available"
+                          : "No data"
                   }
                 />
                 <InfoRow
@@ -390,16 +395,16 @@ export default function HomePage() {
                     agentSummary.loading
                       ? "Loading..."
                       : agentSummary.runningOwned !== null
-                      ? agentSummary.runningOwned > 0
-                        ? `${agentSummary.runningOwned} active${
-                            agentSummary.runningOwned === 1 ? "" : "s"
-                          }`
-                        : "No active"
-                      : agentSummary.online !== null
-                      ? `${agentSummary.online} globals`
-                      : agentSummary.error
-                      ? "Not available"
-                      : "No data"
+                        ? agentSummary.runningOwned > 0
+                          ? `${agentSummary.runningOwned} active${
+                              agentSummary.runningOwned === 1 ? "" : "s"
+                            }`
+                          : "No active"
+                        : agentSummary.online !== null
+                          ? `${agentSummary.online} globals`
+                          : agentSummary.error
+                            ? "Not available"
+                            : "No data"
                   }
                 />
                 <InfoRow
@@ -429,18 +434,18 @@ export default function HomePage() {
                           agentSummary.runningOwned > 0
                           ? "text-emerald-600 dark:text-emerald-400"
                           : agentSummary.owned > 0
-                          ? "text-amber-600 dark:text-amber-400"
-                          : "text-muted-foreground"
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-muted-foreground",
                       )}
                     >
                       {agentSummary.owned === 0
                         ? "You have not registered any agents yet. Visit the agents section to register the first one."
                         : agentSummary.runningOwned &&
-                          agentSummary.runningOwned > 0
-                        ? `You have ${agentSummary.runningOwned} agent${
-                            agentSummary.runningOwned === 1 ? "" : "s"
-                          } running right now.`
-                        : "Your agents are currently inactive."}
+                            agentSummary.runningOwned > 0
+                          ? `You have ${agentSummary.runningOwned} agent${
+                              agentSummary.runningOwned === 1 ? "" : "s"
+                            } running right now.`
+                          : "Your agents are currently inactive."}
                     </p>
                   )}
               </div>

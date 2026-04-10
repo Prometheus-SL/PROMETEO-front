@@ -1,4 +1,9 @@
-import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from "react";
+import {
+  lazy,
+  Suspense,
+  type ComponentType,
+  type LazyExoticComponent,
+} from "react";
 
 import HomePage from "@/pages/HomePage";
 import LinkedAccountCallbackPage from "@/pages/LinkedAccountCallbackPage";
@@ -62,7 +67,6 @@ export const appRoutes = [
         routes: [
           { title: "Home", url: "/" },
           { title: "Dashboards", url: "/dashboard" },
-          { title: "Account", url: "/account" },
         ],
         adminOnly: false,
         title: "Principal",

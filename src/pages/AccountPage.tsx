@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   CheckCircle2,
   ExternalLink,
@@ -140,7 +147,10 @@ export default function AccountPage() {
   };
 
   const accountName = useMemo(() => {
-    const fullName = [user?.name, user?.surname].filter(Boolean).join(" ").trim();
+    const fullName = [user?.name, user?.surname]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
     return fullName || user?.username || "Prometeo user";
   }, [user?.name, user?.surname, user?.username]);
 
@@ -161,7 +171,7 @@ export default function AccountPage() {
     const popup = window.open(
       "about:blank",
       "prometeo-spotify-link",
-      "popup=yes,width=560,height=760"
+      "popup=yes,width=560,height=760",
     );
 
     popupRef.current = popup;
@@ -169,7 +179,7 @@ export default function AccountPage() {
 
     try {
       const authorizeUrl = await accountService.beginSpotifyConnect(
-        window.location.origin
+        window.location.origin,
       );
 
       if (popup) {
@@ -194,7 +204,7 @@ export default function AccountPage() {
         popup.close();
       }
       toast.error(
-        (err as Error)?.message || "Spotify could not start the linking flow."
+        (err as Error)?.message || "Spotify could not start the linking flow.",
       );
     }
   }, [clearPopupWatcher, connectingSpotify, loadAccount]);
@@ -203,7 +213,7 @@ export default function AccountPage() {
     if (disconnectingSpotify) return;
 
     const confirmed = window.confirm(
-      "Disconnect Spotify from this Prometeo account?"
+      "Disconnect Spotify from this Prometeo account?",
     );
     if (!confirmed) return;
 
@@ -214,7 +224,9 @@ export default function AccountPage() {
       toast.success("Spotify disconnected");
       await loadAccount(true);
     } catch (err) {
-      toast.error((err as Error)?.message || "Spotify could not be disconnected");
+      toast.error(
+        (err as Error)?.message || "Spotify could not be disconnected",
+      );
     } finally {
       setDisconnectingSpotify(false);
     }
@@ -371,8 +383,12 @@ function SpotifyLinkedAccountCard({
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <div className="grid size-12 place-items-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
-              <Sparkles className="size-5" />
+            <div className="grid size-12 place-items-center rounded-2xl">
+              <img
+                src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green-300x300.png"
+                alt="Spotify avatar"
+                className="size-10 rounded-lg"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -401,7 +417,7 @@ function SpotifyLinkedAccountCard({
             />
             <DetailRow
               label="Plan"
-              value={account.product || "Unknown"}
+              value={account.product?.toLocaleUpperCase() || "Unknown"}
             />
             <DetailRow
               label="Granted scopes"
@@ -441,9 +457,13 @@ function SpotifyLinkedAccountCard({
             size="lg"
             className="justify-center"
             onClick={onConnect}
-            disabled={connecting}
+            disabled={connecting || account.status === "connected"}
           >
-            {connecting ? <Spinner className="size-4" /> : <Link2 className="size-4" />}
+            {connecting ? (
+              <Spinner className="size-4" />
+            ) : (
+              <Link2 className="size-4" />
+            )}
             {connecting ? "Opening Spotify..." : actionLabel}
           </Button>
 
@@ -468,8 +488,7 @@ function SpotifyLinkedAccountCard({
               Stored on your account
             </div>
             <p className="mt-2 leading-6">
-              Widgets and client dashboards reuse this link automatically. No
-              Spotify login is required from the widget itself.
+              Widgets and client dashboards reuse this link automatically.
             </p>
           </div>
         </div>
