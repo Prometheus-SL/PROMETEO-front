@@ -156,6 +156,7 @@ export default function AccountPage() {
 
   const discord: LinkedDiscordAccount = account?.linkedAccounts.discord ?? {
     status: "disconnected" as const,
+    id: null,
     displayName: null,
     username: null,
     avatarUrl: null,

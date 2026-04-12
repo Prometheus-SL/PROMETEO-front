@@ -16,6 +16,7 @@ export type LinkedSpotifyAccount = {
 
 export type LinkedDiscordAccount = {
   status: LinkedAccountStatus;
+  id: string | null;
   displayName: string | null;
   username: string | null;
   avatarUrl: string | null;
