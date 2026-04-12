@@ -3,6 +3,7 @@ import type { InstalledModule, MarketplaceFilters, ModuleMeta } from "./types"
 import { loadModulesIndex } from "./loader"
 import { dashboardService } from "@/services/dashboards"
 import type { Page } from "./types"
+import { analyzeInstalledModules, getCandidatePlacement } from "./grid-layout"
 
 
 export interface MarketplaceState {
@@ -102,20 +103,66 @@ export function useMarketplaceStore() {
         }))
     }
 
-    function installModuleTo(pageId: string, meta: ModuleMeta, config: Record<string, unknown>) {
-        // posición inicial la decide el GridManager, aquí opcional
-        void dashboardService.addModule(pageId, { meta, config }).then(({ module }) => {
-            setState((s) => {
-                const pages = s.pages.map((p) => p._id === pageId ? { ...p, modules: [...p.modules, module] } : p)
-                const installed = s.currentPageId === pageId ? [...s.installed, module] : s.installed
-                return { ...s, pages, installed }
+    async function installModuleTo(pageId: string, meta: ModuleMeta, config: Record<string, unknown>) {
+        const page = state.pages.find((candidatePage) => candidatePage._id === pageId)
+        if (!page) {
+            throw new Error("The selected dashboard could not be found")
+        }
+
+        const placement = getCandidatePlacement(page.modules, meta, config)
+        if (!placement.position) {
+            throw new Error(
+                `No hay espacio libre para un widget ${placement.size.w}x${placement.size.h} en "${page.name}".`
+            )
+        }
+        const nextPosition = placement.position
+
+        const { module } = await dashboardService.addModule(pageId, {
+            meta,
+            config,
+            position: nextPosition,
+        })
+
+        setState((s) => {
+            const pages = s.pages.map((candidatePage) => {
+                if (candidatePage._id !== pageId) {
+                    return candidatePage
+                }
+
+                const resolvedExistingModules = candidatePage.modules.map((existingModule) => {
+                    const key = existingModule._id ?? existingModule.meta.id
+                    return {
+                        ...existingModule,
+                        position: placement.analysis.positions[key] ?? existingModule.position,
+                    }
+                })
+
+                return {
+                    ...candidatePage,
+                    modules: [
+                        ...resolvedExistingModules,
+                        { ...module, position: nextPosition },
+                    ],
+                }
             })
-        }).catch(() => { /* noop */ })
+
+            const currentPage = pages.find((candidatePage) => candidatePage._id === s.currentPageId)
+            return {
+                ...s,
+                pages,
+                installed: currentPage?.modules ?? s.installed,
+            }
+        })
+
+        return module
     }
 
-    function installModule(meta: ModuleMeta, config: Record<string, unknown>) {
-        if (!state.currentPageId) return
-        installModuleTo(state.currentPageId, meta, config)
+    async function installModule(meta: ModuleMeta, config: Record<string, unknown>) {
+        if (!state.currentPageId) {
+            throw new Error("Select a dashboard before adding a widget")
+        }
+
+        return installModuleTo(state.currentPageId, meta, config)
     }
 
     function removeModule(id: string) {
@@ -185,6 +232,69 @@ export function useMarketplaceStore() {
         if (pageId && moduleId) {
             void dashboardService.updateModule(pageId, moduleId, { config }).catch(() => { /* noop */ })
         }
+    }
+
+    async function repairDashboardLayout(pageId = state.currentPageId) {
+        if (!pageId) {
+            throw new Error("Select a dashboard before repairing its layout")
+        }
+
+        const page = state.pages.find((candidatePage) => candidatePage._id === pageId)
+        if (!page) {
+            throw new Error("The selected dashboard could not be found")
+        }
+
+        const analysis = analyzeInstalledModules(page.modules)
+        if (!analysis.needsRepair) {
+            return
+        }
+
+        if (!analysis.canRepair) {
+            throw new Error("This dashboard has more widgets than the grid can hold. Remove some widgets before repairing it.")
+        }
+
+        const positions = page.modules.flatMap((module) => {
+            const key = module._id ?? module.meta.id
+            const position = analysis.positions[key]
+            if (!module._id || !position) {
+                return []
+            }
+
+            return [{
+                moduleId: module._id,
+                position,
+            }]
+        })
+
+        if (positions.length > 0) {
+            await dashboardService.reorderModules(pageId, positions)
+        }
+
+        setState((s) => {
+            const pages = s.pages.map((candidatePage) => {
+                if (candidatePage._id !== pageId) {
+                    return candidatePage
+                }
+
+                return {
+                    ...candidatePage,
+                    modules: candidatePage.modules.map((module) => {
+                        const key = module._id ?? module.meta.id
+                        return {
+                            ...module,
+                            position: analysis.positions[key] ?? module.position,
+                        }
+                    }),
+                }
+            })
+
+            const currentPage = pages.find((candidatePage) => candidatePage._id === s.currentPageId)
+            return {
+                ...s,
+                pages,
+                installed: currentPage?.modules ?? s.installed,
+            }
+        })
     }
 
     function selectDashboard(id: string) {
@@ -278,6 +388,7 @@ export function useMarketplaceStore() {
         deleteDashboard,
         activateDashboard,
         updateDashboard,
+        repairDashboardLayout,
     }
 }
 

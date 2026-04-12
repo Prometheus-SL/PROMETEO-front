@@ -9,6 +9,9 @@ export interface MediaSession {
     artwork?: string;
     isPlaying: boolean;
     source: string; // 'spotify', 'youtube', etc.
+    provider?: string;
+    sourceAppName?: string;
+    canonicalUrl?: string;
     timestamp?: number;
     duration?: number;
 }

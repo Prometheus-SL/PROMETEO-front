@@ -7,6 +7,7 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import CarouselPagination from "@/components/CarouselPagination";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,7 @@ export default function DashboardsPage() {
     deleteDashboard,
     activateDashboard,
     updateDashboard,
+    repairDashboardLayout,
   } = useMarketplaceStore();
 
   const pages = useMemo(
@@ -363,6 +365,16 @@ export default function DashboardsPage() {
             onRemove={removeModule}
             onMove={(id, pos) => setModulePosition(id, pos)}
             onUpdateConfig={(id, config) => setModuleConfig(id, config)}
+            onRepairLayout={async () => {
+              try {
+                await repairDashboardLayout(currentPage._id);
+                toast.success("Layout repaired");
+              } catch (error) {
+                toast.error(
+                  (error as Error)?.message || "Could not repair the layout"
+                );
+              }
+            }}
           />
         </div>
       ) : (

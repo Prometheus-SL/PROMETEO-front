@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { useEffect, useMemo, useState } from "react";
+
 import {
   Dialog,
   DialogContent,
@@ -11,9 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { ModuleMeta } from "../types";
-import { useMarketplaceStore } from "../store";
-import { loadModulesIndex, loadModuleDefinition } from "../loader";
 import {
   Select,
   SelectTrigger,
@@ -23,7 +21,10 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 
-// Generador de formulario mínimo a partir de un schema Zod (strings y numbers)
+import { loadModulesIndex, loadModuleDefinition } from "../loader";
+import { getCandidatePlacement } from "../grid-layout";
+import type { ModuleMeta, Page } from "../types";
+
 function ZodForm({
   schema,
   initial,
@@ -31,73 +32,78 @@ function ZodForm({
 }: {
   schema: z.ZodTypeAny;
   initial: Record<string, unknown>;
-  onChange: (v: Record<string, unknown>) => void;
+  onChange: (value: Record<string, unknown>) => void;
 }) {
   const shape = (schema as z.ZodObject<z.ZodRawShape>).shape as Record<
     string,
     z.ZodTypeAny
   >;
 
-  // Desenvuelve tipos para llegar al tipo base (maneja default/optional/nullable/effects)
   function unwrap(field: z.ZodTypeAny): z.ZodTypeAny {
-    let cur: z.ZodTypeAny = field;
-    for (let i = 0; i < 10; i++) {
-      if (cur instanceof z.ZodDefault) {
-        const def: unknown = (Reflect.get(cur, "_def") as unknown) ?? undefined;
+    let current: z.ZodTypeAny = field;
+    for (let index = 0; index < 10; index += 1) {
+      if (current instanceof z.ZodDefault) {
+        const definition = (Reflect.get(current, "_def") as unknown) ?? undefined;
         const inner =
-          def && typeof def === "object"
-            ? (Reflect.get(def as object, "innerType") as
+          definition && typeof definition === "object"
+            ? (Reflect.get(definition as object, "innerType") as
                 | z.ZodTypeAny
                 | undefined)
             : undefined;
         if (!inner) break;
-        cur = inner;
+        current = inner;
         continue;
       }
-      if (cur instanceof z.ZodOptional || cur instanceof z.ZodNullable) {
-        const def: unknown = (Reflect.get(cur, "_def") as unknown) ?? undefined;
+
+      if (current instanceof z.ZodOptional || current instanceof z.ZodNullable) {
+        const definition = (Reflect.get(current, "_def") as unknown) ?? undefined;
         const inner =
-          def && typeof def === "object"
-            ? (Reflect.get(def as object, "innerType") as
+          definition && typeof definition === "object"
+            ? (Reflect.get(definition as object, "innerType") as
                 | z.ZodTypeAny
                 | undefined)
             : undefined;
         if (!inner) break;
-        cur = inner;
+        current = inner;
         continue;
       }
-      if (cur instanceof z.ZodAny) {
-        const def: unknown = (Reflect.get(cur, "_def") as unknown) ?? undefined;
+
+      if (current instanceof z.ZodAny) {
+        const definition = (Reflect.get(current, "_def") as unknown) ?? undefined;
         const inner =
-          def && typeof def === "object"
-            ? (Reflect.get(def as object, "schema") as z.ZodTypeAny | undefined)
+          definition && typeof definition === "object"
+            ? (Reflect.get(definition as object, "schema") as
+                | z.ZodTypeAny
+                | undefined)
             : undefined;
         if (!inner) break;
-        cur = inner;
+        current = inner;
         continue;
       }
+
       break;
     }
-    return cur;
+
+    return current;
   }
 
   const defaults = useMemo(() => {
-    const d: Record<string, unknown> = {};
+    const result: Record<string, unknown> = {};
     for (const [key, field] of Object.entries(shape)) {
-      // Intenta obtener el valor por defecto desde el propio schema
       const parsed = field.safeParse(undefined);
       if (parsed.success && parsed.data !== undefined) {
-        d[key] = parsed.data as unknown;
+        result[key] = parsed.data as unknown;
         continue;
       }
+
       const base = unwrap(field);
-      if (base instanceof z.ZodString) d[key] = "";
-      else if (base instanceof z.ZodNumber) d[key] = 0;
-      else if (base instanceof z.ZodEnum)
-        d[key] = (base.options?.[0] as string | undefined) ?? "";
-      else if (base instanceof z.ZodBoolean) d[key] = false;
+      if (base instanceof z.ZodString) result[key] = "";
+      else if (base instanceof z.ZodNumber) result[key] = 0;
+      else if (base instanceof z.ZodEnum) result[key] = base.options?.[0] ?? "";
+      else if (base instanceof z.ZodBoolean) result[key] = false;
     }
-    return d;
+
+    return result;
   }, [shape]);
 
   const [values, setValues] = useState<Record<string, unknown>>({
@@ -105,7 +111,6 @@ function ZodForm({
     ...initial,
   });
 
-  // Si cambia el schema o initial, recalculamos valores
   useEffect(() => {
     setValues({ ...defaults, ...initial });
   }, [defaults, initial]);
@@ -124,13 +129,17 @@ function ZodForm({
               <Input
                 id={key}
                 value={(values[key] as string) ?? ""}
-                onChange={(e) =>
-                  setValues((v) => ({ ...v, [key]: e.target.value }))
+                onChange={(event) =>
+                  setValues((previous) => ({
+                    ...previous,
+                    [key]: event.target.value,
+                  }))
                 }
               />
             </div>
           );
         }
+
         if (base instanceof z.ZodNumber) {
           return (
             <div key={key} className="space-y-2">
@@ -139,13 +148,17 @@ function ZodForm({
                 id={key}
                 type="number"
                 value={(values[key] as number | undefined) ?? 0}
-                onChange={(e) =>
-                  setValues((v) => ({ ...v, [key]: Number(e.target.value) }))
+                onChange={(event) =>
+                  setValues((previous) => ({
+                    ...previous,
+                    [key]: Number(event.target.value),
+                  }))
                 }
               />
             </div>
           );
         }
+
         if (base instanceof z.ZodEnum) {
           const options = base.options as string[];
           return (
@@ -153,21 +166,25 @@ function ZodForm({
               <Label htmlFor={key}>{key}</Label>
               <select
                 id={key}
-                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 value={(values[key] as string) ?? options[0] ?? ""}
-                onChange={(e) =>
-                  setValues((v) => ({ ...v, [key]: e.target.value }))
+                onChange={(event) =>
+                  setValues((previous) => ({
+                    ...previous,
+                    [key]: event.target.value,
+                  }))
                 }
               >
-                {options.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
+                {options.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
                   </option>
                 ))}
               </select>
             </div>
           );
         }
+
         if (base instanceof z.ZodBoolean) {
           return (
             <div key={key} className="flex items-center gap-2 py-2">
@@ -175,13 +192,17 @@ function ZodForm({
                 id={key}
                 checked={Boolean(values[key])}
                 onCheckedChange={(checked) =>
-                  setValues((v) => ({ ...v, [key]: Boolean(checked) }))
+                  setValues((previous) => ({
+                    ...previous,
+                    [key]: Boolean(checked),
+                  }))
                 }
               />
               <Label htmlFor={key}>{key}</Label>
             </div>
           );
         }
+
         return (
           <div key={key} className="text-xs text-zinc-500">
             Campo no soportado en el demo: {key}
@@ -192,6 +213,10 @@ function ZodForm({
   );
 }
 
+function formatSizeLabel(width: number, height: number) {
+  return `${width}x${height}`;
+}
+
 export function ModuleConfigModal({
   meta,
   open,
@@ -199,111 +224,231 @@ export function ModuleConfigModal({
   onSave,
   mode = "add",
   initialConfig,
+  pages = [],
+  currentPageId,
+  onCreatePage,
 }: {
   meta: ModuleMeta;
   open: boolean;
   onClose: () => void;
-  onSave: (config: Record<string, unknown>, pageId?: string) => void;
+  onSave: (config: Record<string, unknown>, pageId?: string) => void | Promise<void>;
   mode?: "add" | "edit";
   initialConfig?: Record<string, unknown>;
+  pages?: Page[];
+  currentPageId?: string;
+  onCreatePage?: (name: string) => Promise<Page>;
 }) {
   const [schema, setSchema] = useState<z.ZodTypeAny | null>(null);
   const [pageId, setPageId] = useState<string | undefined>(undefined);
-  const { state } = useMarketplaceStore();
+  const [form, setForm] = useState<Record<string, unknown>>(initialConfig ?? {});
+  const [newPageName, setNewPageName] = useState("");
+  const [createPageError, setCreatePageError] = useState<string | null>(null);
+  const [isCreatingPage, setIsCreatingPage] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+
+    void (async () => {
       const index = await loadModulesIndex();
-      const entry = index.find((e) => e.meta.id === meta.id);
+      const entry = index.find((item) => item.meta.id === meta.id);
       if (!entry) return;
-      const def = await loadModuleDefinition(entry);
-      if (cancelled) return;
-      setSchema((def.configSchema as z.ZodTypeAny) ?? null);
+
+      const definition = await loadModuleDefinition(entry);
+      if (!cancelled) {
+        setSchema((definition.configSchema as z.ZodTypeAny) ?? null);
+      }
     })();
+
     return () => {
       cancelled = true;
     };
   }, [meta.id]);
 
-  // Inicializa el pageId por defecto a la página actual cuando se abre o cambia la actual
   useEffect(() => {
-    if (open) setPageId(state.currentPageId);
-  }, [open, state.currentPageId]);
+    if (open) {
+      setPageId(currentPageId);
+      setNewPageName("");
+      setCreatePageError(null);
+    }
+  }, [currentPageId, open]);
 
-  // Estabiliza initialConfig para evitar recreaciones por identidad
   const initialConfigMemo = useMemo(
     () => initialConfig ?? ({} as Record<string, unknown>),
-    [initialConfig]
+    [initialConfig],
   );
 
-  const [form, setForm] = useState<Record<string, unknown>>(initialConfigMemo);
   useEffect(() => {
-    // Cuando cambie initialConfig (p.ej. al abrir edición), sincroniza el formulario
     setForm(initialConfigMemo);
   }, [initialConfigMemo]);
 
+  const pageOptions = useMemo(() => {
+    return pages.map((page) => {
+      const placement = getCandidatePlacement(page.modules, meta, form);
+      return {
+        page,
+        placement,
+      };
+    });
+  }, [form, meta, pages]);
+
+  const selectedPageOption = useMemo(
+    () => pageOptions.find((option) => option.page._id === pageId) ?? null,
+    [pageId, pageOptions],
+  );
+
   const content = useMemo(() => {
-    if (!schema) return <div>This module does not require configuration.</div>;
+    if (!schema) {
+      return <div>This module does not require configuration.</div>;
+    }
+
     return (
       <ZodForm schema={schema} initial={initialConfigMemo} onChange={setForm} />
     );
-  }, [schema, initialConfigMemo]);
+  }, [initialConfigMemo, schema]);
 
-  const handleSave = () => {
+  const canSaveToSelectedPage =
+    mode === "edit" || Boolean(selectedPageOption?.placement.position);
+
+  async function handleCreatePage() {
+    const name = newPageName.trim();
+    if (!onCreatePage) {
+      return;
+    }
+
+    if (!name) {
+      setCreatePageError("Write a name before creating the new page");
+      return;
+    }
+
+    setCreatePageError(null);
+    setIsCreatingPage(true);
+
+    try {
+      const createdPage = await onCreatePage(name);
+      setPageId(createdPage._id);
+      setNewPageName("");
+    } catch (error) {
+      setCreatePageError(
+        (error as Error)?.message || "Could not create the new page",
+      );
+    } finally {
+      setIsCreatingPage(false);
+    }
+  }
+
+  function handleSave() {
     if (!schema) {
-      onSave(form, pageId ?? state.currentPageId);
+      void onSave(form, pageId ?? currentPageId);
       return;
     }
 
     const parsed = schema.safeParse(form);
-    onSave(
+    void onSave(
       parsed.success ? (parsed.data as Record<string, unknown>) : form,
-      pageId ?? state.currentPageId
+      pageId ?? currentPageId,
     );
-  };
+  }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
             {mode === "edit" ? "Editar" : "Configure"}: {meta.name}
           </DialogTitle>
         </DialogHeader>
-        <div className="py-2 space-y-3">
-          {/* Config del módulo */}
+
+        <div className="space-y-3 py-2">
           {content}
-          {/* Selección de página destino */}
-          {mode === "add" && state.pages?.length ? (
-            <div className="space-y-3 w-full">
+
+          {mode === "add" && pages.length > 0 ? (
+            <div className="space-y-3">
               <Separator />
-              <Label htmlFor="page-select">Add to Page</Label>
-              <Select
-                name="page-select"
-                value={pageId ?? state.currentPageId ?? ""}
-                onValueChange={setPageId}
-              >
-                <SelectTrigger className="w-full ">
-                  <SelectValue placeholder="Select page" className="w-full" />
-                </SelectTrigger>
-                <SelectContent className="w-full">
-                  {state.pages.map((p) => (
-                    <SelectItem key={p._id} value={p._id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+              <div className="space-y-2">
+                <Label htmlFor="page-select">Add to Page</Label>
+                <Select
+                  name="page-select"
+                  value={pageId ?? currentPageId ?? ""}
+                  onValueChange={setPageId}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select page" className="w-full" />
+                  </SelectTrigger>
+                  <SelectContent className="w-full">
+                    {pageOptions.map(({ page, placement }) => (
+                      <SelectItem key={page._id} value={page._id}>
+                        {page.name}
+                        {placement.position
+                          ? ` - Fits ${formatSizeLabel(placement.size.w, placement.size.h)}`
+                          : " - Full"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedPageOption ? (
+                <div
+                  className={
+                    selectedPageOption.placement.position
+                      ? "rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-3 text-sm text-emerald-700 dark:text-emerald-300"
+                      : "rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-sm text-amber-800 dark:text-amber-200"
+                  }
+                >
+                  {selectedPageOption.placement.position ? (
+                    <p>
+                      This widget fits in <strong>{selectedPageOption.page.name}</strong>.
+                      Prometeo will place it automatically in the first free slot.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      <p>
+                        <strong>{selectedPageOption.page.name}</strong> no longer has
+                        space for a{" "}
+                        {formatSizeLabel(
+                          selectedPageOption.placement.size.w,
+                          selectedPageOption.placement.size.h,
+                        )}{" "}
+                        widget. Choose another page or create a new one below.
+                      </p>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="new-page-name">Create another page</Label>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Input
+                            id="new-page-name"
+                            value={newPageName}
+                            onChange={(event) => setNewPageName(event.target.value)}
+                            placeholder="New dashboard name"
+                          />
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => void handleCreatePage()}
+                            disabled={isCreatingPage}
+                          >
+                            {isCreatingPage ? "Creating..." : "Create and use it"}
+                          </Button>
+                        </div>
+                        {createPageError ? (
+                          <p className="text-sm text-destructive">{createPageError}</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
+
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>
-            {mode === "edit" ? "Guardar" : "Save"}
+          <Button onClick={handleSave} disabled={!canSaveToSelectedPage}>
+            {mode === "edit" ? "Guardar" : "Add widget"}
           </Button>
         </DialogFooter>
       </DialogContent>
