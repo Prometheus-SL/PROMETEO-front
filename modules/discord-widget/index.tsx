@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
-  ChevronDown,
   Circle,
   ExternalLink,
-  Hash,
   HeadphoneOff,
   LogOut,
   MessagesSquare,
   Mic,
   MicOff,
+  MonitorPlay,
   RefreshCcw,
   Users,
+  Video,
   Volume2,
   WifiOff,
 } from "lucide-react"
@@ -357,8 +357,12 @@ function renderBody({
   }
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2">
-      <ChannelList guild={guildInfo} onDisconnectVoice={onDisconnectVoice} />
+    <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-2">
+      <ChannelList
+        guild={guildInfo}
+        onDisconnectVoice={onDisconnectVoice}
+        onToggleMute={onToggleMute}
+      />
       <MemberList guild={guildInfo} />
     </div>
   )
@@ -367,93 +371,106 @@ function renderBody({
 function ChannelList({
   guild,
   onDisconnectVoice,
+  onToggleMute,
 }: {
   guild: DiscordGuildInfo
   onDisconnectVoice: (userId: string) => void
+  onToggleMute: (userId: string, mute: boolean) => void
 }) {
-  const textChannels = useMemo(
-    () => guild.channels.filter((ch) => ch.type === "text"),
+  const activeVoiceChannels = useMemo(
+    () =>
+      guild.channels.filter(
+        (ch) => ch.type === "voice" && (ch.voiceMembers?.length ?? 0) > 0,
+      ),
     [guild.channels],
   )
-  const voiceChannels = useMemo(
-    () => guild.channels.filter((ch) => ch.type === "voice"),
-    [guild.channels],
-  )
-
-  const [openText, setOpenText] = useState(true)
-  const [openVoice, setOpenVoice] = useState(true)
 
   return (
     <WidgetSection accent={ACCENT} className="flex min-h-0 flex-col p-0">
-      <p className="border-b border-violet-500/15 px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        Canales · {guild.channels.length}
+      <p className="border-b border-violet-500/15 px-2.5 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        En voz · {activeVoiceChannels.length}
       </p>
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-1 p-1.5">
-          <ChannelGroup
-            label="Canal de texto"
-            count={textChannels.length}
-            open={openText}
-            onToggle={() => setOpenText((v) => !v)}
-          >
-            {textChannels.map((ch) => (
-              <div
-                key={ch.id}
-                className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-violet-500/10 hover:text-foreground"
-              >
-                <Hash className="size-3 shrink-0" />
-                <span className="flex-1 truncate">{ch.name}</span>
-              </div>
-            ))}
-          </ChannelGroup>
-
-          <ChannelGroup
-            label="Canal de voz"
-            count={voiceChannels.length}
-            open={openVoice}
-            onToggle={() => setOpenVoice((v) => !v)}
-          >
-            {voiceChannels.map((ch) => {
+          {activeVoiceChannels.length === 0 ? (
+            <p className="px-2 py-6 text-center text-[11px] text-muted-foreground">
+              Nadie está conectado a voz
+            </p>
+          ) : null}
+          {activeVoiceChannels.map((ch) => {
               const connected = ch.voiceMembers ?? []
               return (
                 <div key={ch.id} className="flex flex-col">
-                  <div className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-violet-500/10 hover:text-foreground">
-                    <Volume2 className="size-3 shrink-0" />
-                    <span className="flex-1 truncate">{ch.name}</span>
+                  <div className="flex items-center gap-2 rounded-md px-2 py-2 text-[12px] text-muted-foreground">
+                    <Volume2 className="size-4 shrink-0" />
+                    <span className="flex-1 truncate font-medium">{ch.name}</span>
                     {connected.length > 0 ? (
-                      <span className="text-[9px] text-muted-foreground">
+                      <span className="text-[10px] tabular-nums text-muted-foreground">
                         {connected.length}
                       </span>
                     ) : null}
                   </div>
                   {connected.length > 0 ? (
-                    <div className="ml-4 flex flex-col gap-0.5 border-l border-violet-500/15 pl-2">
+                    <div className="ml-5 flex flex-col gap-1 border-l border-violet-500/20 pl-2">
                       {connected.map((m) => (
                         <div
                           key={m.id}
-                          className="group flex items-center gap-1.5 rounded-md px-1 py-0.5 hover:bg-violet-500/10"
+                          className="flex items-center gap-2 rounded-lg bg-violet-500/5 px-2 py-1.5"
                         >
                           <img
                             src={m.avatar}
                             alt=""
-                            className="size-4 rounded-full border border-violet-500/20"
+                            className="size-7 rounded-full border border-violet-500/25"
                           />
-                          <span className="flex-1 truncate text-[10px] text-foreground">
-                            {m.name}
-                          </span>
-                          {m.muted ? (
-                            <MicOff className="size-2.5 shrink-0 text-rose-500" />
-                          ) : null}
-                          {m.deafened ? (
-                            <HeadphoneOff className="size-2.5 shrink-0 text-rose-500" />
-                          ) : null}
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <span className="truncate text-[12px] font-medium text-foreground">
+                              {m.name}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {m.streaming ? (
+                                <span
+                                  title="En directo"
+                                  className="flex shrink-0 items-center gap-0.5 rounded bg-rose-500/15 px-1 py-[1px] text-[8px] font-semibold uppercase tracking-wider text-rose-500"
+                                >
+                                  <MonitorPlay className="size-2.5" />
+                                  Directo
+                                </span>
+                              ) : null}
+                              {m.video ? (
+                                <Video
+                                  className="size-3 shrink-0 text-emerald-500"
+                                  aria-label="Cámara activa"
+                                />
+                              ) : null}
+                              {m.deafened ? (
+                                <HeadphoneOff className="size-3 shrink-0 text-rose-500" />
+                              ) : null}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => onToggleMute(m.id, !m.muted)}
+                            aria-label={m.muted ? "Desmutear" : "Mutear"}
+                            className={cn(
+                              "grid size-9 shrink-0 place-items-center rounded-lg border transition-colors active:scale-95",
+                              m.muted
+                                ? "border-rose-500/30 bg-rose-500/15 text-rose-500"
+                                : "border-violet-500/20 bg-background/60 text-muted-foreground hover:bg-violet-500/15 hover:text-foreground",
+                            )}
+                          >
+                            {m.muted ? (
+                              <MicOff className="size-4" />
+                            ) : (
+                              <Mic className="size-4" />
+                            )}
+                          </button>
                           <button
                             type="button"
                             onClick={() => onDisconnectVoice(m.id)}
-                            title="Expulsar del canal de voz"
-                            className="grid size-4 shrink-0 place-items-center rounded text-muted-foreground opacity-0 transition-all hover:bg-rose-500/20 hover:text-rose-500 group-hover:opacity-100"
+                            aria-label="Expulsar del canal de voz"
+                            className="grid size-9 shrink-0 place-items-center rounded-lg border border-rose-500/25 bg-rose-500/10 text-rose-500 transition-colors hover:bg-rose-500/20 active:scale-95"
                           >
-                            <LogOut className="size-2.5" />
+                            <LogOut className="size-4" />
                           </button>
                         </div>
                       ))}
@@ -462,74 +479,36 @@ function ChannelList({
                 </div>
               )
             })}
-          </ChannelGroup>
         </div>
       </ScrollArea>
     </WidgetSection>
   )
 }
 
-function ChannelGroup({
-  label,
-  count,
-  open,
-  onToggle,
-  children,
-}: {
-  label: string
-  count: number
-  open: boolean
-  onToggle: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center gap-1 rounded-md px-1 py-0.5 text-left text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ChevronDown
-          className={cn(
-            "size-3 shrink-0 transition-transform",
-            open ? "rotate-0" : "-rotate-90",
-          )}
-        />
-        <span className="flex-1 truncate">{label}</span>
-        <span className="text-muted-foreground/70">{count}</span>
-      </button>
-      {open ? <div className="mt-0.5 flex flex-col gap-0.5">{children}</div> : null}
-    </div>
-  )
-}
-
 function MemberList({ guild }: { guild: DiscordGuildInfo }) {
+  const activeMembers = useMemo(
+    () => guild.members.filter((m) => m.status !== "offline"),
+    [guild.members],
+  )
   return (
     <WidgetSection accent={ACCENT} className="flex min-h-0 flex-col p-0">
-      <p className="border-b border-violet-500/15 px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        Miembros · {guild.members.length}
+      <p className="border-b border-violet-500/15 px-2.5 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        Conectados · {activeMembers.length}
       </p>
       <ScrollArea className="min-h-0 flex-1">
-        <div className="flex flex-col gap-0.5 p-1.5">
-          {guild.members.map((member) => (
+        <div className="flex flex-col gap-1 p-1.5">
+          {activeMembers.map((member) => (
             <div
               key={member.id}
-              className="flex items-center gap-1.5 rounded-md px-1.5 py-1 transition-colors hover:bg-violet-500/10"
+              className="flex min-h-9 items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-violet-500/10"
             >
               <Circle
                 className={cn(
-                  "size-2 shrink-0 fill-current",
+                  "size-2.5 shrink-0 fill-current",
                   STATUS_DOT[member.status as MemberStatus] ?? STATUS_DOT.offline,
                 )}
               />
-              <span
-                className={cn(
-                  "truncate text-[11px]",
-                  member.status === "offline"
-                    ? "text-muted-foreground/60"
-                    : "text-foreground",
-                )}
-              >
+              <span className="truncate text-[12px] text-foreground">
                 {member.name}
               </span>
             </div>

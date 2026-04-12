@@ -19,6 +19,8 @@ export type DiscordVoiceMember = {
     avatar: string;
     muted: boolean;
     deafened: boolean;
+    streaming: boolean;
+    video: boolean;
 };
 
 export type DiscordChannel = {

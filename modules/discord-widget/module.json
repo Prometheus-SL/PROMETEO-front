@@ -4,8 +4,8 @@
   "description": "Muestra el estado de tu servidor de Discord: miembros conectados, canales de voz activos y actividad reciente.",
   "category": "social",
   "size": {
-    "width": 3,
-    "height": 3
+    "width": 2,
+    "height": 4
   },
   "entry": "./index.tsx",
   "configSchema": "./config.ts",
