@@ -14,10 +14,23 @@ export type LinkedSpotifyAccount = {
   externalUrl: string | null;
 };
 
+export type LinkedDiscordAccount = {
+  status: LinkedAccountStatus;
+  displayName: string | null;
+  username: string | null;
+  avatarUrl: string | null;
+  connectedAt: string | null;
+  scopes: string[];
+  lastError: string | null;
+  email: string | null;
+  verified: boolean | null;
+};
+
 export type AccountPayload = {
   user: AuthUser;
   linkedAccounts: {
     spotify: LinkedSpotifyAccount;
+    discord: LinkedDiscordAccount;
   };
 };
 
@@ -68,6 +81,33 @@ export const accountService = {
     if (!res || ("success" in res && !res.success)) {
       throw new Error(
         getApiErrorMessage(res as ApiFailure, "No se pudo desvincular Spotify.")
+      );
+    }
+  },
+
+  async beginDiscordConnect(returnOrigin?: string): Promise<string> {
+    const res = await api.post<ApiSuccess<{ authorizeUrl: string }> | ApiFailure>(
+      "/api/v1/account/linked-accounts/discord/connect",
+      returnOrigin ? { returnOrigin } : {}
+    );
+
+    if (!res || ("success" in res && !res.success)) {
+      throw new Error(
+        getApiErrorMessage(res as ApiFailure, "No se pudo iniciar la vinculacion con Discord.")
+      );
+    }
+
+    return (res as ApiSuccess<{ authorizeUrl: string }>).data.authorizeUrl;
+  },
+
+  async disconnectDiscord(): Promise<void> {
+    const res = await api.delete<ApiSuccess<{ discord: LinkedDiscordAccount }> | ApiFailure>(
+      "/api/v1/account/linked-accounts/discord"
+    );
+
+    if (!res || ("success" in res && !res.success)) {
+      throw new Error(
+        getApiErrorMessage(res as ApiFailure, "No se pudo desvincular Discord.")
       );
     }
   },
