@@ -104,12 +104,49 @@ export type HermesSnapshot = {
   tags?: string[];
 };
 
+export type HermesMediaState = {
+  available?: boolean;
+  sourceAppId?: string;
+  sourceAppName?: string;
+  provider?: string;
+  canonicalUrl?: string;
+  title?: string;
+  artist?: string;
+  album?: string;
+  artworkUrl?: string;
+  playbackStatus?: string;
+  positionMs?: number;
+  durationMs?: number;
+  canPlay?: boolean;
+  canPause?: boolean;
+  canNext?: boolean;
+  canPrevious?: boolean;
+  detectedVia?: string;
+  queued?: boolean;
+  queuedCommandId?: string | null;
+};
+
+export type HermesMediaSnapshot = {
+  id?: string;
+  agentId: string;
+  dataType: "media_update" | string;
+  schemaVersion?: number;
+  sampledAt?: string;
+  timestamp?: string;
+  mode?: string;
+  error?: string | null;
+  media?: HermesMediaState | null;
+};
+
+export type HermesAgentDataSnapshot = HermesSnapshot | HermesMediaSnapshot;
+
 export type HermesCommandResult = {
   commandId?: string;
   agentId: string;
   success: boolean;
   result?: {
     audio?: HermesSnapshot["audio"];
+    media?: HermesMediaState | null;
     [key: string]: unknown;
   } | null;
   error?: string | null;
@@ -122,11 +159,11 @@ type OwnAgentsResponse = {
   total: number;
 };
 
-type LatestDataResponse = {
+type LatestDataResponse<TData = HermesAgentDataSnapshot> = {
   latest: Array<{
     _id: string;
     agentId: string;
-    data: HermesSnapshot;
+    data: TData;
     createdAt: string;
   }>;
   count: number;
@@ -166,26 +203,30 @@ export async function listMyHermesAgents(): Promise<HermesAgent[]> {
   return (res as ApiSuccess<OwnAgentsResponse>).data.agents;
 }
 
-export async function getLatestSystemStatus(
-  agentId: string
-): Promise<HermesSnapshot | null> {
+export async function getLatestAgentData<TData extends HermesAgentDataSnapshot>(
+  agentId: string,
+  dataType: string
+): Promise<TData | null> {
   const query = new URLSearchParams({
     agentId,
     limit: "1",
-    dataType: "system_status",
+    dataType,
   });
 
-  const res = await api.get<ApiSuccess<LatestDataResponse> | ApiFailure>(
+  const res = await api.get<ApiSuccess<LatestDataResponse<TData>> | ApiFailure>(
     `/api/v1/data/latest?${query.toString()}`
   );
 
   if (!res || ("success" in res && !res.success)) {
     throw new Error(
-      getErrorMessage(res as ApiFailure, "No se pudo obtener el ultimo estado del PC")
+      getErrorMessage(
+        res as ApiFailure,
+        `No se pudo obtener el ultimo estado ${dataType} del agente`
+      )
     );
   }
 
-  const latestRecord = (res as ApiSuccess<LatestDataResponse>).data.latest[0];
+  const latestRecord = (res as ApiSuccess<LatestDataResponse<TData>>).data.latest[0];
   if (!latestRecord) return null;
 
   return {
@@ -193,7 +234,19 @@ export async function getLatestSystemStatus(
     id: latestRecord._id,
     agentId: latestRecord.agentId,
     timestamp: latestRecord.createdAt,
-  };
+  } as TData;
+}
+
+export async function getLatestSystemStatus(
+  agentId: string
+): Promise<HermesSnapshot | null> {
+  return getLatestAgentData<HermesSnapshot>(agentId, "system_status");
+}
+
+export async function getLatestMediaStatus(
+  agentId: string
+): Promise<HermesMediaSnapshot | null> {
+  return getLatestAgentData<HermesMediaSnapshot>(agentId, "media_update");
 }
 
 export function resolveAutoAgent(agents: HermesAgent[]): HermesAgent | null {
@@ -220,7 +273,7 @@ export function resolveAutoAgent(agents: HermesAgent[]): HermesAgent | null {
 }
 
 export function connectHermesSocket(handlers: {
-  onAgentData?: (snapshot: HermesSnapshot) => void;
+  onAgentData?: (snapshot: HermesAgentDataSnapshot) => void;
   onAgentConnected?: (payload: { agentId: string }) => void;
   onAgentDisconnected?: (payload: { agentId: string }) => void;
   onCommandResult?: (payload: HermesCommandResult) => void;
@@ -243,7 +296,7 @@ export function connectHermesSocket(handlers: {
     });
   });
 
-  socket.on("agent-data", (payload: HermesSnapshot) => {
+  socket.on("agent-data", (payload: HermesAgentDataSnapshot) => {
     handlers.onAgentData?.(payload);
   });
 

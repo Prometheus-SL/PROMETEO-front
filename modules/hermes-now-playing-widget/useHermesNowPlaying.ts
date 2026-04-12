@@ -1,23 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Socket } from "socket.io-client";
 
+import { useSharedContext } from "@/hooks/useSharedContext";
+import { SharedKeys, type MediaSession } from "@/types/shared";
+
 import {
   connectHermesSocket,
-  getLatestSystemStatus,
+  getLatestMediaStatus,
   listMyHermesAgents,
   resolveAutoAgent,
+  sendHermesCommand,
   type HermesAgent,
   type HermesCommandResult,
-  type HermesSnapshot,
+  type HermesMediaSnapshot,
   type HermesWidgetConfig,
-  sendHermesCommand,
-} from "./hermes-service";
+} from "../hermes-pc-widget/hermes-service";
 
-type HermesWidgetState = {
+type HermesNowPlayingState = {
   loading: boolean;
   error: string | null;
   agent: HermesAgent | null;
-  snapshot: HermesSnapshot | null;
+  mediaSnapshot: HermesMediaSnapshot | null;
   pendingCommandId: string | null;
   lastCommandResult: HermesCommandResult | null;
 };
@@ -30,19 +33,20 @@ function pickAgent(agents: HermesAgent[], config: HermesWidgetConfig) {
   return resolveAutoAgent(agents);
 }
 
-export function useHermesPc(config: HermesWidgetConfig) {
+export function useHermesNowPlaying(config: HermesWidgetConfig) {
   const mode = config.mode ?? "auto";
   const explicitAgentId = config.agentId ?? "";
   const refreshFallbackMs = Math.max(
     5000,
-    Number(config.refreshFallbackMs ?? 30000)
+    Number(config.refreshFallbackMs ?? 15000)
   );
+  const { setShared, getShared } = useSharedContext();
 
-  const [state, setState] = useState<HermesWidgetState>({
+  const [state, setState] = useState<HermesNowPlayingState>({
     loading: true,
     error: null,
     agent: null,
-    snapshot: null,
+    mediaSnapshot: null,
     pendingCommandId: null,
     lastCommandResult: null,
   });
@@ -69,19 +73,19 @@ export function useHermesPc(config: HermesWidgetConfig) {
             loading: false,
             error: null,
             agent: null,
-            snapshot: null,
+            mediaSnapshot: null,
             pendingCommandId: null,
             lastCommandResult: null,
           });
           return;
         }
 
-        const snapshot = await getLatestSystemStatus(selectedAgent.agentId);
+        const mediaSnapshot = await getLatestMediaStatus(selectedAgent.agentId);
         setState({
           loading: false,
           error: null,
           agent: selectedAgent,
-          snapshot,
+          mediaSnapshot,
           pendingCommandId: pendingCommandIdRef.current,
           lastCommandResult: null,
         });
@@ -92,7 +96,7 @@ export function useHermesPc(config: HermesWidgetConfig) {
           error:
             error instanceof Error
               ? error.message
-              : "No se pudo cargar el estado de Hermes",
+              : "No se pudo cargar el estado multimedia de Hermes",
         }));
       }
     },
@@ -119,12 +123,12 @@ export function useHermesPc(config: HermesWidgetConfig) {
       onAgentData: (snapshot) => {
         const currentAgentId = selectedAgentIdRef.current;
         if (!currentAgentId) return;
-        if (snapshot.dataType !== "system_status") return;
+        if (snapshot.dataType !== "media_update") return;
 
         if (snapshot.agentId === currentAgentId) {
           setState((prev) => ({
             ...prev,
-            snapshot,
+            mediaSnapshot: snapshot,
             agent: prev.agent
               ? {
                   ...prev.agent,
@@ -163,7 +167,10 @@ export function useHermesPc(config: HermesWidgetConfig) {
           return;
         }
 
-        if (pendingCommandIdRef.current && result.commandId === pendingCommandIdRef.current) {
+        if (
+          pendingCommandIdRef.current &&
+          result.commandId === pendingCommandIdRef.current
+        ) {
           pendingCommandIdRef.current = null;
         }
 
@@ -175,13 +182,19 @@ export function useHermesPc(config: HermesWidgetConfig) {
               : prev.pendingCommandId,
           lastCommandResult: result,
           error: result.success ? null : result.error || prev.error,
-          snapshot:
-            result.result?.audio && prev.snapshot
-              ? {
-                  ...prev.snapshot,
-                  audio: result.result.audio,
-                }
-              : prev.snapshot,
+          mediaSnapshot: result.result?.media
+            ? {
+                ...(prev.mediaSnapshot || {
+                  agentId: result.agentId,
+                  dataType: "media_update",
+                  sampledAt: new Date().toISOString(),
+                }),
+                media: {
+                  ...(prev.mediaSnapshot?.media || {}),
+                  ...result.result.media,
+                },
+              }
+            : prev.mediaSnapshot,
         }));
       },
       onError: (message) => {
@@ -194,6 +207,33 @@ export function useHermesPc(config: HermesWidgetConfig) {
       socketRef.current = null;
     };
   }, [mode, reload]);
+
+  useEffect(() => {
+    const media = state.mediaSnapshot?.media;
+    if (!media?.available || !media.title) {
+      const current = getShared<MediaSession>(SharedKeys.MEDIA_SESSION);
+      if (current?.source?.startsWith("hermes")) {
+        setShared<MediaSession | null>(SharedKeys.MEDIA_SESSION, null);
+      }
+      return;
+    }
+
+    const nextSession: MediaSession = {
+      title: media.title,
+      artist: media.artist || media.sourceAppName || "Hermes media",
+      album: media.album,
+      artwork: media.artworkUrl,
+      isPlaying: media.playbackStatus === "playing",
+      source: `hermes:${media.provider || "browser"}`,
+      provider: media.provider,
+      sourceAppName: media.sourceAppName,
+      canonicalUrl: media.canonicalUrl,
+      timestamp: media.positionMs,
+      duration: media.durationMs,
+    };
+
+    setShared<MediaSession>(SharedKeys.MEDIA_SESSION, nextSession);
+  }, [getShared, setShared, state.mediaSnapshot]);
 
   return {
     ...state,

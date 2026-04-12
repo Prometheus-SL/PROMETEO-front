@@ -2,12 +2,13 @@ import type { ComponentType } from "react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 
 import { loadModuleDefinition, loadModulesIndex } from "@/modules/loader";
+import {
+  analyzeInstalledModules,
+  GRID_COLS,
+  GRID_ROWS,
+  type GridCell,
+} from "@/modules/grid-layout";
 import type { InstalledModule } from "@/modules/types";
-
-const COLS = 4;
-const ROWS = 5;
-
-type GridCell = { x: number; y: number; w: number; h: number };
 
 type ModuleDefinitionEntry = {
   Component: ComponentType<{
@@ -22,7 +23,7 @@ type ClientGridProps = {
   onModuleConfigChange?: (
     pageId: string,
     moduleId: string,
-    config: Record<string, unknown>
+    config: Record<string, unknown>,
   ) => void;
 };
 
@@ -33,73 +34,6 @@ type ModuleSlotProps = {
   Definition?: ModuleDefinitionEntry["Component"];
   onModuleConfigChange?: ClientGridProps["onModuleConfigChange"];
 };
-
-function clampToGrid(cell: GridCell): GridCell {
-  return {
-    x: Math.min(Math.max(0, cell.x), COLS - Math.max(1, cell.w)),
-    y: Math.min(Math.max(0, cell.y), ROWS - Math.max(1, cell.h)),
-    w: Math.min(Math.max(1, cell.w), COLS),
-    h: Math.min(Math.max(1, cell.h), ROWS),
-  };
-}
-
-function getDesiredSize(inst: InstalledModule): { w: number; h: number } {
-  const cfg = inst.config ?? {};
-
-  const parseIntSafe = (value: unknown): number | undefined => {
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return Math.floor(value);
-    }
-    if (typeof value === "string") {
-      const parsed = parseInt(value, 10);
-      return Number.isFinite(parsed) ? Math.floor(parsed) : undefined;
-    }
-    return undefined;
-  };
-
-  const rawSize = (cfg as { size?: unknown }).size;
-  if (typeof rawSize === "string") {
-    const match = rawSize.match(/^(\d+)x(\d+)$/i);
-    if (match) {
-      return {
-        w: Math.max(1, Number(match[1])),
-        h: Math.max(1, Number(match[2])),
-      };
-    }
-  }
-
-  const w = parseIntSafe(
-    (cfg as { w?: unknown }).w ?? (cfg as { width?: unknown }).width
-  );
-  const h = parseIntSafe(
-    (cfg as { h?: unknown }).h ?? (cfg as { height?: unknown }).height
-  );
-  if (w && h) {
-    return { w, h };
-  }
-
-  const metaSize = inst.meta.size as
-    | { width?: unknown; height?: unknown }
-    | string
-    | undefined;
-  if (typeof metaSize === "string") {
-    const match = metaSize.match(/^(\d+)x(\d+)$/i);
-    if (match) {
-      return {
-        w: Math.max(1, Number(match[1])),
-        h: Math.max(1, Number(match[2])),
-      };
-    }
-  } else if (metaSize) {
-    const metaW = parseIntSafe(metaSize.width);
-    const metaH = parseIntSafe(metaSize.height);
-    if (metaW && metaH) {
-      return { w: metaW, h: metaH };
-    }
-  }
-
-  return { w: 1, h: 1 };
-}
 
 const ModuleSlot = memo(function ModuleSlot({
   pageId,
@@ -115,17 +49,17 @@ const ModuleSlot = memo(function ModuleSlot({
       if (!moduleId || !onModuleConfigChange) return;
       onModuleConfigChange(pageId, moduleId, newConfig);
     },
-    [moduleId, onModuleConfigChange, pageId]
+    [moduleId, onModuleConfigChange, pageId],
   );
 
   return (
     <div
       className="absolute p-2"
       style={{
-        left: `calc(${position.x} / ${COLS} * 100%)`,
-        top: `calc(${position.y} / ${ROWS} * 100%)`,
-        width: `calc(${position.w} / ${COLS} * 100%)`,
-        height: `calc(${position.h} / ${ROWS} * 100%)`,
+        left: `calc(${position.x} / ${GRID_COLS} * 100%)`,
+        top: `calc(${position.y} / ${GRID_ROWS} * 100%)`,
+        width: `calc(${position.w} / ${GRID_COLS} * 100%)`,
+        height: `calc(${position.h} / ${GRID_ROWS} * 100%)`,
       }}
     >
       <div className="relative h-full w-full overflow-hidden rounded-lg bg-background shadow">
@@ -155,9 +89,14 @@ function ClientGridComponent({
 
   const moduleIds = useMemo(
     () => Array.from(new Set(modules.map((module) => module.meta.id))).sort(),
-    [modules]
+    [modules],
   );
   const moduleIdsKey = moduleIds.join("|");
+
+  const layoutAnalysis = useMemo(
+    () => analyzeInstalledModules(modules),
+    [modules],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -165,7 +104,9 @@ function ClientGridComponent({
     void (async () => {
       try {
         const index = await loadModulesIndex();
-        const entriesById = new Map(index.map((entry) => [entry.meta.id, entry]));
+        const entriesById = new Map(
+          index.map((entry) => [entry.meta.id, entry]),
+        );
 
         const resolvedDefinitions = await Promise.all(
           moduleIds.map(async (moduleId) => {
@@ -174,9 +115,11 @@ function ClientGridComponent({
             const definition = await loadModuleDefinition(entry);
             return [
               moduleId,
-              { Component: definition.Component } satisfies ModuleDefinitionEntry,
+              {
+                Component: definition.Component,
+              } satisfies ModuleDefinitionEntry,
             ] as const;
-          })
+          }),
         );
 
         if (cancelled) return;
@@ -203,61 +146,55 @@ function ClientGridComponent({
     };
   }, [moduleIds, moduleIdsKey]);
 
-  const positions = useMemo(() => {
-    const accumulator: Record<string, GridCell> = {};
-
-    for (const module of modules) {
-      const key = module._id ?? module.meta.id;
-      const desired = getDesiredSize(module);
-      const rawPosition = module.position ?? {
-        x: 0,
-        y: 0,
-        w: desired.w,
-        h: desired.h,
-      };
-
-      accumulator[key] = clampToGrid({
-        ...rawPosition,
-        w: desired.w,
-        h: desired.h,
-      });
-    }
-
-    return accumulator;
-  }, [modules]);
+  const visibleModules = useMemo(() => {
+    return modules.filter((module) =>
+      Boolean(layoutAnalysis.positions[module._id ?? module.meta.id]),
+    );
+  }, [layoutAnalysis.positions, modules]);
 
   return (
-    <div
-      className="relative h-screen max-h-[80vh] w-screen select-none overflow-hidden rounded-md touch-none"
-      style={{ aspectRatio: `${COLS}/${ROWS}` }}
-    >
-      <div
-        className="absolute inset-0 grid"
-        style={{
-          gridTemplateColumns: `repeat(${COLS}, 1fr)`,
-          gridTemplateRows: `repeat(${ROWS}, 1fr)`,
-        }}
-      >
-        {Array.from({ length: COLS * ROWS }).map((_, index) => (
-          <div key={index} className="border-zinc-200 dark:border-zinc-800" />
-        ))}
-      </div>
-      {modules.map((module) => {
-        const key = module._id ?? module.meta.id;
-        const position = positions[key] ?? { x: 0, y: 0, w: 1, h: 1 };
-        const Definition = definitions[module.meta.id]?.Component;
+    <div className="flex h-full w-full flex-col gap-3 overflow-hidden">
+      {layoutAnalysis.needsRepair ? (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
+          {layoutAnalysis.unplacedModuleIds.length > 0
+            ? `This dashboard has ${layoutAnalysis.unplacedModuleIds.length} widget${layoutAnalysis.unplacedModuleIds.length === 1 ? "" : "s"} that no longer fit in the grid. Open Dashboards to remove or repair them.`
+            : "This dashboard layout was auto-adjusted to avoid overlaps. Open Dashboards to repair it permanently."}
+        </div>
+      ) : null}
 
-        return (
-          <ModuleSlot
-            key={key}
-            pageId={pageId}
-            module={module}
-            position={position}
-            Definition={Definition}
-            onModuleConfigChange={onModuleConfigChange}
-          />
-        );
-      })}
+      <div className="relative min-h-0 w-full flex-1 select-none overflow-hidden rounded-md touch-none my-2">
+        <div
+          className="absolute inset-0 grid"
+          style={{
+            gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
+            gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
+          }}
+        >
+          {Array.from({ length: GRID_COLS * GRID_ROWS }).map((_, index) => (
+            <div key={index} className="border-zinc-200 dark:border-zinc-800" />
+          ))}
+        </div>
+        {visibleModules.map((module) => {
+          const key = module._id ?? module.meta.id;
+          const position = layoutAnalysis.positions[key];
+          const Definition = definitions[module.meta.id]?.Component;
+
+          if (!position) {
+            return null;
+          }
+
+          return (
+            <ModuleSlot
+              key={key}
+              pageId={pageId}
+              module={module}
+              position={position}
+              Definition={Definition}
+              onModuleConfigChange={onModuleConfigChange}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }

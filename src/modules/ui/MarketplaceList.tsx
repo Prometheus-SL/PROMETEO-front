@@ -1,5 +1,6 @@
 import { useMemo, useState, type ChangeEvent } from "react";
 import { Search, X, RotateCcw, Tag, ImageOff, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -190,6 +191,7 @@ export function MarketplaceList({ store }: MarketplaceListProps) {
     setQuery,
     installModule,
     installModuleTo,
+    createDashboard,
     toggleCategory,
     clearCategories,
     toggleSize,
@@ -463,15 +465,26 @@ export function MarketplaceList({ store }: MarketplaceListProps) {
               meta={selected}
               open={Boolean(selected)}
               onClose={() => setSelected(null)}
-              onSave={(config, pageId) => {
+              pages={state.pages}
+              currentPageId={state.currentPageId}
+              onCreatePage={async (name) =>
+                createDashboard({ name, active: false })
+              }
+              onSave={async (config, pageId) => {
                 const moduleMeta = selected;
                 if (!moduleMeta) return;
-                if (pageId) {
-                  installModuleTo(pageId, moduleMeta, config);
-                } else {
-                  installModule(moduleMeta, config);
+                try {
+                  if (pageId) {
+                    await installModuleTo(pageId, moduleMeta, config);
+                  } else {
+                    await installModule(moduleMeta, config);
+                  }
+                  setSelected(null);
+                } catch (error) {
+                  toast.error(
+                    (error as Error)?.message || "Could not add the widget"
+                  );
                 }
-                setSelected(null);
               }}
             />
           )}

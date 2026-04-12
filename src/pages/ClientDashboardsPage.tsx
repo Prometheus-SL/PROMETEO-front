@@ -39,7 +39,7 @@ function toPageSummary(page: Page): PageSummary {
 
 function mergePageSummary(
   pages: PageSummary[],
-  summaryLike: PageSummary | Page
+  summaryLike: PageSummary | Page,
 ): PageSummary[] {
   const summary =
     "modules" in summaryLike ? toPageSummary(summaryLike) : summaryLike;
@@ -48,7 +48,7 @@ function mergePageSummary(
   return sortPageSummaries(
     exists
       ? pages.map((page) => (page._id === summary._id ? summary : page))
-      : [...pages, summary]
+      : [...pages, summary],
   );
 }
 
@@ -73,33 +73,39 @@ export default function ClientDashboardsPage() {
         return next;
       });
     },
-    []
+    [],
   );
 
-  const setPageLoadingState = useCallback((pageId: string, isLoading: boolean) => {
-    setPageLoading((previous) => {
-      const next = { ...previous };
-      if (isLoading) {
-        next[pageId] = true;
-      } else {
-        delete next[pageId];
-      }
-      pageLoadingRef.current = next;
-      return next;
-    });
-  }, []);
+  const setPageLoadingState = useCallback(
+    (pageId: string, isLoading: boolean) => {
+      setPageLoading((previous) => {
+        const next = { ...previous };
+        if (isLoading) {
+          next[pageId] = true;
+        } else {
+          delete next[pageId];
+        }
+        pageLoadingRef.current = next;
+        return next;
+      });
+    },
+    [],
+  );
 
-  const setPageErrorState = useCallback((pageId: string, message: string | null) => {
-    setPageErrors((previous) => {
-      const next = { ...previous };
-      if (message) {
-        next[pageId] = message;
-      } else {
-        delete next[pageId];
-      }
-      return next;
-    });
-  }, []);
+  const setPageErrorState = useCallback(
+    (pageId: string, message: string | null) => {
+      setPageErrors((previous) => {
+        const next = { ...previous };
+        if (message) {
+          next[pageId] = message;
+        } else {
+          delete next[pageId];
+        }
+        return next;
+      });
+    },
+    [],
+  );
 
   const loadPage = useCallback(
     async (pageId: string) => {
@@ -121,14 +127,14 @@ export default function ClientDashboardsPage() {
         setPageLoadingState(pageId, false);
       }
     },
-    [setPageErrorState, setPageLoadingState, updatePageCache]
+    [setPageErrorState, setPageLoadingState, updatePageCache],
   );
 
   const handleModuleConfigChange = useCallback(
     async (
       pageId: string,
       moduleId: string,
-      config: Record<string, unknown>
+      config: Record<string, unknown>,
     ) => {
       try {
         await dashboardService.updateModule(pageId, moduleId, { config });
@@ -142,7 +148,7 @@ export default function ClientDashboardsPage() {
             [pageId]: {
               ...page,
               modules: page.modules.map((module) =>
-                module._id === moduleId ? { ...module, config } : module
+                module._id === moduleId ? { ...module, config } : module,
               ),
             },
           };
@@ -151,7 +157,7 @@ export default function ClientDashboardsPage() {
         console.error("Error updating module config:", err);
       }
     },
-    [updatePageCache]
+    [updatePageCache],
   );
 
   useEffect(() => {
@@ -217,7 +223,9 @@ export default function ClientDashboardsPage() {
   const selectedIndex = useMemo(() => {
     if (!pageSummaries.length) return 0;
     if (!selectedPageId) return 0;
-    const index = pageSummaries.findIndex((page) => page._id === selectedPageId);
+    const index = pageSummaries.findIndex(
+      (page) => page._id === selectedPageId,
+    );
     return index >= 0 ? index : 0;
   }, [pageSummaries, selectedPageId]);
 
@@ -228,7 +236,7 @@ export default function ClientDashboardsPage() {
     carouselApi.reInit();
     const boundedIndex = Math.min(
       selectedIndex,
-      Math.max(pageSummaries.length - 1, 0)
+      Math.max(pageSummaries.length - 1, 0),
     );
     if (carouselApi.selectedScrollSnap() !== boundedIndex) {
       carouselApi.scrollTo(boundedIndex);
@@ -288,7 +296,7 @@ export default function ClientDashboardsPage() {
     <div className="relative flex h-full flex-1 flex-col overflow-hidden">
       <Carousel
         setApi={setCarouselApi}
-        className="flex h-full flex-1"
+        className="h-full flex-1"
         opts={{ align: "start" }}
       >
         <CarouselContent className="h-full">
@@ -359,7 +367,7 @@ export default function ClientDashboardsPage() {
                 "h-3.5 w-3.5 rounded-full border border-border transition-colors",
                 index === selectedIndex
                   ? "border-primary bg-primary/20"
-                  : "hover:border-primary"
+                  : "hover:border-primary",
               )}
               aria-label={`Go to dashboard ${page.name}`}
             />
