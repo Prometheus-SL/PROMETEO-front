@@ -1,4 +1,4 @@
-import type { HermesMediaState } from "../hermes-pc-widget/hermes-service";
+import type { HermesMediaState } from "./hermes-service";
 
 export type EmbedConfig = {
   provider: "youtube" | "twitch" | "soundcloud";

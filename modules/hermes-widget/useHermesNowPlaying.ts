@@ -14,7 +14,7 @@ import {
   type HermesCommandResult,
   type HermesMediaSnapshot,
   type HermesWidgetConfig,
-} from "../hermes-pc-widget/hermes-service";
+} from "./hermes-service";
 
 type HermesNowPlayingState = {
   loading: boolean;
@@ -131,11 +131,11 @@ export function useHermesNowPlaying(config: HermesWidgetConfig) {
             mediaSnapshot: snapshot,
             agent: prev.agent
               ? {
-                  ...prev.agent,
-                  status: "online",
-                  lastSeen: snapshot.timestamp || snapshot.sampledAt,
-                  lastData: snapshot.timestamp || snapshot.sampledAt,
-                }
+                ...prev.agent,
+                status: "online",
+                lastSeen: snapshot.timestamp || snapshot.sampledAt,
+                lastData: snapshot.timestamp || snapshot.sampledAt,
+              }
               : prev.agent,
           }));
           return;
@@ -184,16 +184,16 @@ export function useHermesNowPlaying(config: HermesWidgetConfig) {
           error: result.success ? null : result.error || prev.error,
           mediaSnapshot: result.result?.media
             ? {
-                ...(prev.mediaSnapshot || {
-                  agentId: result.agentId,
-                  dataType: "media_update",
-                  sampledAt: new Date().toISOString(),
-                }),
-                media: {
-                  ...(prev.mediaSnapshot?.media || {}),
-                  ...result.result.media,
-                },
-              }
+              ...(prev.mediaSnapshot || {
+                agentId: result.agentId,
+                dataType: "media_update",
+                sampledAt: new Date().toISOString(),
+              }),
+              media: {
+                ...(prev.mediaSnapshot?.media || {}),
+                ...result.result.media,
+              },
+            }
             : prev.mediaSnapshot,
         }));
       },

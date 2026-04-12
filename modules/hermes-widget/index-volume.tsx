@@ -12,7 +12,7 @@ import {
   WidgetStatus,
 } from "@/modules/ui/WidgetShell";
 
-import { useHermesPc } from "../hermes-pc-widget/useHermesPc";
+import { useHermesPc } from "./useHermesPc";
 
 export default function HermesVolumeWidget({
   config,
