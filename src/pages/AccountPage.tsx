@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import {
   accountService,
   type AccountPayload,
+  type LinkedDiscordAccount,
   type LinkedSpotifyAccount,
 } from "@/services/account";
 import { useAuthContext } from "@/providers/AuthProvider";
@@ -76,8 +77,11 @@ export default function AccountPage() {
   const [error, setError] = useState<string | null>(null);
   const [connectingSpotify, setConnectingSpotify] = useState(false);
   const [disconnectingSpotify, setDisconnectingSpotify] = useState(false);
+  const [connectingDiscord, setConnectingDiscord] = useState(false);
+  const [disconnectingDiscord, setDisconnectingDiscord] = useState(false);
   const popupRef = useRef<Window | null>(null);
   const popupTimerRef = useRef<number | null>(null);
+  const activeProviderRef = useRef<"spotify" | "discord" | null>(null);
 
   const clearPopupWatcher = useCallback(() => {
     if (popupTimerRef.current !== null) {
@@ -112,16 +116,21 @@ export default function AccountPage() {
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
       if (event.data?.type !== "linked_account_callback") return;
-      if (event.data?.provider !== "spotify") return;
+
+      const provider = event.data?.provider;
+      if (provider !== "spotify" && provider !== "discord") return;
 
       clearPopupWatcher();
       popupRef.current = null;
-      setConnectingSpotify(false);
+      activeProviderRef.current = null;
+      if (provider === "spotify") setConnectingSpotify(false);
+      if (provider === "discord") setConnectingDiscord(false);
 
+      const label = provider === "spotify" ? "Spotify" : "Discord";
       if (event.data?.status === "success") {
-        toast.success("Spotify account linked");
+        toast.success(`${label} account linked`);
       } else {
-        toast.error(event.data?.error || "Spotify could not be linked");
+        toast.error(event.data?.error || `${label} could not be linked`);
       }
 
       void loadAccount(true);
@@ -145,6 +154,19 @@ export default function AccountPage() {
     externalUrl: null,
   };
 
+  const discord: LinkedDiscordAccount = account?.linkedAccounts.discord ?? {
+    status: "disconnected" as const,
+    id: null,
+    displayName: null,
+    username: null,
+    avatarUrl: null,
+    connectedAt: null,
+    scopes: [],
+    lastError: null,
+    email: null,
+    verified: null,
+  };
+
   const accountName = useMemo(() => {
     const fullName = [user?.name, user?.surname]
       .filter(Boolean)
@@ -163,6 +185,7 @@ export default function AccountPage() {
   }, [accountName]);
 
   const spotifyStatus = STATUS_STYLES[spotify.status];
+  const discordStatus = STATUS_STYLES[discord.status];
 
   const handleSpotifyConnect = useCallback(async () => {
     if (connectingSpotify) return;
@@ -207,6 +230,76 @@ export default function AccountPage() {
       );
     }
   }, [clearPopupWatcher, connectingSpotify, loadAccount]);
+
+  const handleDiscordConnect = useCallback(async () => {
+    if (connectingDiscord) return;
+
+    const popup = window.open(
+      "about:blank",
+      "prometeo-discord-link",
+      "popup=yes,width=560,height=760",
+    );
+
+    popupRef.current = popup;
+    activeProviderRef.current = "discord";
+    setConnectingDiscord(true);
+
+    try {
+      const authorizeUrl = await accountService.beginDiscordConnect(
+        window.location.origin,
+      );
+
+      if (popup) {
+        popup.location.href = authorizeUrl;
+      } else {
+        window.location.href = authorizeUrl;
+        return;
+      }
+
+      clearPopupWatcher();
+      popupTimerRef.current = window.setInterval(() => {
+        if (!popupRef.current || popupRef.current.closed) {
+          clearPopupWatcher();
+          popupRef.current = null;
+          activeProviderRef.current = null;
+          setConnectingDiscord(false);
+          void loadAccount(true);
+        }
+      }, 500);
+    } catch (err) {
+      setConnectingDiscord(false);
+      activeProviderRef.current = null;
+      if (popup && !popup.closed) {
+        popup.close();
+      }
+      toast.error(
+        (err as Error)?.message || "Discord could not start the linking flow.",
+      );
+    }
+  }, [clearPopupWatcher, connectingDiscord, loadAccount]);
+
+  const handleDiscordDisconnect = useCallback(async () => {
+    if (disconnectingDiscord) return;
+
+    const confirmed = window.confirm(
+      "Disconnect Discord from this Prometeo account?",
+    );
+    if (!confirmed) return;
+
+    setDisconnectingDiscord(true);
+
+    try {
+      await accountService.disconnectDiscord();
+      toast.success("Discord disconnected");
+      await loadAccount(true);
+    } catch (err) {
+      toast.error(
+        (err as Error)?.message || "Discord could not be disconnected",
+      );
+    } finally {
+      setDisconnectingDiscord(false);
+    }
+  }, [disconnectingDiscord, loadAccount]);
 
   const handleSpotifyDisconnect = useCallback(async () => {
     if (disconnectingSpotify) return;
@@ -306,7 +399,10 @@ export default function AccountPage() {
               <InfoTile
                 icon={<Link2 className="size-4" />}
                 label="Linked services"
-                value={spotify.status === "connected" ? "1 active" : "0 active"}
+                value={`${
+                  (spotify.status === "connected" ? 1 : 0) +
+                  (discord.status === "connected" ? 1 : 0)
+                } active`}
               />
             </CardContent>
           </Card>
@@ -319,7 +415,7 @@ export default function AccountPage() {
                 account, refresh tokens automatically, and reuse it everywhere.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-5">
               <SpotifyLinkedAccountCard
                 account={spotify}
                 statusLabel={spotifyStatus.label}
@@ -328,6 +424,15 @@ export default function AccountPage() {
                 disconnecting={disconnectingSpotify}
                 onConnect={handleSpotifyConnect}
                 onDisconnect={handleSpotifyDisconnect}
+              />
+              <DiscordLinkedAccountCard
+                account={discord}
+                statusLabel={discordStatus.label}
+                statusClassName={discordStatus.className}
+                connecting={connectingDiscord}
+                disconnecting={disconnectingDiscord}
+                onConnect={handleDiscordConnect}
+                onDisconnect={handleDiscordDisconnect}
               />
             </CardContent>
           </Card>
@@ -484,6 +589,135 @@ function SpotifyLinkedAccountCard({
           <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-2 font-medium text-foreground">
               <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-300" />
+              Stored on your account
+            </div>
+            <p className="mt-2 leading-6">
+              Widgets and client dashboards reuse this link automatically.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DiscordLinkedAccountCard({
+  account,
+  statusLabel,
+  statusClassName,
+  connecting,
+  disconnecting,
+  onConnect,
+  onDisconnect,
+}: {
+  account: LinkedDiscordAccount;
+  statusLabel: string;
+  statusClassName: string;
+  connecting: boolean;
+  disconnecting: boolean;
+  onConnect: () => void;
+  onDisconnect: () => void;
+}) {
+  const actionLabel =
+    account.status === "reauth_required" ? "Reconnect Discord" : "Link Discord";
+
+  return (
+    <div className="relative overflow-hidden rounded-[1.75rem] border border-indigo-500/15 bg-[radial-gradient(circle_at_top_right,rgba(88,101,242,0.18),transparent_38%),linear-gradient(135deg,rgba(15,23,42,0.06),transparent)] p-6 shadow-sm">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="grid size-12 place-items-center rounded-2xl bg-[#5865F2]/10">
+              <img
+                src="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png"
+                alt="Discord avatar"
+                className="size-9 rounded-lg"
+              />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold">Discord</h3>
+                <Badge
+                  variant="outline"
+                  className={cn("rounded-full border", statusClassName)}
+                >
+                  {statusLabel}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Identity, profile info and automatic token refresh.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <DetailRow
+              label="Discord profile"
+              value={account.displayName || "No Discord account linked"}
+            />
+            <DetailRow
+              label="Username"
+              value={account.username ? `@${account.username}` : "Unknown"}
+            />
+            <DetailRow
+              label="Connected at"
+              value={formatDate(account.connectedAt)}
+            />
+            <DetailRow
+              label="Email verified"
+              value={
+                account.verified === null
+                  ? "Unknown"
+                  : account.verified
+                    ? "Verified"
+                    : "Not verified"
+              }
+            />
+          </div>
+
+          {account.lastError ? (
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+              <div className="flex items-center gap-2 font-medium">
+                <RefreshCw className="size-4" />
+                Discord needs attention
+              </div>
+              <p className="mt-2 leading-6">{account.lastError}</p>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex shrink-0 flex-col gap-3 lg:w-56">
+          <Button
+            size="lg"
+            className="justify-center bg-[#5865F2] text-white hover:bg-[#4752c4]"
+            onClick={onConnect}
+            disabled={connecting || account.status === "connected"}
+          >
+            {connecting ? (
+              <Spinner className="size-4" />
+            ) : (
+              <Link2 className="size-4" />
+            )}
+            {connecting ? "Opening Discord..." : actionLabel}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="lg"
+            className="justify-center"
+            onClick={onDisconnect}
+            disabled={disconnecting || account.status === "disconnected"}
+          >
+            {disconnecting ? (
+              <Spinner className="size-4" />
+            ) : (
+              <Unplug className="size-4" />
+            )}
+            {disconnecting ? "Disconnecting..." : "Disconnect"}
+          </Button>
+
+          <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 font-medium text-foreground">
+              <CheckCircle2 className="size-4 text-indigo-500 dark:text-indigo-300" />
               Stored on your account
             </div>
             <p className="mt-2 leading-6">

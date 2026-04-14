@@ -13,6 +13,7 @@ import {
 
 function normalizeProviderName(provider: string) {
   if (provider === "spotify") return "Spotify";
+  if (provider === "discord") return "Discord";
   if (!provider) return "Linked account";
   return provider.charAt(0).toUpperCase() + provider.slice(1);
 }

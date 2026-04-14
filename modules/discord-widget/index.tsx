@@ -31,6 +31,7 @@ import {
   discordService,
   type DiscordGuildInfo,
 } from "@/services/discord"
+import { accountService } from "@/services/account"
 
 const ACCENT = "violet" as const
 
@@ -55,6 +56,26 @@ export default function DiscordWidget({
   const [botConnected, setBotConnected] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [linkedDiscordId, setLinkedDiscordId] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const payload = await accountService.getAccount()
+        if (cancelled) return
+        const discord = payload.linkedAccounts?.discord
+        setLinkedDiscordId(
+          discord?.status === "connected" ? discord.id ?? null : null,
+        )
+      } catch {
+        if (!cancelled) setLinkedDiscordId(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const fetchStatus = useCallback(async () => {
     setLoading(true)
@@ -225,6 +246,7 @@ export default function DiscordWidget({
           botConnected,
           guildInfo,
           serverId,
+          linkedDiscordId,
           onInvite: handleInvite,
           onRetry: handleRefresh,
           onDisconnectVoice: handleDisconnectVoice,
@@ -241,6 +263,7 @@ function renderBody({
   botConnected,
   guildInfo,
   serverId,
+  linkedDiscordId,
   onInvite,
   onRetry,
   onDisconnectVoice,
@@ -251,6 +274,7 @@ function renderBody({
   botConnected: boolean | null
   guildInfo: DiscordGuildInfo | null
   serverId: string
+  linkedDiscordId: string | null
   onInvite: () => void
   onRetry: () => void
   onDisconnectVoice: (userId: string) => void
@@ -360,20 +384,34 @@ function renderBody({
     <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-2">
       <ChannelList
         guild={guildInfo}
+        linkedDiscordId={linkedDiscordId}
         onDisconnectVoice={onDisconnectVoice}
         onToggleMute={onToggleMute}
       />
-      <MemberList guild={guildInfo} />
+      <MemberList guild={guildInfo} linkedDiscordId={linkedDiscordId} />
     </div>
+  )
+}
+
+function YouBadge() {
+  return (
+    <span
+      title="Tu cuenta vinculada"
+      className="inline-flex shrink-0 items-center rounded bg-violet-500/20 px-1 py-[1px] text-[8px] font-bold uppercase tracking-wider text-violet-500"
+    >
+      Tú
+    </span>
   )
 }
 
 function ChannelList({
   guild,
+  linkedDiscordId,
   onDisconnectVoice,
   onToggleMute,
 }: {
   guild: DiscordGuildInfo
+  linkedDiscordId: string | null
   onDisconnectVoice: (userId: string) => void
   onToggleMute: (userId: string, mute: boolean) => void
 }) {
@@ -423,8 +461,11 @@ function ChannelList({
                             className="size-7 rounded-full border border-violet-500/25"
                           />
                           <div className="flex min-w-0 flex-1 flex-col">
-                            <span className="truncate text-[12px] font-medium text-foreground">
-                              {m.name}
+                            <span className="flex items-center gap-1 truncate text-[12px] font-medium text-foreground">
+                              <span className="truncate">{m.name}</span>
+                              {linkedDiscordId && m.id === linkedDiscordId ? (
+                                <YouBadge />
+                              ) : null}
                             </span>
                             <div className="flex items-center gap-1">
                               {m.streaming ? (
@@ -485,11 +526,22 @@ function ChannelList({
   )
 }
 
-function MemberList({ guild }: { guild: DiscordGuildInfo }) {
-  const activeMembers = useMemo(
-    () => guild.members.filter((m) => m.status !== "offline"),
-    [guild.members],
-  )
+function MemberList({
+  guild,
+  linkedDiscordId,
+}: {
+  guild: DiscordGuildInfo
+  linkedDiscordId: string | null
+}) {
+  const activeMembers = useMemo(() => {
+    const members = guild.members.filter((m) => m.status !== "offline")
+    if (!linkedDiscordId) return members
+    return [...members].sort((a, b) => {
+      if (a.id === linkedDiscordId) return -1
+      if (b.id === linkedDiscordId) return 1
+      return 0
+    })
+  }, [guild.members, linkedDiscordId])
   return (
     <WidgetSection accent={ACCENT} className="flex min-h-0 flex-col p-0">
       <p className="border-b border-violet-500/15 px-2.5 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -497,22 +549,30 @@ function MemberList({ guild }: { guild: DiscordGuildInfo }) {
       </p>
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-1 p-1.5">
-          {activeMembers.map((member) => (
-            <div
-              key={member.id}
-              className="flex min-h-9 items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-violet-500/10"
-            >
-              <Circle
+          {activeMembers.map((member) => {
+            const isYou =
+              !!linkedDiscordId && member.id === linkedDiscordId
+            return (
+              <div
+                key={member.id}
                 className={cn(
-                  "size-2.5 shrink-0 fill-current",
-                  STATUS_DOT[member.status as MemberStatus] ?? STATUS_DOT.offline,
+                  "flex min-h-9 items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-violet-500/10",
+                  isYou && "bg-violet-500/10 ring-1 ring-violet-500/30",
                 )}
-              />
-              <span className="truncate text-[12px] text-foreground">
-                {member.name}
-              </span>
-            </div>
-          ))}
+              >
+                <Circle
+                  className={cn(
+                    "size-2.5 shrink-0 fill-current",
+                    STATUS_DOT[member.status as MemberStatus] ?? STATUS_DOT.offline,
+                  )}
+                />
+                <span className="flex min-w-0 flex-1 items-center gap-1 text-[12px] text-foreground">
+                  <span className="truncate">{member.name}</span>
+                  {isYou ? <YouBadge /> : null}
+                </span>
+              </div>
+            )
+          })}
         </div>
       </ScrollArea>
     </WidgetSection>
