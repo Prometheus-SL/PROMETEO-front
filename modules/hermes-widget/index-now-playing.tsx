@@ -240,23 +240,17 @@ export default function HermesNowPlayingWidget({
                 <img
                   src={media.artworkUrl}
                   alt={media.title || "Artwork"}
-                  className="size-16 shrink-0 rounded-2xl border border-border/60 object-cover shadow-sm"
+                  className="size-8 shrink-0 rounded-2xl border border-border/60 object-cover shadow-sm"
                 />
               ) : (
-                <div className="grid size-16 shrink-0 place-items-center rounded-2xl border border-border/60 bg-background/80 shadow-sm">
-                  <Tv className="size-6 text-muted-foreground" />
+                <div className="grid size-8 shrink-0 place-items-center rounded-2xl border border-border/60 bg-background/80 shadow-sm">
+                  <Tv className="size-4 text-muted-foreground" />
                 </div>
               )}
 
               <div className="min-w-0 flex-1">
                 <p className="line-clamp-2 text-sm font-semibold leading-tight">
                   {media.title || "No title"}
-                </p>
-                <p className="text-muted-foreground mt-1 line-clamp-1 text-xs">
-                  {media.artist || media.sourceAppName || "Unknown source"}
-                </p>
-                <p className="text-muted-foreground mt-1 line-clamp-1 text-[11px]">
-                  {host}
                 </p>
               </div>
             </div>
