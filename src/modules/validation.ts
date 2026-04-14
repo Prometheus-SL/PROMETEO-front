@@ -1,6 +1,9 @@
 import { z } from "zod"
 import type { ModuleMeta } from "./types"
 
+const moduleAudienceSchema = z.enum(["all", "dashboard", "client", "ops"])
+const moduleRoleSchema = z.enum(["viewer", "user", "operator", "admin"])
+
 // Esquema Zod para module.json
 export const moduleMetaSchema = z.object({
     id: z.string().min(1),
@@ -14,25 +17,29 @@ export const moduleMetaSchema = z.object({
     entry: z.string().min(1),
     configSchema: z.string().optional(),
     preview: z.string().optional(),
+    audience: moduleAudienceSchema.default("dashboard"),
+    requiredProviders: z.array(z.string().min(1)).default([]),
+    requiredRole: moduleRoleSchema.nullable().default(null),
+    capabilities: z.array(z.string().min(1)).default([]),
 })
 
 export type ModuleMetaValidated = z.infer<typeof moduleMetaSchema> & ModuleMeta
 
-export function validateModuleMeta(json: unknown): ModuleMeta {
+export function validateModuleMeta(json: unknown): ModuleMetaValidated {
     const parsed = moduleMetaSchema.safeParse(json)
     if (!parsed.success) {
         const message = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")
-        throw new Error(`module.json inválido: ${message}`)
+        throw new Error(`module.json invalido: ${message}`)
     }
     return parsed.data
 }
 
-// Helper para validar configuraciones basadas en Zod (cuando un módulo exporta un schema Zod)
+// Helper para validar configuraciones basadas en Zod (cuando un modulo exporta un schema Zod)
 export function validateConfigWithSchema<T extends z.ZodTypeAny>(schema: T, data: unknown): z.infer<T> {
     const parsed = schema.safeParse(data)
     if (!parsed.success) {
         const message = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")
-        throw new Error(`Configuración inválida: ${message}`)
+        throw new Error(`Configuracion invalida: ${message}`)
     }
     return parsed.data
 }

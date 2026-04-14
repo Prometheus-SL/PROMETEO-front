@@ -1,0 +1,28 @@
+[
+  {
+    "id": "notifications-feed-widget",
+    "name": "Notifications Feed",
+    "description": "Shows provider alerts and recent agent activity from the shared dashboard feed.",
+    "category": "monitoring",
+    "size": { "width": 2, "height": 3 },
+    "entry": "./index.tsx",
+    "configSchema": "./config.ts",
+    "audience": "dashboard",
+    "requiredProviders": [],
+    "requiredRole": null,
+    "capabilities": ["feed", "agent.events"]
+  },
+  {
+    "id": "notifications-feed-widget-compact",
+    "name": "Notifications Feed Compact",
+    "description": "Compact feed for provider and agent activity.",
+    "category": "monitoring",
+    "size": { "width": 2, "height": 1 },
+    "entry": "./index.tsx",
+    "configSchema": "./config.ts",
+    "audience": "dashboard",
+    "requiredProviders": [],
+    "requiredRole": null,
+    "capabilities": ["feed", "agent.events"]
+  }
+]

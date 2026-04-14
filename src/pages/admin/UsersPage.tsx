@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useState } from "react";
+
 import { buildColumns } from "@/components/admin/users/columns";
 import { DataTable } from "@/components/admin/users/data-table";
 import {
@@ -9,8 +11,6 @@ import {
 } from "@/components/ui/card";
 import { usersService, type User } from "@/services/users";
 
-import { useEffect, useMemo, useState } from "react";
-
 export default function UsersPage() {
   const [data, setData] = useState<User[]>([]);
 
@@ -21,23 +21,27 @@ export default function UsersPage() {
   const columns = buildColumns({
     onUserUpdated: (partial) =>
       setData((prev) =>
-        prev.map((u) => (u._id === partial._id ? { ...u, ...partial } : u))
+        prev.map((user) =>
+          user._id === partial._id ? { ...user, ...partial } : user,
+        ),
       ),
-    onUserDeleted: (id) => setData((prev) => prev.filter((u) => u._id !== id)),
+    onUserDeleted: (id) =>
+      setData((prev) => prev.filter((user) => user._id !== id)),
   });
 
   const metrics = useMemo(() => {
     const total = data.length;
-    const active = data.filter((u) => u.isActive).length;
-    const admins = data.filter((u) => u.role === "admin").length;
+    const active = data.filter((user) => user.isActive).length;
+    const admins = data.filter((user) => user.role === "admin").length;
     const now = Date.now();
     const sevenDays = 7 * 24 * 60 * 60 * 1000;
-    const logins7d = data.filter((u) => {
-      if (!u.lastLogin) return false;
-      const ts = Date.parse(u.lastLogin);
-      if (Number.isNaN(ts)) return false;
-      return now - ts <= sevenDays;
+    const logins7d = data.filter((user) => {
+      if (!user.lastLogin) return false;
+      const timestamp = Date.parse(user.lastLogin);
+      if (Number.isNaN(timestamp)) return false;
+      return now - timestamp <= sevenDays;
     }).length;
+
     return { total, active, admins, logins7d };
   }, [data]);
 
@@ -46,8 +50,8 @@ export default function UsersPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader>
-            <CardTitle>Usuarios</CardTitle>
-            <CardDescription>Total en el sistema</CardDescription>
+            <CardTitle>Users</CardTitle>
+            <CardDescription>Total users in the system</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold">{metrics.total}</div>
@@ -55,8 +59,8 @@ export default function UsersPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Activos</CardTitle>
-            <CardDescription>Con acceso habilitado</CardDescription>
+            <CardTitle>Active</CardTitle>
+            <CardDescription>Users with access enabled</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold">{metrics.active}</div>
@@ -65,7 +69,7 @@ export default function UsersPage() {
         <Card>
           <CardHeader>
             <CardTitle>Admins</CardTitle>
-            <CardDescription>Usuarios con rol admin</CardDescription>
+            <CardDescription>Users with the admin role</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold">{metrics.admins}</div>
@@ -73,8 +77,8 @@ export default function UsersPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Logins 7 días</CardTitle>
-            <CardDescription>Últimos 7 días</CardDescription>
+            <CardTitle>Logins in 7 days</CardTitle>
+            <CardDescription>Last 7 days</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold">{metrics.logins7d}</div>

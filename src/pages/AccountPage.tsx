@@ -27,19 +27,35 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Spinner } from "@/components/ui/spinner";
 import { Meteors } from "@/components/ui/meteors";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { useAuthContext } from "@/providers/AuthProvider";
 import {
   accountService,
   type AccountPayload,
+  type LinkedAccountProvider,
+  type LinkedAccountStatus,
   type LinkedDiscordAccount,
   type LinkedSpotifyAccount,
 } from "@/services/account";
-import { useAuthContext } from "@/providers/AuthProvider";
+
+type KnownProviderAccount = LinkedSpotifyAccount | LinkedDiscordAccount;
+
+type ProviderPresentation = {
+  description: string;
+  icon: ReactNode;
+  cardClassName: string;
+  buttonClassName?: string;
+  getDetails: (
+    provider: LinkedAccountProvider,
+    account: KnownProviderAccount | null,
+  ) => Array<{ label: string; value: string }>;
+  getExternalUrl?: (account: KnownProviderAccount | null) => string | null;
+};
 
 const STATUS_STYLES: Record<
-  LinkedSpotifyAccount["status"],
+  LinkedAccountStatus,
   { label: string; className: string }
 > = {
   connected: {
@@ -59,6 +75,120 @@ const STATUS_STYLES: Record<
   },
 };
 
+const PROVIDER_PRESENTATIONS: Record<string, ProviderPresentation> = {
+  spotify: {
+    description: "Playback controls, queue access, and automatic token refresh.",
+    icon: (
+      <img
+        src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green-300x300.png"
+        alt="Spotify"
+        className="size-10 rounded-lg contain h-auto"
+      />
+    ),
+    cardClassName:
+      "border-emerald-500/15 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.16),transparent_38%),linear-gradient(135deg,rgba(15,23,42,0.06),transparent)]",
+    getDetails: (provider, account) => {
+      const spotify = isSpotifyAccount(account) ? account : null;
+      return [
+        {
+          label: "Spotify profile",
+          value:
+            spotify?.displayName ||
+            readString(provider.profile, "displayName") ||
+            "No Spotify account linked",
+        },
+        {
+          label: "Connected at",
+          value: formatDate(provider.connectedAt ?? spotify?.connectedAt),
+        },
+        {
+          label: "Plan",
+          value:
+            spotify?.product?.toUpperCase() ||
+            readString(provider.profile, "product") ||
+            "Unknown",
+        },
+        {
+          label: "Granted scopes",
+          value: provider.scopes.length
+            ? `${provider.scopes.length} permissions`
+            : "No permissions stored",
+        },
+      ];
+    },
+    getExternalUrl: (account) => {
+      const spotify = isSpotifyAccount(account) ? account : null;
+      return spotify?.externalUrl ?? null;
+    },
+  },
+  discord: {
+    description: "Identity, profile info and automatic token refresh.",
+    icon: (
+      <img
+        src="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png"
+        alt="Discord"
+        className="size-10 rounded-lg contain h-auto"
+      />
+    ),
+    cardClassName:
+      "border-indigo-500/15 bg-[radial-gradient(circle_at_top_right,rgba(88,101,242,0.18),transparent_38%),linear-gradient(135deg,rgba(15,23,42,0.06),transparent)]",
+    buttonClassName: "bg-[#5865F2] text-white hover:bg-[#4752c4]",
+    getDetails: (provider, account) => {
+      const discord = isDiscordAccount(account) ? account : null;
+      return [
+        {
+          label: "Discord profile",
+          value:
+            discord?.displayName ||
+            readString(provider.profile, "displayName") ||
+            "No Discord account linked",
+        },
+        {
+          label: "Username",
+          value: discord?.username
+            ? `@${discord.username}`
+            : readString(provider.profile, "username")
+              ? `@${readString(provider.profile, "username")}`
+              : "Unknown",
+        },
+        {
+          label: "Connected at",
+          value: formatDate(provider.connectedAt ?? discord?.connectedAt),
+        },
+        {
+          label: "Email verified",
+          value:
+            discord?.verified === null || discord?.verified === undefined
+              ? "Unknown"
+              : discord.verified
+                ? "Verified"
+                : "Not verified",
+        },
+      ];
+    },
+  },
+};
+
+function isSpotifyAccount(
+  account: KnownProviderAccount | null,
+): account is LinkedSpotifyAccount {
+  return Boolean(account && "product" in account);
+}
+
+function isDiscordAccount(
+  account: KnownProviderAccount | null,
+): account is LinkedDiscordAccount {
+  return Boolean(account && "username" in account);
+}
+
+function readString(
+  value: Record<string, unknown> | null | undefined,
+  key: string,
+): string | null {
+  const candidate = value?.[key];
+  return typeof candidate === "string" && candidate.trim() ? candidate : null;
+}
+
 function formatDate(value?: string | null) {
   if (!value) return "Not available";
   const date = new Date(value);
@@ -70,18 +200,108 @@ function formatDate(value?: string | null) {
   }).format(date);
 }
 
+function createLegacyProviders(
+  linkedAccounts: AccountPayload["linkedAccounts"],
+): LinkedAccountProvider[] {
+  return [
+    {
+      id: "spotify",
+      name: "Spotify",
+      description: "Playback controls, queue access, and automatic token refresh.",
+      kind: "oauth",
+      status: linkedAccounts.spotify.status,
+      connectedAt: linkedAccounts.spotify.connectedAt,
+      tokenExpiresAt: linkedAccounts.spotify.tokenExpiresAt ?? null,
+      scopes: linkedAccounts.spotify.scopes,
+      lastError: linkedAccounts.spotify.lastError,
+      connectSupported: true,
+      disconnectSupported: true,
+      connectPath: "/api/v1/account/linked-accounts/spotify/connect",
+      disconnectPath: "/api/v1/account/linked-accounts/spotify",
+    },
+    {
+      id: "discord",
+      name: "Discord",
+      description: "Identity, profile info and automatic token refresh.",
+      kind: "oauth",
+      status: linkedAccounts.discord.status,
+      connectedAt: linkedAccounts.discord.connectedAt,
+      tokenExpiresAt: linkedAccounts.discord.tokenExpiresAt ?? null,
+      scopes: linkedAccounts.discord.scopes,
+      lastError: linkedAccounts.discord.lastError,
+      connectSupported: true,
+      disconnectSupported: true,
+      connectPath: "/api/v1/account/linked-accounts/discord/connect",
+      disconnectPath: "/api/v1/account/linked-accounts/discord",
+    },
+  ];
+}
+
+function getLinkedAccountDetails(
+  account: AccountPayload | null,
+  providerId: string,
+): KnownProviderAccount | null {
+  if (!account) return null;
+  if (providerId === "spotify") return account.linkedAccounts.spotify;
+  if (providerId === "discord") return account.linkedAccounts.discord;
+  return null;
+}
+
+function getProviderPresentation(
+  provider: LinkedAccountProvider,
+): ProviderPresentation {
+  return (
+    PROVIDER_PRESENTATIONS[provider.id] ?? {
+      description:
+        provider.description || "Reusable provider session for Prometeo modules.",
+      icon: (
+        <div className="grid size-10 place-items-center rounded-xl border border-border/70 bg-background/80">
+          <Link2 className="size-5 text-primary" />
+        </div>
+      ),
+      cardClassName:
+        "border-primary/15 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_38%),linear-gradient(135deg,rgba(15,23,42,0.06),transparent)]",
+      getDetails: (currentProvider) => [
+        {
+          label: "Account",
+          value:
+            readString(currentProvider.profile, "displayName") ||
+            readString(currentProvider.profile, "username") ||
+            currentProvider.name,
+        },
+        {
+          label: "Connected at",
+          value: formatDate(currentProvider.connectedAt),
+        },
+        {
+          label: "Token expires",
+          value: formatDate(currentProvider.tokenExpiresAt),
+        },
+        {
+          label: "Granted scopes",
+          value: currentProvider.scopes.length
+            ? `${currentProvider.scopes.length} permissions`
+            : "No permissions stored",
+        },
+      ],
+    }
+  );
+}
+
 export default function AccountPage() {
   const { user } = useAuthContext();
   const [account, setAccount] = useState<AccountPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [connectingSpotify, setConnectingSpotify] = useState(false);
-  const [disconnectingSpotify, setDisconnectingSpotify] = useState(false);
-  const [connectingDiscord, setConnectingDiscord] = useState(false);
-  const [disconnectingDiscord, setDisconnectingDiscord] = useState(false);
+  const [connectingProviderId, setConnectingProviderId] = useState<string | null>(
+    null,
+  );
+  const [disconnectingProviderId, setDisconnectingProviderId] = useState<
+    string | null
+  >(null);
   const popupRef = useRef<Window | null>(null);
   const popupTimerRef = useRef<number | null>(null);
-  const activeProviderRef = useRef<"spotify" | "discord" | null>(null);
+  const activeProviderRef = useRef<string | null>(null);
 
   const clearPopupWatcher = useCallback(() => {
     if (popupTimerRef.current !== null) {
@@ -97,7 +317,17 @@ export default function AccountPage() {
 
     try {
       const payload = await accountService.getAccount();
-      setAccount(payload);
+      const providers =
+        payload.providers && payload.providers.length > 0
+          ? payload.providers
+          : await accountService
+              .listProviders()
+              .catch(() => createLegacyProviders(payload.linkedAccounts));
+
+      setAccount({
+        ...payload,
+        providers,
+      });
       setError(null);
     } catch (err) {
       setError((err as Error)?.message ?? "Could not load account data.");
@@ -117,20 +347,22 @@ export default function AccountPage() {
       if (event.origin !== window.location.origin) return;
       if (event.data?.type !== "linked_account_callback") return;
 
-      const provider = event.data?.provider;
-      if (provider !== "spotify" && provider !== "discord") return;
+      const providerId = String(event.data?.provider || "");
+      if (!providerId) return;
 
       clearPopupWatcher();
       popupRef.current = null;
       activeProviderRef.current = null;
-      if (provider === "spotify") setConnectingSpotify(false);
-      if (provider === "discord") setConnectingDiscord(false);
+      setConnectingProviderId(null);
 
-      const label = provider === "spotify" ? "Spotify" : "Discord";
+      const providerName =
+        account?.providers?.find((provider) => provider.id === providerId)?.name ||
+        providerId;
+
       if (event.data?.status === "success") {
-        toast.success(`${label} account linked`);
+        toast.success(`${providerName} account linked`);
       } else {
-        toast.error(event.data?.error || `${label} could not be linked`);
+        toast.error(event.data?.error || `${providerName} could not be linked`);
       }
 
       void loadAccount(true);
@@ -141,31 +373,16 @@ export default function AccountPage() {
       window.removeEventListener("message", handleMessage);
       clearPopupWatcher();
     };
-  }, [clearPopupWatcher, loadAccount]);
+  }, [account?.providers, clearPopupWatcher, loadAccount]);
 
-  const spotify = account?.linkedAccounts.spotify ?? {
-    status: "disconnected" as const,
-    displayName: null,
-    avatarUrl: null,
-    connectedAt: null,
-    scopes: [],
-    lastError: null,
-    product: null,
-    externalUrl: null,
-  };
+  const providers = useMemo(() => {
+    if (!account) return [];
+    if (account.providers && account.providers.length > 0) {
+      return account.providers;
+    }
 
-  const discord: LinkedDiscordAccount = account?.linkedAccounts.discord ?? {
-    status: "disconnected" as const,
-    id: null,
-    displayName: null,
-    username: null,
-    avatarUrl: null,
-    connectedAt: null,
-    scopes: [],
-    lastError: null,
-    email: null,
-    verified: null,
-  };
+    return createLegacyProviders(account.linkedAccounts);
+  }, [account]);
 
   const accountName = useMemo(() => {
     const fullName = [user?.name, user?.surname]
@@ -184,145 +401,91 @@ export default function AccountPage() {
       .join("");
   }, [accountName]);
 
-  const spotifyStatus = STATUS_STYLES[spotify.status];
-  const discordStatus = STATUS_STYLES[discord.status];
+  const connectedProviders = providers.filter(
+    (provider) => provider.status === "connected",
+  ).length;
 
-  const handleSpotifyConnect = useCallback(async () => {
-    if (connectingSpotify) return;
-
-    const popup = window.open(
-      "about:blank",
-      "prometeo-spotify-link",
-      "popup=yes,width=560,height=760",
-    );
-
-    popupRef.current = popup;
-    setConnectingSpotify(true);
-
-    try {
-      const authorizeUrl = await accountService.beginSpotifyConnect(
-        window.location.origin,
-      );
-
-      if (popup) {
-        popup.location.href = authorizeUrl;
-      } else {
-        window.location.href = authorizeUrl;
+  const handleProviderConnect = useCallback(
+    async (provider: LinkedAccountProvider) => {
+      if (connectingProviderId === provider.id) return;
+      if (provider.connectSupported === false) {
+        toast.error(`${provider.name} is not available right now`);
         return;
       }
 
-      clearPopupWatcher();
-      popupTimerRef.current = window.setInterval(() => {
-        if (!popupRef.current || popupRef.current.closed) {
-          clearPopupWatcher();
-          popupRef.current = null;
-          setConnectingSpotify(false);
-          void loadAccount(true);
+      const popup = window.open(
+        "about:blank",
+        `prometeo-${provider.id}-link`,
+        "popup=yes,width=560,height=760",
+      );
+
+      popupRef.current = popup;
+      activeProviderRef.current = provider.id;
+      setConnectingProviderId(provider.id);
+
+      try {
+        const authorizeUrl = await accountService.beginProviderConnect(
+          provider.id,
+          window.location.origin,
+        );
+
+        if (popup) {
+          popup.location.href = authorizeUrl;
+        } else {
+          window.location.href = authorizeUrl;
+          return;
         }
-      }, 500);
-    } catch (err) {
-      setConnectingSpotify(false);
-      if (popup && !popup.closed) {
-        popup.close();
-      }
-      toast.error(
-        (err as Error)?.message || "Spotify could not start the linking flow.",
-      );
-    }
-  }, [clearPopupWatcher, connectingSpotify, loadAccount]);
 
-  const handleDiscordConnect = useCallback(async () => {
-    if (connectingDiscord) return;
-
-    const popup = window.open(
-      "about:blank",
-      "prometeo-discord-link",
-      "popup=yes,width=560,height=760",
-    );
-
-    popupRef.current = popup;
-    activeProviderRef.current = "discord";
-    setConnectingDiscord(true);
-
-    try {
-      const authorizeUrl = await accountService.beginDiscordConnect(
-        window.location.origin,
-      );
-
-      if (popup) {
-        popup.location.href = authorizeUrl;
-      } else {
-        window.location.href = authorizeUrl;
-        return;
-      }
-
-      clearPopupWatcher();
-      popupTimerRef.current = window.setInterval(() => {
-        if (!popupRef.current || popupRef.current.closed) {
-          clearPopupWatcher();
-          popupRef.current = null;
-          activeProviderRef.current = null;
-          setConnectingDiscord(false);
-          void loadAccount(true);
+        clearPopupWatcher();
+        popupTimerRef.current = window.setInterval(() => {
+          if (!popupRef.current || popupRef.current.closed) {
+            clearPopupWatcher();
+            popupRef.current = null;
+            activeProviderRef.current = null;
+            setConnectingProviderId(null);
+            void loadAccount(true);
+          }
+        }, 500);
+      } catch (err) {
+        setConnectingProviderId(null);
+        activeProviderRef.current = null;
+        if (popup && !popup.closed) {
+          popup.close();
         }
-      }, 500);
-    } catch (err) {
-      setConnectingDiscord(false);
-      activeProviderRef.current = null;
-      if (popup && !popup.closed) {
-        popup.close();
+        toast.error(
+          (err as Error)?.message ||
+            `${provider.name} could not start the linking flow.`,
+        );
       }
-      toast.error(
-        (err as Error)?.message || "Discord could not start the linking flow.",
+    },
+    [clearPopupWatcher, connectingProviderId, loadAccount],
+  );
+
+  const handleProviderDisconnect = useCallback(
+    async (provider: LinkedAccountProvider) => {
+      if (disconnectingProviderId === provider.id) return;
+
+      const confirmed = window.confirm(
+        `Disconnect ${provider.name} from this Prometeo account?`,
       );
-    }
-  }, [clearPopupWatcher, connectingDiscord, loadAccount]);
+      if (!confirmed) return;
 
-  const handleDiscordDisconnect = useCallback(async () => {
-    if (disconnectingDiscord) return;
+      setDisconnectingProviderId(provider.id);
 
-    const confirmed = window.confirm(
-      "Disconnect Discord from this Prometeo account?",
-    );
-    if (!confirmed) return;
-
-    setDisconnectingDiscord(true);
-
-    try {
-      await accountService.disconnectDiscord();
-      toast.success("Discord disconnected");
-      await loadAccount(true);
-    } catch (err) {
-      toast.error(
-        (err as Error)?.message || "Discord could not be disconnected",
-      );
-    } finally {
-      setDisconnectingDiscord(false);
-    }
-  }, [disconnectingDiscord, loadAccount]);
-
-  const handleSpotifyDisconnect = useCallback(async () => {
-    if (disconnectingSpotify) return;
-
-    const confirmed = window.confirm(
-      "Disconnect Spotify from this Prometeo account?",
-    );
-    if (!confirmed) return;
-
-    setDisconnectingSpotify(true);
-
-    try {
-      await accountService.disconnectSpotify();
-      toast.success("Spotify disconnected");
-      await loadAccount(true);
-    } catch (err) {
-      toast.error(
-        (err as Error)?.message || "Spotify could not be disconnected",
-      );
-    } finally {
-      setDisconnectingSpotify(false);
-    }
-  }, [disconnectingSpotify, loadAccount]);
+      try {
+        await accountService.disconnectProvider(provider.id);
+        toast.success(`${provider.name} disconnected`);
+        await loadAccount(true);
+      } catch (err) {
+        toast.error(
+          (err as Error)?.message || `${provider.name} could not be disconnected`,
+        );
+      } finally {
+        setDisconnectingProviderId(null);
+      }
+    },
+    [disconnectingProviderId, loadAccount],
+  );
 
   if (loading) {
     return (
@@ -358,199 +521,193 @@ export default function AccountPage() {
 
   return (
     <div className="space-y-10">
-      <section className="relative overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-sky-500/10 via-background/80 to-emerald-500/10 p-8 shadow-lg shadow-sky-500/5 lg:p-10">
+      <section className="relative overflow-hidden rounded-[2rem] border border-border/70 bg-gradient-to-br from-primary/10 via-background/80 to-background p-6 shadow-lg shadow-primary/5">
         <div className="pointer-events-none absolute inset-0">
-          <Meteors number={36} className="opacity-60" />
+          <Meteors number={26} className="opacity-70" />
         </div>
 
-        <div className="relative grid gap-8 lg:grid-cols-[0.95fr,1.05fr]">
-          <Card className="border-border/70 bg-background/80 backdrop-blur">
-            <CardHeader className="space-y-4">
-              <div className="flex items-center gap-4">
-                <Avatar className="size-16 rounded-2xl border border-primary/20">
-                  <AvatarFallback className="rounded-2xl text-lg font-semibold">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <CardTitle className="text-2xl">{accountName}</CardTitle>
-                  <CardDescription className="mt-1">
-                    Your Prometeo identity and the services you link to it.
-                  </CardDescription>
+        <div className="relative grid gap-8 xl:grid-cols-[1.1fr,0.9fr] xl:items-center">
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <Avatar className="size-16 border border-border/60 shadow-sm">
+                <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-3xl font-semibold tracking-tight">
+                    Linked Providers
+                  </h1>
+                  <Badge variant="outline" className="rounded-full">
+                    {connectedProviders}/{providers.length} connected
+                  </Badge>
                 </div>
+                <p className="text-sm text-muted-foreground">
+                  Connect a provider once and PROMETEO will reuse that session
+                  across dashboard widgets, client views, and future module
+                  bundles.
+                </p>
               </div>
-            </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2">
-              <InfoTile
-                icon={<UserRound className="size-4" />}
-                label="Username"
-                value={user?.username || "Not available"}
-              />
-              <InfoTile
-                icon={<ShieldCheck className="size-4" />}
-                label="Role"
-                value={user?.role || "Not assigned"}
-              />
-              <InfoTile
-                icon={<CheckCircle2 className="size-4" />}
-                label="Email"
-                value={user?.email || "Not available"}
-              />
-              <InfoTile
-                icon={<Link2 className="size-4" />}
-                label="Linked services"
-                value={`${
-                  (spotify.status === "connected" ? 1 : 0) +
-                  (discord.status === "connected" ? 1 : 0)
-                } active`}
-              />
-            </CardContent>
-          </Card>
+            </div>
 
-          <Card className="border-border/70 bg-background/75 backdrop-blur">
-            <CardHeader>
-              <CardTitle className="text-2xl">Linked Accounts</CardTitle>
+            <div className="grid gap-3 md:grid-cols-3">
+              <DetailRow label="Account owner" value={accountName} />
+              <DetailRow
+                label="Email"
+                value={user?.email || "No email available"}
+              />
+              <DetailRow
+                label="Role"
+                value={user?.role ? user.role.toUpperCase() : "UNKNOWN"}
+              />
+            </div>
+          </div>
+
+          <Card className="border border-border/70 bg-background/80 shadow-sm">
+            <CardHeader className="space-y-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ShieldCheck className="size-5 text-primary" />
+                Shared Provider Registry
+              </CardTitle>
               <CardDescription>
-                Link a provider once and PROMETEO will keep the session for your
-                account, refresh tokens automatically, and reuse it everywhere.
+                Providers publish connection state, scopes, and recovery needs
+                through one shared contract so new widgets can plug in without
+                hardcoded account logic.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-5">
-              <SpotifyLinkedAccountCard
-                account={spotify}
-                statusLabel={spotifyStatus.label}
-                statusClassName={spotifyStatus.className}
-                connecting={connectingSpotify}
-                disconnecting={disconnectingSpotify}
-                onConnect={handleSpotifyConnect}
-                onDisconnect={handleSpotifyDisconnect}
-              />
-              <DiscordLinkedAccountCard
-                account={discord}
-                statusLabel={discordStatus.label}
-                statusClassName={discordStatus.className}
-                connecting={connectingDiscord}
-                disconnecting={disconnectingDiscord}
-                onConnect={handleDiscordConnect}
-                onDisconnect={handleDiscordDisconnect}
-              />
+            <CardContent className="space-y-3 text-sm text-muted-foreground">
+              <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3">
+                <div className="font-medium text-foreground">
+                  Platform-ready foundation
+                </div>
+                <p className="mt-2 leading-6">
+                  Spotify and Discord already run on the shared provider flow,
+                  and the same UI can now absorb Google, GitHub, Home Assistant,
+                  or internal agents with much less wiring.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3">
+                <div className="font-medium text-foreground">Graceful reuse</div>
+                <p className="mt-2 leading-6">
+                  Widgets read the same provider state everywhere, so reconnect
+                  prompts, missing scopes, and degraded experiences stay
+                  consistent.
+                </p>
+              </div>
             </CardContent>
           </Card>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold">Provider Sessions</h2>
+          <p className="text-sm text-muted-foreground">
+            Link, reconnect, or disconnect provider accounts from one place.
+          </p>
+        </div>
+
+        <div className="grid gap-6">
+          {providers.map((provider) => (
+            <LinkedProviderCard
+              key={provider.id}
+              provider={provider}
+              account={getLinkedAccountDetails(account, provider.id)}
+              connecting={connectingProviderId === provider.id}
+              disconnecting={disconnectingProviderId === provider.id}
+              onConnect={() => void handleProviderConnect(provider)}
+              onDisconnect={() => void handleProviderDisconnect(provider)}
+            />
+          ))}
         </div>
       </section>
     </div>
   );
 }
 
-function InfoTile({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-border/70 bg-background/70 p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-        <span className="text-primary">{icon}</span>
-        {label}
-      </div>
-      <p className="mt-3 text-sm font-semibold">{value}</p>
-    </div>
-  );
-}
-
-function SpotifyLinkedAccountCard({
+function LinkedProviderCard({
+  provider,
   account,
-  statusLabel,
-  statusClassName,
   connecting,
   disconnecting,
   onConnect,
   onDisconnect,
 }: {
-  account: LinkedSpotifyAccount;
-  statusLabel: string;
-  statusClassName: string;
+  provider: LinkedAccountProvider;
+  account: KnownProviderAccount | null;
   connecting: boolean;
   disconnecting: boolean;
   onConnect: () => void;
   onDisconnect: () => void;
 }) {
+  const statusStyle = STATUS_STYLES[provider.status];
+  const presentation = getProviderPresentation(provider);
+  const details = presentation.getDetails(provider, account);
+  const externalUrl = presentation.getExternalUrl?.(account) ?? null;
   const actionLabel =
-    account.status === "reauth_required" ? "Reconnect Spotify" : "Link Spotify";
+    provider.status === "reauth_required"
+      ? `Reconnect ${provider.name}`
+      : `Link ${provider.name}`;
 
   return (
-    <div className="relative overflow-hidden rounded-[1.75rem] border border-emerald-500/15 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.16),transparent_38%),linear-gradient(135deg,rgba(15,23,42,0.06),transparent)] p-6 shadow-sm">
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-[1.75rem] border p-6 shadow-sm",
+        presentation.cardClassName,
+      )}
+    >
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <div className="grid size-12 place-items-center rounded-2xl">
-              <img
-                src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green-300x300.png"
-                alt="Spotify avatar"
-                className="size-10 rounded-lg"
-              />
+            <div className="grid size-12 place-items-center rounded-2xl bg-background/70">
+              {presentation.icon}
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-semibold">Spotify</h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg font-semibold">{provider.name}</h3>
                 <Badge
                   variant="outline"
-                  className={cn("rounded-full border", statusClassName)}
+                  className={cn("rounded-full border", statusStyle.className)}
                 >
-                  {statusLabel}
+                  {statusStyle.label}
                 </Badge>
+                {provider.available === false ? (
+                  <Badge variant="outline" className="rounded-full border-amber-500/30">
+                    Provider unavailable
+                  </Badge>
+                ) : null}
               </div>
               <p className="text-sm text-muted-foreground">
-                Playback controls, queue access, and automatic token refresh.
+                {presentation.description}
               </p>
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <DetailRow
-              label="Spotify profile"
-              value={account.displayName || "No Spotify account linked"}
-            />
-            <DetailRow
-              label="Connected at"
-              value={formatDate(account.connectedAt)}
-            />
-            <DetailRow
-              label="Plan"
-              value={account.product?.toLocaleUpperCase() || "Unknown"}
-            />
-            <DetailRow
-              label="Granted scopes"
-              value={
-                account.scopes.length
-                  ? `${account.scopes.length} permissions`
-                  : "No permissions stored"
-              }
-            />
+            {details.map((detail) => (
+              <DetailRow key={`${provider.id}-${detail.label}`} {...detail} />
+            ))}
           </div>
 
-          {account.lastError ? (
+          {provider.lastError ? (
             <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
               <div className="flex items-center gap-2 font-medium">
                 <RefreshCw className="size-4" />
-                Spotify needs attention
+                {provider.name} needs attention
               </div>
-              <p className="mt-2 leading-6">{account.lastError}</p>
+              <p className="mt-2 leading-6">{provider.lastError}</p>
             </div>
           ) : null}
 
-          {account.externalUrl ? (
+          {externalUrl ? (
             <a
-              href={account.externalUrl}
+              href={externalUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 text-sm font-medium text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200"
+              className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80"
             >
-              Open Spotify profile
+              Open {provider.name} profile
               <ExternalLink className="size-4" />
             </a>
           ) : null}
@@ -559,16 +716,16 @@ function SpotifyLinkedAccountCard({
         <div className="flex shrink-0 flex-col gap-3 lg:w-56">
           <Button
             size="lg"
-            className="justify-center"
+            className={cn("justify-center", presentation.buttonClassName)}
             onClick={onConnect}
-            disabled={connecting || account.status === "connected"}
+            disabled={
+              connecting ||
+              provider.connectSupported === false ||
+              provider.status === "connected"
+            }
           >
-            {connecting ? (
-              <Spinner className="size-4" />
-            ) : (
-              <Link2 className="size-4" />
-            )}
-            {connecting ? "Opening Spotify..." : actionLabel}
+            {connecting ? <Spinner className="size-4" /> : <Link2 className="size-4" />}
+            {connecting ? `Opening ${provider.name}...` : actionLabel}
           </Button>
 
           <Button
@@ -576,7 +733,11 @@ function SpotifyLinkedAccountCard({
             size="lg"
             className="justify-center"
             onClick={onDisconnect}
-            disabled={disconnecting || account.status === "disconnected"}
+            disabled={
+              disconnecting ||
+              provider.disconnectSupported === false ||
+              provider.status === "disconnected"
+            }
           >
             {disconnecting ? (
               <Spinner className="size-4" />
@@ -592,136 +753,8 @@ function SpotifyLinkedAccountCard({
               Stored on your account
             </div>
             <p className="mt-2 leading-6">
-              Widgets and client dashboards reuse this link automatically.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DiscordLinkedAccountCard({
-  account,
-  statusLabel,
-  statusClassName,
-  connecting,
-  disconnecting,
-  onConnect,
-  onDisconnect,
-}: {
-  account: LinkedDiscordAccount;
-  statusLabel: string;
-  statusClassName: string;
-  connecting: boolean;
-  disconnecting: boolean;
-  onConnect: () => void;
-  onDisconnect: () => void;
-}) {
-  const actionLabel =
-    account.status === "reauth_required" ? "Reconnect Discord" : "Link Discord";
-
-  return (
-    <div className="relative overflow-hidden rounded-[1.75rem] border border-indigo-500/15 bg-[radial-gradient(circle_at_top_right,rgba(88,101,242,0.18),transparent_38%),linear-gradient(135deg,rgba(15,23,42,0.06),transparent)] p-6 shadow-sm">
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="grid size-12 place-items-center rounded-2xl bg-[#5865F2]/10">
-              <img
-                src="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png"
-                alt="Discord avatar"
-                className="size-9 rounded-lg"
-              />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-semibold">Discord</h3>
-                <Badge
-                  variant="outline"
-                  className={cn("rounded-full border", statusClassName)}
-                >
-                  {statusLabel}
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Identity, profile info and automatic token refresh.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <DetailRow
-              label="Discord profile"
-              value={account.displayName || "No Discord account linked"}
-            />
-            <DetailRow
-              label="Username"
-              value={account.username ? `@${account.username}` : "Unknown"}
-            />
-            <DetailRow
-              label="Connected at"
-              value={formatDate(account.connectedAt)}
-            />
-            <DetailRow
-              label="Email verified"
-              value={
-                account.verified === null
-                  ? "Unknown"
-                  : account.verified
-                    ? "Verified"
-                    : "Not verified"
-              }
-            />
-          </div>
-
-          {account.lastError ? (
-            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-              <div className="flex items-center gap-2 font-medium">
-                <RefreshCw className="size-4" />
-                Discord needs attention
-              </div>
-              <p className="mt-2 leading-6">{account.lastError}</p>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="flex shrink-0 flex-col gap-3 lg:w-56">
-          <Button
-            size="lg"
-            className="justify-center bg-[#5865F2] text-white hover:bg-[#4752c4]"
-            onClick={onConnect}
-            disabled={connecting || account.status === "connected"}
-          >
-            {connecting ? (
-              <Spinner className="size-4" />
-            ) : (
-              <Link2 className="size-4" />
-            )}
-            {connecting ? "Opening Discord..." : actionLabel}
-          </Button>
-
-          <Button
-            variant="outline"
-            size="lg"
-            className="justify-center"
-            onClick={onDisconnect}
-            disabled={disconnecting || account.status === "disconnected"}
-          >
-            {disconnecting ? (
-              <Spinner className="size-4" />
-            ) : (
-              <Unplug className="size-4" />
-            )}
-            {disconnecting ? "Disconnecting..." : "Disconnect"}
-          </Button>
-
-          <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2 font-medium text-foreground">
-              <CheckCircle2 className="size-4 text-indigo-500 dark:text-indigo-300" />
-              Stored on your account
-            </div>
-            <p className="mt-2 leading-6">
-              Widgets and client dashboards reuse this link automatically.
+              Widgets and client dashboards can reuse this provider session
+              automatically.
             </p>
           </div>
         </div>
@@ -736,7 +769,10 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-2 text-sm font-semibold text-foreground/90">{value}</p>
+      <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-foreground/90">
+        {label === "Account owner" ? <UserRound className="size-4" /> : null}
+        <span>{value}</span>
+      </p>
     </div>
   );
 }

@@ -26,10 +26,10 @@ export function UserRevokeTokensDialog({ user, children }: Props) {
     setLoading(true);
     try {
       await usersService.closeSessions(user._id);
-      toast.success("Sesiones revocadas");
+      toast.success("Sessions revoked");
       setOpen(false);
     } catch {
-      toast.error("No se pudieron revocar las sesiones");
+      toast.error("Could not revoke sessions");
     } finally {
       setLoading(false);
     }
@@ -40,20 +40,20 @@ export function UserRevokeTokensDialog({ user, children }: Props) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[420px]">
         <DialogHeader>
-          <DialogTitle>Revocar sesiones</DialogTitle>
+          <DialogTitle>Revoke sessions</DialogTitle>
           <DialogDescription>
-            Se cerrarán todas las sesiones abiertas para "{user.email}". ¿Deseas
-            continuar?
+            This will close every open session for "{user.email}". Do you want
+            to continue?
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="outline" disabled={loading}>
-              Cancelar
+              Cancel
             </Button>
           </DialogClose>
           <Button onClick={submit} disabled={loading}>
-            {loading ? "Revocando..." : "Revocar"}
+            {loading ? "Revoking..." : "Revoke"}
           </Button>
         </DialogFooter>
       </DialogContent>

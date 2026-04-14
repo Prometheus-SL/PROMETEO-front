@@ -29,17 +29,17 @@ export function UserRoleDialog({ user, children, onSaved }: Props) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (role === user.role) {
-      toast("No hay cambios de rol");
+      toast("There are no role changes");
       return;
     }
     setSaving(true);
     try {
       await usersService.updateRole(user._id, role);
-      toast.success("Rol actualizado");
+      toast.success("Role updated");
       onSaved?.({ role });
       setOpen(false);
     } catch {
-      toast.error("No se pudo actualizar el rol");
+      toast.error("Could not update the role");
     } finally {
       setSaving(false);
     }
@@ -60,9 +60,9 @@ export function UserRoleDialog({ user, children, onSaved }: Props) {
         <DialogTrigger asChild>{children}</DialogTrigger>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle>Cambiar rol</DialogTitle>
+            <DialogTitle>Change role</DialogTitle>
             <DialogDescription>
-              Selecciona el nuevo rol para el usuario.
+              Select the new role for this user.
             </DialogDescription>
           </DialogHeader>
           <div className="px-6 -mt-2 text-sm text-muted-foreground">
@@ -71,7 +71,7 @@ export function UserRoleDialog({ user, children, onSaved }: Props) {
               <span className="font-medium text-foreground">{user.email}</span>
             </div>
             <div>
-              Rol actual:{" "}
+              Current role:{" "}
               <span className="font-medium text-foreground">{user.role}</span>
             </div>
           </div>
@@ -127,17 +127,17 @@ export function UserRoleDialog({ user, children, onSaved }: Props) {
               htmlFor="confirm-role"
               className="cursor-pointer text-sm text-muted-foreground"
             >
-              Confirmo el cambio de rol
+              I confirm this role change
             </label>
           </div>
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="outline" disabled={saving}>
-                Cancelar
+                Cancel
               </Button>
             </DialogClose>
             <Button type="submit" disabled={saving || !confirmed}>
-              {saving ? "Guardando..." : "Guardar"}
+              {saving ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

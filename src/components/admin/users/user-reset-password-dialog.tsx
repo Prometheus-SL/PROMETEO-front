@@ -28,17 +28,17 @@ export function UserResetPasswordDialog({ user, children }: Props) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password || password.length < 6) {
-      toast.error("La contraseña debe tener al menos 6 caracteres");
+      toast.error("Password must be at least 6 characters long");
       return;
     }
     setSaving(true);
     try {
       await usersService.resetPassword(user._id, password);
-      toast.success("Contraseña reseteada");
+      toast.success("Password reset");
       setOpen(false);
       setPassword("");
     } catch {
-      toast.error("No se pudo resetear la contraseña");
+      toast.error("Could not reset the password");
     } finally {
       setSaving(false);
     }
@@ -56,13 +56,13 @@ export function UserResetPasswordDialog({ user, children }: Props) {
         <DialogTrigger asChild>{children}</DialogTrigger>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle>Resetear contraseña</DialogTitle>
+            <DialogTitle>Reset password</DialogTitle>
             <DialogDescription>
-              Introduce la nueva contraseña para el usuario.
+              Enter the new password for this user.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
-            <Label htmlFor="new-password">Nueva contraseña</Label>
+            <Label htmlFor="new-password">New password</Label>
             <Input
               id="new-password"
               type="password"
@@ -73,11 +73,11 @@ export function UserResetPasswordDialog({ user, children }: Props) {
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="outline" disabled={saving}>
-                Cancelar
+                Cancel
               </Button>
             </DialogClose>
             <Button type="submit" disabled={saving}>
-              {saving ? "Guardando..." : "Guardar"}
+              {saving ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

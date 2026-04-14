@@ -1,0 +1,134 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { accountService } from "../src/services/account";
+import { installTestEnvironment } from "./helpers/testEnvironment";
+
+function createJsonResponse(body: unknown, init: ResponseInit = {}) {
+  return new Response(JSON.stringify(body), {
+    status: init.status ?? 200,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init.headers ?? {}),
+    },
+  });
+}
+
+describe("accountService", () => {
+  beforeEach(() => {
+    installTestEnvironment();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("loads the normalized account payload", async () => {
+    const { fetchMock, storage } = installTestEnvironment();
+    storage.set("auth_access_token", "token-123");
+    fetchMock.mockResolvedValue(
+      createJsonResponse({
+        success: true,
+        data: {
+          user: {
+            id: "user-1",
+            username: "mike",
+            email: "mike@example.com",
+            role: "user",
+          },
+          linkedAccounts: {
+            spotify: {
+              status: "connected",
+              displayName: "Mike",
+              avatarUrl: null,
+              connectedAt: null,
+              scopes: [],
+              lastError: null,
+              product: null,
+              externalUrl: null,
+            },
+            discord: {
+              status: "disconnected",
+              id: null,
+              displayName: null,
+              username: null,
+              avatarUrl: null,
+              connectedAt: null,
+              scopes: [],
+              lastError: null,
+              email: null,
+              verified: null,
+            },
+          },
+        },
+      }),
+    );
+
+    const result = await accountService.getAccount();
+
+    expect(result.user.username).toBe("mike");
+    expect(result.linkedAccounts.spotify.status).toBe("connected");
+  });
+
+  it("returns the authorize URL when starting Spotify linking", async () => {
+    const { fetchMock, storage } = installTestEnvironment();
+    storage.set("auth_access_token", "token-123");
+    fetchMock.mockResolvedValue(
+      createJsonResponse({
+        success: true,
+        data: {
+          authorizeUrl: "https://accounts.spotify.com/authorize?client_id=123",
+        },
+      }),
+    );
+
+    const authorizeUrl = await accountService.beginSpotifyConnect(
+      "https://prometeo.example",
+    );
+
+    expect(authorizeUrl).toContain("spotify.com/authorize");
+  });
+
+  it("loads the supported linked-account providers", async () => {
+    const { fetchMock, storage } = installTestEnvironment();
+    storage.set("auth_access_token", "token-123");
+    fetchMock.mockResolvedValue(
+      createJsonResponse({
+        success: true,
+        data: {
+          providers: [
+            {
+              id: "spotify",
+              name: "Spotify",
+              description: "Playback controls and queue access.",
+              kind: "oauth",
+              status: "connected",
+              connectedAt: "2026-04-14T12:00:00.000Z",
+              scopes: ["user-read-private"],
+              connectPath: "/api/v1/account/linked-accounts/spotify/connect",
+              disconnectPath: "/api/v1/account/linked-accounts/spotify",
+            },
+            {
+              id: "discord",
+              name: "Discord",
+              description: "Community presence and profile data.",
+              kind: "oauth",
+              status: "disconnected",
+              connectedAt: null,
+              scopes: [],
+              connectPath: "/api/v1/account/linked-accounts/discord/connect",
+              disconnectPath: "/api/v1/account/linked-accounts/discord",
+            },
+          ],
+        },
+      }),
+    );
+
+    const providers = await accountService.listProviders();
+
+    expect(providers).toHaveLength(2);
+    expect(providers[0]?.id).toBe("spotify");
+    expect(providers[0]?.status).toBe("connected");
+    expect(providers[1]?.id).toBe("discord");
+  });
+});

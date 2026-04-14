@@ -1,22 +1,50 @@
-// Cliente HTTP centralizado con soporte de token, reintento en 401 y errores tipados
-
-import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY } from "@/services/auth";
+import {
+    ACCESS_TOKEN_KEY,
+    REFRESH_TOKEN_KEY,
+    USER_KEY,
+} from "@/services/auth-storage";
 
 export const API_URL = import.meta.env.VITE_URL_BACKEND as string;
 
-// Error tipado para peticiones API
+export type ApiSuccessEnvelope<T> = {
+    success: true;
+    data: T;
+    message?: string;
+    meta?: unknown;
+};
+
+export type ApiFailureShape<T = unknown> = {
+    code?: string;
+    message?: string;
+    details?: T;
+};
+
+export type ApiFailureEnvelope<T = unknown> = {
+    success: false;
+    error?: ApiFailureShape<T> | string;
+    message?: string;
+    details?: T;
+    meta?: unknown;
+};
+
+export type ApiEnvelope<T, TDetails = unknown> = ApiSuccessEnvelope<T> | ApiFailureEnvelope<TDetails>;
+
 export class ApiError<T = unknown> extends Error {
     status: number;
+    code?: string;
     details?: T;
-    constructor(message: string, status: number, details?: T) {
+    meta?: unknown;
+
+    constructor(message: string, status: number, options: { code?: string; details?: T; meta?: unknown } = {}) {
         super(message);
         this.name = "ApiError";
         this.status = status;
-        this.details = details;
+        this.code = options.code;
+        this.details = options.details;
+        this.meta = options.meta;
     }
 }
 
-// Configuración inyectable (para evitar acoplarse al storage aquí)
 let getAccessToken: (() => string | null) | null = null;
 let tryRefreshTokens: (() => Promise<boolean>) | null = null;
 
@@ -30,13 +58,15 @@ export function configureApi(options: {
 
 type RequestOptions = Omit<RequestInit, "body" | "headers"> & {
     headers?: HeadersInit;
-    data?: unknown; // Cuerpo JSON-serializable
-    formData?: FormData; // Alternativa a data, para multipart/form-data
-    asText?: boolean; // Forzar respuesta como texto
-    skipAuth?: boolean; // Evita enviar Authorization aunque haya token
-    retryOn401?: boolean; // Controla reintento automático tras refresh
-    baseUrl?: string; // Permite sobreescribir base URL puntualmente
+    data?: unknown;
+    formData?: FormData;
+    asText?: boolean;
+    skipAuth?: boolean;
+    retryOn401?: boolean;
+    baseUrl?: string;
 };
+
+type RequestDataOptions = Omit<RequestOptions, "asText">;
 
 function isJsonContent(headers: Headers) {
     const ct = headers.get("Content-Type") || headers.get("content-type");
@@ -47,70 +77,80 @@ async function parseResponse<T>(res: Response, asText?: boolean): Promise<T> {
     if (res.status === 204) return undefined as unknown as T;
     if (asText) return (await res.text()) as unknown as T;
     if (isJsonContent(res.headers)) return (await res.json()) as T;
-    // Si no es JSON, devolvemos texto
     return (await res.text()) as unknown as T;
 }
 
-function getErrorMessageFromPayload(payload: unknown, fallback: string) {
+function normalizeApiFailure(payload: unknown, fallback: string) {
     if (typeof payload === "string" && payload.trim()) {
-        return payload.trim();
+        return {
+            message: payload.trim(),
+            code: undefined,
+            details: undefined,
+            meta: undefined,
+        };
     }
 
     if (!payload || typeof payload !== "object") {
-        return fallback;
+        return {
+            message: fallback,
+            code: undefined,
+            details: undefined,
+            meta: undefined,
+        };
     }
 
     const data = payload as Record<string, unknown>;
-    const details = data.details;
-    const errors = data.errors;
+    const errorValue = data.error;
+    const errorObject = errorValue && typeof errorValue === "object" ? (errorValue as Record<string, unknown>) : null;
 
-    if (Array.isArray(errors)) {
-        const firstError = errors.find(
-            (item) => item && typeof item === "object" && typeof (item as { message?: unknown }).message === "string"
-        ) as { message?: string } | undefined;
-
-        if (firstError?.message?.trim()) {
-            return firstError.message.trim();
-        }
-    }
-
-    if (Array.isArray(details)) {
-        const detailMessage = details
-            .map((item) => {
-                if (typeof item === "string") return item.trim();
-                if (item && typeof item === "object" && typeof (item as { message?: unknown }).message === "string") {
-                    return ((item as { message: string }).message).trim();
-                }
-                return "";
-            })
-            .filter(Boolean)
-            .join(" ");
-
-        if (detailMessage) {
-            return detailMessage;
-        }
-    }
-
-    if (typeof details === "string" && details.trim()) {
-        return details.trim();
-    }
-
-    return (
-        (typeof data.error === "string" && data.error.trim()) ||
+    const message =
+        (typeof errorObject?.message === "string" && errorObject.message.trim()) ||
         (typeof data.message === "string" && data.message.trim()) ||
+        (typeof errorValue === "string" && errorValue.trim()) ||
         (typeof data.detail === "string" && data.detail.trim()) ||
-        (typeof data.title === "string" && data.title.trim()) ||
-        fallback
-    );
+        fallback;
+
+    return {
+        message,
+        code:
+            (typeof errorObject?.code === "string" && errorObject.code) ||
+            (typeof data.code === "string" && data.code) ||
+            undefined,
+        details:
+            errorObject?.details !== undefined
+                ? errorObject.details
+                : data.details,
+        meta: data.meta,
+    };
 }
 
-function buildHeaders(init?: HeadersInit, token?: string | null): HeadersInit {
+function buildHeaders(init?: HeadersInit, token?: string | null): Headers {
     const headers = new Headers(init);
     if (!headers.has("Accept")) headers.set("Accept", "application/json");
-    // Solo establecemos Content-Type si el body no es FormData (lo hace el navegador)
     if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
     if (token) headers.set("Authorization", `Bearer ${token}`);
     return headers;
+}
+
+function isApiEnvelope<T>(payload: unknown): payload is ApiEnvelope<T> {
+    return Boolean(payload) && typeof payload === "object" && "success" in (payload as Record<string, unknown>);
+}
+
+export function unwrapApiData<T>(payload: ApiEnvelope<T> | T): T {
+    if (!isApiEnvelope<T>(payload)) {
+        return payload as T;
+    }
+
+    if (payload.success) {
+        return payload.data;
+    }
+
+    const failure = normalizeApiFailure(payload, "Unexpected API error");
+    throw new ApiError(failure.message, 500, {
+        code: failure.code,
+        details: failure.details,
+        meta: failure.meta,
+    });
 }
 
 export async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
@@ -129,19 +169,15 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
     const isFormData = formData instanceof FormData;
     const finalHeaders = buildHeaders(headers, token);
     if (isFormData) {
-        // Si es FormData, dejamos que el navegador gestione el boundary
-        (finalHeaders as Headers).delete("Content-Type");
+        finalHeaders.delete("Content-Type");
     }
-    (finalHeaders as Headers).set("Access-Control-Allow-Origin", "*");
-    (finalHeaders as Headers).set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    (finalHeaders as Headers).set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
     const body: BodyInit | undefined = isFormData
-        ? (formData as FormData)
+        ? formData
         : data !== undefined
-            ? (finalHeaders as Headers).has("Content-Type") && (finalHeaders as Headers).get("Content-Type") !== "application/json"
-                ? (data as unknown as BodyInit)
-                : (JSON.stringify(data) as unknown as BodyInit)
+            ? finalHeaders.get("Content-Type") !== "application/json"
+                ? (data as BodyInit)
+                : JSON.stringify(data)
             : undefined;
 
     const res = await fetch(`${baseUrl}${endpoint}`, {
@@ -150,9 +186,10 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
         body,
     } as RequestInit);
 
-    if (res.ok) return parseResponse<T>(res, asText);
+    if (res.ok) {
+        return parseResponse<T>(res, asText);
+    }
 
-    // Intento de refresh en 401
     if (res.status === 401 && !skipAuth && retryOn401 && tryRefreshTokens) {
         const refreshed = await tryRefreshTokens();
         if (refreshed) {
@@ -161,7 +198,6 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
     }
 
     let errData: unknown;
-
     try {
         errData = await parseResponse<unknown>(res);
     } catch {
@@ -173,21 +209,24 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
         localStorage.removeItem(REFRESH_TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
 
-        const target = window.location.pathname.startsWith("/client")
-            ? "/client"
-            : "/login";
-
+        const target = window.location.pathname.startsWith("/client") ? "/client" : "/login";
         if (window.location.pathname !== target) {
             window.location.replace(target);
         }
     }
 
-    throw new ApiError(
-        getErrorMessageFromPayload(errData, res.statusText || `Error ${res.status}`),
-        res.status,
-        errData
-    );
-};
+    const failure = normalizeApiFailure(errData, res.statusText || `Error ${res.status}`);
+    throw new ApiError(failure.message, res.status, {
+        code: failure.code,
+        details: failure.details,
+        meta: failure.meta,
+    });
+}
+
+async function requestData<T>(endpoint: string, options: RequestDataOptions = {}) {
+    const payload = await request<ApiEnvelope<T> | T>(endpoint, options);
+    return unwrapApiData<T>(payload);
+}
 
 export const api = {
     get: <T>(endpoint: string, options?: Omit<RequestOptions, "method" | "body">) =>
@@ -200,5 +239,14 @@ export const api = {
         request<T>(endpoint, { ...options, method: "PATCH", data }),
     delete: <T>(endpoint: string, options?: Omit<RequestOptions, "method" | "body">) =>
         request<T>(endpoint, { ...options, method: "DELETE" }),
+    getData: <T>(endpoint: string, options?: Omit<RequestDataOptions, "method" | "body">) =>
+        requestData<T>(endpoint, { ...options, method: "GET" }),
+    postData: <T>(endpoint: string, data?: unknown, options?: Omit<RequestDataOptions, "method" | "data">) =>
+        requestData<T>(endpoint, { ...options, method: "POST", data }),
+    putData: <T>(endpoint: string, data?: unknown, options?: Omit<RequestDataOptions, "method" | "data">) =>
+        requestData<T>(endpoint, { ...options, method: "PUT", data }),
+    patchData: <T>(endpoint: string, data?: unknown, options?: Omit<RequestDataOptions, "method" | "data">) =>
+        requestData<T>(endpoint, { ...options, method: "PATCH", data }),
+    deleteData: <T>(endpoint: string, options?: Omit<RequestDataOptions, "method" | "body">) =>
+        requestData<T>(endpoint, { ...options, method: "DELETE" }),
 };
-

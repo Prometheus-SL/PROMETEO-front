@@ -1,0 +1,28 @@
+[
+  {
+    "id": "action-center-widget",
+    "name": "Action Center",
+    "description": "Runs shared actions exposed by your installed widgets.",
+    "category": "automation",
+    "size": { "width": 2, "height": 2 },
+    "entry": "./index.tsx",
+    "configSchema": "./config.ts",
+    "audience": "dashboard",
+    "requiredProviders": [],
+    "requiredRole": null,
+    "capabilities": ["actions", "automation"]
+  },
+  {
+    "id": "action-center-widget-compact",
+    "name": "Action Center Compact",
+    "description": "Compact launcher for shared widget actions.",
+    "category": "automation",
+    "size": { "width": 2, "height": 1 },
+    "entry": "./index.tsx",
+    "configSchema": "./config.ts",
+    "audience": "dashboard",
+    "requiredProviders": [],
+    "requiredRole": null,
+    "capabilities": ["actions", "automation"]
+  }
+]

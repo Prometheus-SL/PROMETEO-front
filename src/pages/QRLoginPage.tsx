@@ -38,7 +38,6 @@ export default function QRLoginPage() {
     "pending" | "scanned" | "authenticated" | "expired"
   >("pending");
 
-  // Logo definition
   const logo = {
     url: "/",
     src: "/logo.svg",
@@ -46,7 +45,6 @@ export default function QRLoginPage() {
     title: "Prometeo",
   };
 
-  // Verificar y marcar QR como escaneado al cargar
   useEffect(() => {
     if (!code) {
       setError("Invalid QR code");
@@ -56,45 +54,42 @@ export default function QRLoginPage() {
     const scanQR = async () => {
       setScanning(true);
       try {
-        // Verificar estado actual del QR
         const statusData = await authService.checkQRStatus(code);
         setQrStatus(
           statusData.status as
             | "pending"
             | "scanned"
             | "authenticated"
-            | "expired"
+            | "expired",
         );
 
         if (statusData.status === "expired") {
-          setError("The QR code has expired");
+          setError("The QR code has expired.");
           return;
         }
 
         if (statusData.status === "authenticated") {
           setSuccess(true);
-          // Redirigir tras un breve retraso para mostrar el mensaje de éxito
           setTimeout(() => {
             window.location.href = "/";
           }, 1500);
           return;
         }
 
-        // Si está pendiente, marcarlo como escaneado
         if (statusData.status === "pending") {
           await authService.scanQRCode(code);
           setQrStatus("scanned");
         }
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Error verificando código QR"
+          err instanceof Error ? err.message : "Could not verify the QR code.",
         );
       } finally {
         setScanning(false);
       }
     };
 
-    scanQR();
+    void scanQR();
   }, [code]);
 
   const handleSubmit = async () => {
@@ -107,7 +102,7 @@ export default function QRLoginPage() {
       const result = await authService.authenticateWithQR(
         code,
         username,
-        password
+        password,
       );
 
       if (result.user) {
@@ -140,15 +135,15 @@ export default function QRLoginPage() {
   };
 
   const getStatusMessage = () => {
-    if (scanning) return "Verificando código QR...";
+    if (scanning) return "Checking QR code...";
 
     switch (qrStatus) {
       case "pending":
-        return "QR detected";
+        return "QR code detected";
       case "scanned":
-        return "QR code verified. Please enter your credentials";
+        return "QR code verified. Enter your credentials.";
       case "authenticated":
-        return "Authentication successful!";
+        return "Authentication successful";
       case "expired":
         return "The QR code has expired";
       default:
@@ -156,7 +151,6 @@ export default function QRLoginPage() {
     }
   };
 
-  // Si hay error crítico o éxito, mostrar pantalla de estado
   if (
     error ||
     success ||
@@ -182,15 +176,15 @@ export default function QRLoginPage() {
               <div>
                 <h2 className="text-xl font-semibold">
                   {success
-                    ? "¡Login Exitoso!"
+                    ? "Login successful"
                     : error
-                    ? "Error"
-                    : getStatusMessage()}
+                      ? "Error"
+                      : getStatusMessage()}
                 </h2>
 
                 {success && (
                   <p className="text-sm text-muted-foreground mt-2">
-                    The device has been successfully authenticated.
+                    The device has been authenticated successfully.
                     Redirecting...
                   </p>
                 )}
@@ -199,14 +193,14 @@ export default function QRLoginPage() {
 
                 {qrStatus === "expired" && (
                   <p className="text-sm text-muted-foreground mt-2">
-                    Generate a new QR code from the main device
+                    Generate a new QR code from the main device.
                   </p>
                 )}
               </div>
 
               {(error || qrStatus === "expired") && (
                 <Button onClick={() => navigate("/")} variant="outline">
-                  Go Back Home
+                  Go back home
                 </Button>
               )}
             </div>
@@ -241,9 +235,9 @@ export default function QRLoginPage() {
 
           {qrStatus === "scanned" && !loading && (
             <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSubmit();
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleSubmit();
               }}
               className="space-y-4"
             >
@@ -251,14 +245,14 @@ export default function QRLoginPage() {
                 <FieldGroup>
                   <Field>
                     <FieldLabel htmlFor="username">
-                      Username or Email
+                      Username or email
                     </FieldLabel>
                     <Input
                       id="username"
                       type="text"
-                      placeholder="Username or Email"
+                      placeholder="Username or email"
                       value={username}
-                      onChange={(e) => setUsername(e.target.value)}
+                      onChange={(event) => setUsername(event.target.value)}
                       required
                       autoFocus
                     />
@@ -272,7 +266,7 @@ export default function QRLoginPage() {
                         type={showPassword ? "text" : "password"}
                         placeholder="Password"
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={(event) => setPassword(event.target.value)}
                         required
                       />
                       <InputGroupAddon align="inline-end">
@@ -317,9 +311,10 @@ export default function QRLoginPage() {
           )}
 
           <div className="text-xs text-muted-foreground text-center space-y-1">
-            <p>This is a QR authentication session</p>
+            <p>This is a QR authentication session.</p>
             <p>
-              Enter your credentials to complete the login on the main device
+              Enter your credentials to complete the sign-in on the main
+              device.
             </p>
           </div>
         </Card>

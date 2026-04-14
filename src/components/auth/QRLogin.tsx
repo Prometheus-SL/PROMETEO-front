@@ -14,12 +14,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { authService } from "@/services/auth";
 import {
   ACCESS_TOKEN_KEY,
   REFRESH_TOKEN_KEY,
   USER_KEY,
-  authService,
-} from "@/services/auth";
+} from "@/services/auth-storage";
 
 type QRCodeProps = SVGProps<SVGSVGElement> & {
   value: string;
@@ -30,7 +30,7 @@ type QRCodeProps = SVGProps<SVGSVGElement> & {
   title?: string;
 };
 
-// `react-qr-code` llega como CJS en Vite y su default puede ser un objeto con el componente dentro.
+// `react-qr-code` ships as CJS in Vite, so its component can be nested.
 const QRCode =
   (
     QRCodeModule as unknown as {
@@ -86,7 +86,9 @@ export default function QRLogin({
       const now = Date.now();
       setTimeLeft(Math.max(0, Math.floor((expiresAt - now) / 1000)));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
+      setError(
+        err instanceof Error ? err.message : "Could not generate the QR code.",
+      );
     } finally {
       setLoading(false);
     }
@@ -122,7 +124,7 @@ export default function QRLogin({
           }, 1000);
         }
       } catch (err) {
-        console.error("Error verificando estado:", err);
+        console.error("Error checking QR status:", err);
       }
     };
 
@@ -175,26 +177,26 @@ export default function QRLogin({
   const getStatusLabel = () => {
     switch (status) {
       case "pending":
-        return "Esperando escaneo";
+        return "Waiting for scan";
       case "scanned":
-        return "Pendiente en el móvil";
+        return "Pending on mobile";
       case "authenticated":
-        return "Cliente autorizado";
+        return "Client authorized";
       case "expired":
-        return "Código expirado";
+        return "Code expired";
     }
   };
 
   const getStatusMessage = () => {
     switch (status) {
       case "pending":
-        return "Escanea el código con el móvil autorizado para vincular esta pantalla.";
+        return "Scan this code from an authorized mobile device to link this screen.";
       case "scanned":
-        return "Código detectado. Termina el acceso en el móvil para completar la vinculación.";
+        return "Code detected. Finish the sign-in on the mobile device to complete the link.";
       case "authenticated":
-        return "Sesión validada. Preparando el cliente...";
+        return "Session validated. Preparing the client...";
       case "expired":
-        return "El código ha caducado. Genera uno nuevo para volver a intentarlo.";
+        return "This code has expired. Generate a new one to try again.";
     }
   };
 
@@ -217,15 +219,15 @@ export default function QRLogin({
         <div className="space-y-3 text-center">
           <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-medium tracking-wide text-cyan-100">
             <ShieldCheck className="h-4 w-4" />
-            Acceso seguro por QR
+            Secure QR access
           </div>
           <div className="space-y-2">
             <h2 className="text-2xl font-semibold text-foreground">
-              Inicia sesión desde tu móvil
+              Sign in from your phone
             </h2>
             <p className="text-sm text-muted-foreground">
-              Escanea el código, confirma la autenticación en tu dispositivo y
-              este cliente quedará vinculado automáticamente.
+              Scan the code, confirm the authentication on your device, and this
+              client will link automatically.
             </p>
           </div>
         </div>
@@ -247,10 +249,10 @@ export default function QRLogin({
             </div>
             <div className="space-y-1">
               <p className="text-sm font-medium text-white">
-                Generando código QR
+                Generating QR code
               </p>
               <p className="text-sm text-slate-300">
-                Preparando una sesión segura para este cliente.
+                Preparing a secure session for this client.
               </p>
             </div>
           </div>
@@ -261,13 +263,13 @@ export default function QRLogin({
             </div>
             <div className="space-y-2">
               <p className="text-base font-medium text-white">
-                No pude generar el código
+                Could not generate the code
               </p>
               <p className="text-sm text-rose-200">{error}</p>
             </div>
             <Button onClick={generateQR} variant="outline" size="sm">
               <RefreshCw className="mr-2 h-4 w-4" />
-              Reintentar
+              Try again
             </Button>
           </div>
         ) : qrData ? (
@@ -314,32 +316,33 @@ export default function QRLogin({
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                   <div className="mb-1 flex items-center gap-2 text-sm font-medium text-white">
                     <QrCode className="h-4 w-4 text-cyan-300" />
-                    1. Escanea el código
+                    1. Scan the code
                   </div>
                   <p className="text-sm text-slate-300">
-                    Abre la URL del móvil o el panel autorizado y escanea este
-                    QR.
+                    Open the mobile URL or the authorized panel and scan this
+                    QR code.
                   </p>
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                   <div className="mb-1 flex items-center gap-2 text-sm font-medium text-white">
                     <Smartphone className="h-4 w-4 text-cyan-300" />
-                    2. Confirma el acceso
+                    2. Confirm access
                   </div>
                   <p className="text-sm text-slate-300">
-                    Termina la autenticación en el móvil con tus credenciales.
+                    Finish the authentication on your phone with your
+                    credentials.
                   </p>
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                   <div className="mb-1 flex items-center gap-2 text-sm font-medium text-white">
                     <CheckCircle2 className="h-4 w-4 text-cyan-300" />
-                    3. Recarga automática
+                    3. Automatic reload
                   </div>
                   <p className="text-sm text-slate-300">
-                    Cuando la sesión quede validada, esta pantalla se abrirá
-                    sola.
+                    As soon as the session is validated, this screen will open
+                    automatically.
                   </p>
                 </div>
               </div>
@@ -353,7 +356,7 @@ export default function QRLogin({
                   className="min-w-40 border-white/15 bg-white/5 text-white hover:bg-white/10"
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Generar nuevo QR
+                  Generate a new QR
                 </Button>
               ) : null}
             </div>
@@ -363,7 +366,7 @@ export default function QRLogin({
 
       {!hideBackButton && onBack ? (
         <Button onClick={onBack} variant="ghost" className="w-full">
-          Volver al login tradicional
+          Back to password sign-in
         </Button>
       ) : null}
     </div>

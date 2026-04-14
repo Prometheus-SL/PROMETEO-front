@@ -1,13 +1,15 @@
 import { useCallback, useState } from "react";
 import {
     authService,
-    ACCESS_TOKEN_KEY,
-    REFRESH_TOKEN_KEY,
-    USER_KEY,
     getAuthErrorMessage,
     type AuthUser,
     type Tokens
 } from "@/services/auth";
+import {
+    ACCESS_TOKEN_KEY,
+    REFRESH_TOKEN_KEY,
+    USER_KEY,
+} from "@/services/auth-storage";
 
 export function useAuth() {
     const [accessToken, setAccessToken] = useState<string | null>(() => localStorage.getItem(ACCESS_TOKEN_KEY));
@@ -43,7 +45,7 @@ export function useAuth() {
         try {
             await performLogin(username, password);
         } catch (e: unknown) {
-            setError(getAuthErrorMessage(e, "No se pudo iniciar sesion."));
+            setError(getAuthErrorMessage(e, "Could not sign in."));
         } finally {
             setLoading(false);
         }
@@ -55,7 +57,7 @@ export function useAuth() {
         try {
             persistSession(tokens, user);
         } catch (e: unknown) {
-            setError(getAuthErrorMessage(e, "No se pudo iniciar sesion."));
+            setError(getAuthErrorMessage(e, "Could not sign in."));
         } finally {
             setLoading(false);
         }
@@ -68,7 +70,7 @@ export function useAuth() {
         try {
             await authService.register({ username, email, password, name, surname, birthday });
         } catch (e: unknown) {
-            setError(getAuthErrorMessage(e, "No se pudo crear la cuenta."));
+            setError(getAuthErrorMessage(e, "Could not create the account."));
             setLoading(false);
             return;
         }
@@ -76,7 +78,7 @@ export function useAuth() {
         try {
             await performLogin(username, password);
         } catch {
-            setError("La cuenta se creo, pero no pudimos iniciar sesion automaticamente. Prueba desde login.");
+            setError("The account was created, but we could not sign you in automatically. Please try from the login page.");
         } finally {
             setLoading(false);
         }

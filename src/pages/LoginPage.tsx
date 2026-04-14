@@ -27,8 +27,8 @@ function getLoginErrors(identifier: string, password: string) {
   return {
     identifier: identifier.trim()
       ? null
-      : "Introduce tu email o nombre de usuario.",
-    password: password ? null : "Introduce tu contrasena.",
+      : "Enter your email or username.",
+    password: password ? null : "Enter your password.",
   };
 }
 
@@ -205,7 +205,7 @@ export default function LoginPage() {
                     className="w-full"
                   >
                     <QrCode className="mr-2 h-4 w-4" />
-                    Login con codigo QR
+                    Sign in with QR code
                   </Button>
                 </div>
               </div>

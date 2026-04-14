@@ -1,7 +1,7 @@
 import { io, type Socket } from "socket.io-client";
 
 import { API_URL, api } from "@/lib/api";
-import { ACCESS_TOKEN_KEY } from "@/services/auth";
+import { ACCESS_TOKEN_KEY } from "@/services/auth-storage";
 
 type ApiSuccess<T> = { success: true; data: T };
 type ApiFailure = { success: false; error?: string; message?: string };

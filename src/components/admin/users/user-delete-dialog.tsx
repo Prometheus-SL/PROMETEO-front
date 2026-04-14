@@ -27,11 +27,11 @@ export function UserDeleteDialog({ user, children, onDeleted }: Props) {
     setLoading(true);
     try {
       await usersService.delete(user._id);
-      toast.success("Usuario eliminado");
+      toast.success("User deleted");
       onDeleted?.(user._id);
       setOpen(false);
     } catch {
-      toast.error("No se pudo eliminar el usuario");
+      toast.error("Could not delete the user");
     } finally {
       setLoading(false);
     }
@@ -42,10 +42,8 @@ export function UserDeleteDialog({ user, children, onDeleted }: Props) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[420px]">
         <DialogHeader>
-          <DialogTitle>Eliminar usuario</DialogTitle>
-          <DialogDescription>
-            Esta acción no se puede deshacer.
-          </DialogDescription>
+          <DialogTitle>Delete user</DialogTitle>
+          <DialogDescription>This action cannot be undone.</DialogDescription>
         </DialogHeader>
         <div className="px-6 -mt-2 text-sm text-muted-foreground">
           <div>
@@ -53,24 +51,24 @@ export function UserDeleteDialog({ user, children, onDeleted }: Props) {
             <span className="font-medium text-foreground">{user.email}</span>
           </div>
           <div>
-            Rol:{" "}
+            Role:{" "}
             <span className="font-medium text-foreground">{user.role}</span>
           </div>
           <div>
-            Activo:{" "}
+            Active:{" "}
             <span className="font-medium text-foreground">
-              {user.isActive ? "Sí" : "No"}
+              {user.isActive ? "Yes" : "No"}
             </span>
           </div>
         </div>
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="outline" disabled={loading}>
-              Cancelar
+              Cancel
             </Button>
           </DialogClose>
           <Button variant="destructive" onClick={submit} disabled={loading}>
-            {loading ? "Eliminando..." : "Eliminar"}
+            {loading ? "Deleting..." : "Delete"}
           </Button>
         </DialogFooter>
       </DialogContent>

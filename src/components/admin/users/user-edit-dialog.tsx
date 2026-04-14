@@ -18,7 +18,7 @@ import { toast } from "sonner";
 
 type UserEditDialogProps = {
   user: User;
-  children: React.ReactNode; // Trigger visual
+  children: React.ReactNode;
   onSaved?: (partial: Partial<User>) => void;
 };
 
@@ -37,7 +37,7 @@ export function UserEditDialog({
       surname: user.surname || "",
       isActive: Boolean(user.isActive),
     }),
-    [user]
+    [user],
   );
 
   const [form, setForm] = useState(initial);
@@ -71,7 +71,7 @@ export function UserEditDialog({
       const willToggleActive = form.isActive !== user.isActive;
 
       if (!willToggleActive && Object.keys(profilePayload).length === 0) {
-        toast("No hay cambios para guardar");
+        toast("There are no changes to save");
         return;
       }
 
@@ -82,14 +82,14 @@ export function UserEditDialog({
         await usersService.toggleActive(user._id, form.isActive);
       }
 
-      toast.success("Usuario actualizado");
+      toast.success("User updated");
       onSaved?.({
         ...profilePayload,
         isActive: willToggleActive ? form.isActive : undefined,
       });
       setOpen(false);
     } catch {
-      toast.error("No se pudo actualizar el usuario");
+      toast.error("Could not update the user");
     } finally {
       setSaving(false);
     }
@@ -101,9 +101,9 @@ export function UserEditDialog({
         <DialogTrigger asChild>{children}</DialogTrigger>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>Editar usuario</DialogTitle>
+            <DialogTitle>Edit user</DialogTitle>
             <DialogDescription>
-              Modifica los campos permitidos. Guarda para aplicar los cambios.
+              Update the allowed fields and save to apply the changes.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
@@ -119,7 +119,7 @@ export function UserEditDialog({
             </div>
             <div className="grid gap-2 sm:grid-cols-2 sm:gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="name">Nombre</Label>
+                <Label htmlFor="name">First name</Label>
                 <Input
                   id="name"
                   name="name"
@@ -128,7 +128,7 @@ export function UserEditDialog({
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="surname">Apellidos</Label>
+                <Label htmlFor="surname">Last name</Label>
                 <Input
                   id="surname"
                   name="surname"
@@ -142,21 +142,21 @@ export function UserEditDialog({
                 id="isActive"
                 checked={form.isActive}
                 onCheckedChange={onToggleActive}
-                aria-label="Activo"
+                aria-label="Active"
               />
               <Label htmlFor="isActive" className="cursor-pointer">
-                Activo
+                Active
               </Label>
             </div>
           </div>
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="outline" disabled={saving}>
-                Cancelar
+                Cancel
               </Button>
             </DialogClose>
             <Button type="submit" disabled={saving}>
-              {saving ? "Guardando..." : "Guardar cambios"}
+              {saving ? "Saving..." : "Save changes"}
             </Button>
           </DialogFooter>
         </DialogContent>

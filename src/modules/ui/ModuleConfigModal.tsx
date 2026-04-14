@@ -205,7 +205,7 @@ function ZodForm({
 
         return (
           <div key={key} className="text-xs text-zinc-500">
-            Campo no soportado en el demo: {key}
+            Unsupported field in the demo: {key}
           </div>
         );
       })}
@@ -354,7 +354,7 @@ export function ModuleConfigModal({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {mode === "edit" ? "Editar" : "Configure"}: {meta.name}
+            {mode === "edit" ? "Edit" : "Configure"}: {meta.name}
           </DialogTitle>
         </DialogHeader>
 
@@ -448,7 +448,7 @@ export function ModuleConfigModal({
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={!canSaveToSelectedPage}>
-            {mode === "edit" ? "Guardar" : "Add widget"}
+            {mode === "edit" ? "Save" : "Add widget"}
           </Button>
         </DialogFooter>
       </DialogContent>

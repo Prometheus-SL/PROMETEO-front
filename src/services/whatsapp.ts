@@ -53,16 +53,6 @@ export type WhatsAppConversationDetail = {
     }>;
 };
 
-type ApiEnvelope<T> = { success: true; data: T } | { success: false; error?: string };
-
-function unwrap<T>(res: ApiEnvelope<T>): T {
-    if (!res?.success) {
-        const error = res?.error ?? "Error en el servicio de WhatsApp";
-        throw new Error(error);
-    }
-    return res.data;
-}
-
 function withQuery(base: string, params: Record<string, string | undefined>): string {
     const search = new URLSearchParams();
     for (const [key, value] of Object.entries(params)) {
@@ -74,25 +64,22 @@ function withQuery(base: string, params: Record<string, string | undefined>): st
 
 export const whatsappService = {
     async getStatus(): Promise<WhatsAppStatus> {
-        const res = await api.get<ApiEnvelope<WhatsAppStatus>>("/api/v1/whatsapp/status");
-        return unwrap(res);
+        return api.getData<WhatsAppStatus>("/api/v1/whatsapp/status");
     },
     async listConversations(options: { limit?: number; includeGroups?: boolean } = {}): Promise<WhatsAppConversation[]> {
         const { limit, includeGroups = true } = options;
-        const res = await api.get<ApiEnvelope<WhatsAppConversation[]>>(
+        return api.getData<WhatsAppConversation[]>(
             withQuery("/api/v1/whatsapp/conversations", {
                 limit: limit ? String(limit) : undefined,
                 includeGroups: includeGroups ? undefined : "false",
             })
         );
-        return unwrap(res);
     },
     async getConversation(chatId: string, options: { limit?: number } = {}): Promise<WhatsAppConversationDetail> {
-        const res = await api.get<ApiEnvelope<WhatsAppConversationDetail>>(
+        return api.getData<WhatsAppConversationDetail>(
             withQuery(`/api/v1/whatsapp/conversations/${encodeURIComponent(chatId)}/messages`, {
                 limit: options.limit ? String(options.limit) : undefined,
             })
         );
-        return unwrap(res);
     },
 };

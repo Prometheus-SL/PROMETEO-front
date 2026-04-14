@@ -50,44 +50,44 @@ function getRegisterErrors(values: RegisterFormValues): RegisterFormErrors {
   const errors: RegisterFormErrors = {};
 
   if (!values.username.trim()) {
-    errors.username = "Introduce un nombre de usuario.";
+    errors.username = "Enter a username.";
   } else if (values.username.trim().length < 3) {
-    errors.username = "El usuario debe tener al menos 3 caracteres.";
+    errors.username = "Username must be at least 3 characters long.";
   } else if (values.username.trim().length > 30) {
-    errors.username = "El usuario no puede superar los 30 caracteres.";
+    errors.username = "Username cannot exceed 30 characters.";
   }
 
   if (!values.email.trim()) {
-    errors.email = "Introduce tu email.";
+    errors.email = "Enter your email.";
   } else if (!EMAIL_PATTERN.test(values.email.trim())) {
-    errors.email = "Introduce un email valido.";
+    errors.email = "Enter a valid email address.";
   }
 
   if (values.name.trim().length > 50) {
-    errors.name = "El nombre no puede superar los 50 caracteres.";
+    errors.name = "Name cannot exceed 50 characters.";
   }
 
   if (values.surname.trim().length > 50) {
-    errors.surname = "Los apellidos no pueden superar los 50 caracteres.";
+    errors.surname = "Surname cannot exceed 50 characters.";
   }
 
   if (values.birthday) {
     const today = getTodayDateValue();
     if (values.birthday > today) {
-      errors.birthday = "La fecha de nacimiento no puede estar en el futuro.";
+      errors.birthday = "Birthday cannot be in the future.";
     }
   }
 
   if (!values.password) {
-    errors.password = "Introduce una contrasena.";
+    errors.password = "Enter a password.";
   } else if (values.password.length < 6) {
-    errors.password = "La contrasena debe tener al menos 6 caracteres.";
+    errors.password = "Password must be at least 6 characters long.";
   }
 
   if (!values.passwordRepeat) {
-    errors.passwordRepeat = "Repite tu contrasena.";
+    errors.passwordRepeat = "Repeat your password.";
   } else if (values.password !== values.passwordRepeat) {
-    errors.passwordRepeat = "Las contrasenas no coinciden.";
+    errors.passwordRepeat = "Passwords do not match.";
   }
 
   return errors;
@@ -396,7 +396,7 @@ export default function RegisterPage() {
             <BorderBeam duration={8} size={100} />
           </div>
           <div className="text-muted-foreground flex justify-center gap-1 text-sm">
-            <p>You have an account?</p>
+            <p>Already have an account?</p>
             <Link to="/login" className="text-primary font-medium hover:underline">
               Sign in
             </Link>

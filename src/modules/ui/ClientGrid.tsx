@@ -1,6 +1,8 @@
 import type { ComponentType } from "react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 
+import { useAuthContext } from "@/providers/AuthProvider";
+import { getModuleAvailability } from "@/modules/access";
 import { loadModuleDefinition, loadModulesIndex } from "@/modules/loader";
 import {
   analyzeInstalledModules,
@@ -83,6 +85,7 @@ function ClientGridComponent({
   pageId,
   onModuleConfigChange,
 }: ClientGridProps) {
+  const { user } = useAuthContext();
   const [definitions, setDefinitions] = useState<
     Record<string, ModuleDefinitionEntry>
   >({});
@@ -147,10 +150,19 @@ function ClientGridComponent({
   }, [moduleIds, moduleIdsKey]);
 
   const visibleModules = useMemo(() => {
-    return modules.filter((module) =>
-      Boolean(layoutAnalysis.positions[module._id ?? module.meta.id]),
-    );
-  }, [layoutAnalysis.positions, modules]);
+    return modules.filter((module) => {
+      const availability = getModuleAvailability(module.meta, {
+        surface: "client",
+        role: user?.role,
+      });
+
+      return (
+        availability.isVisibleOnSurface &&
+        availability.hasRequiredRole &&
+        Boolean(layoutAnalysis.positions[module._id ?? module.meta.id])
+      );
+    });
+  }, [layoutAnalysis.positions, modules, user?.role]);
 
   return (
     <div className="flex h-full w-full flex-col gap-3 overflow-hidden">

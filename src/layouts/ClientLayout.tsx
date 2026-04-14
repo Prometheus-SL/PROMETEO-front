@@ -20,7 +20,7 @@ import LockLayout from "./LockLayout";
 
 export default function ClientLayout() {
   const { accessToken } = useAuthContext();
-  const isIdle = useIdle(1000 * 60 * 5); // 5 minutes
+  const isIdle = useIdle(1000 * 60 * 5);
 
   return (
     <SharedContextProvider>
@@ -60,7 +60,7 @@ export default function ClientLayout() {
                   Prometeo Client
                 </p>
                 <p className="text-sm text-white/70">
-                  Vinculación segura del dashboard
+                  Secure dashboard linking
                 </p>
               </div>
             </div>
@@ -90,19 +90,20 @@ export default function ClientLayout() {
                   <div className="relative space-y-8 p-8">
                     <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-100">
                       <ShieldCheck className="h-4 w-4" />
-                      Acceso exclusivo por QR
+                      QR-only access
                     </div>
                     <div className="space-y-4">
                       <p className="text-xs uppercase tracking-[0.35em] text-cyan-100/70">
                         Dashboard Client
                       </p>
                       <h2 className="max-w-sm text-4xl font-semibold leading-tight text-white">
-                        Escanea y entra al panel en unos segundos
+                        Scan and open the panel in seconds
                       </h2>
                       <p className="max-w-md text-sm leading-relaxed text-slate-300">
-                        Esta pantalla está pensada para kiosco o cliente fijo.
-                        El acceso se realiza desde un móvil autorizado, sin
-                        usuario ni contraseña en el dispositivo principal.
+                        This screen is designed for kiosk or fixed-client use.
+                        Access is completed from an authorized mobile device,
+                        without leaving a username or password on the main
+                        screen.
                       </p>
                     </div>
                   </div>
@@ -110,31 +111,31 @@ export default function ClientLayout() {
                     <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur">
                       <div className="mb-2 flex items-center gap-2 text-sm font-medium text-white">
                         <QrCode className="h-4 w-4 text-cyan-300" />
-                        Escaneo inmediato
+                        Instant scan
                       </div>
                       <p className="text-sm text-slate-300">
-                        Muestra el código en esta pantalla y escanéalo desde el
-                        móvil que tenga permisos.
+                        Show the code on this screen and scan it from the mobile
+                        device that already has permission.
                       </p>
                     </div>
                     <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur">
                       <div className="mb-2 flex items-center gap-2 text-sm font-medium text-white">
                         <Smartphone className="h-4 w-4 text-cyan-300" />
-                        Confirmación remota
+                        Remote confirmation
                       </div>
                       <p className="text-sm text-slate-300">
-                        La autenticación se completa fuera del cliente, ideal
-                        para pantallas compartidas o en Raspberry.
+                        Authentication finishes outside the client, which is
+                        ideal for shared screens or Raspberry-based setups.
                       </p>
                     </div>
                     <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur">
                       <div className="mb-2 flex items-center gap-2 text-sm font-medium text-white">
                         <RefreshCw className="h-4 w-4 text-cyan-300" />
-                        Recarga automática
+                        Automatic reload
                       </div>
                       <p className="text-sm text-slate-300">
-                        Cuando la sesión quede autorizada, el dashboard se
-                        recargará solo y entrará directamente.
+                        As soon as the session is authorized, the dashboard will
+                        refresh and enter automatically.
                       </p>
                     </div>
                   </div>
@@ -143,12 +144,12 @@ export default function ClientLayout() {
                 <div className="relative p-6 sm:p-8">
                   <DialogHeader className="mb-6 space-y-3 text-left">
                     <DialogTitle className="text-2xl font-semibold text-white sm:text-3xl">
-                      Inicia sesión para abrir el cliente
+                      Sign in to open the client
                     </DialogTitle>
                     <DialogDescription className="max-w-lg text-sm leading-relaxed text-slate-300">
-                      En esta URL el acceso se hace solo con QR. Escanéalo desde
-                      tu móvil y, cuando se complete la autenticación, la página
-                      se recargará automáticamente.
+                      This URL only supports QR access. Scan it from your mobile
+                      device and, once authentication finishes, the page will
+                      reload automatically.
                     </DialogDescription>
                   </DialogHeader>
                   <QRLogin

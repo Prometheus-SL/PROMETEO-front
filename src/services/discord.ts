@@ -47,40 +47,27 @@ export type DiscordGuildInfo = {
     members: DiscordMember[];
 };
 
-type ApiEnvelope<T> = { success: true; data: T } | { success: false; error?: string };
-
-function unwrap<T>(res: ApiEnvelope<T>): T {
-    if (!res?.success) {
-        throw new Error(res?.error ?? "Error en el servicio de Discord");
-    }
-    return res.data;
-}
-
 export const discordService = {
     async getStatus(): Promise<DiscordBotStatus> {
-        const res = await api.get<ApiEnvelope<DiscordBotStatus>>("/api/v1/discord/status");
-        return unwrap(res);
+        return api.getData<DiscordBotStatus>("/api/v1/discord/status");
     },
     async getGuildInfo(guildId: string): Promise<DiscordGuildInfo> {
-        const res = await api.get<ApiEnvelope<DiscordGuildInfo>>(`/api/v1/discord/guilds/${encodeURIComponent(guildId)}`);
-        return unwrap(res);
+        return api.getData<DiscordGuildInfo>(`/api/v1/discord/guilds/${encodeURIComponent(guildId)}`);
     },
     async getInviteUrl(): Promise<string> {
-        const res = await api.get<ApiEnvelope<{ url: string }>>("/api/v1/discord/invite");
-        return unwrap(res).url;
+        const data = await api.getData<{ url: string }>("/api/v1/discord/invite");
+        return data.url;
     },
     async disconnectVoiceMember(guildId: string, userId: string): Promise<{ id: string; name: string }> {
-        const res = await api.post<ApiEnvelope<{ id: string; name: string }>>(
+        return api.postData<{ id: string; name: string }>(
             `/api/v1/discord/guilds/${encodeURIComponent(guildId)}/voice/${encodeURIComponent(userId)}/disconnect`,
-            {},
+            {}
         );
-        return unwrap(res);
     },
     async setVoiceMute(guildId: string, userId: string, mute: boolean): Promise<{ id: string; name: string; muted: boolean }> {
-        const res = await api.post<ApiEnvelope<{ id: string; name: string; muted: boolean }>>(
+        return api.postData<{ id: string; name: string; muted: boolean }>(
             `/api/v1/discord/guilds/${encodeURIComponent(guildId)}/voice/${encodeURIComponent(userId)}/mute`,
-            { mute },
+            { mute }
         );
-        return unwrap(res);
     },
 };

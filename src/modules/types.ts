@@ -1,9 +1,12 @@
-// Tipos e interfaces base para el marketplace de módulos
+// Tipos e interfaces base para el marketplace de modulos
 
 export type ModuleSize = {
     width: number
     height: number
 }
+
+export type ModuleAudience = "all" | "dashboard" | "client" | "ops"
+export type ModuleRole = "viewer" | "user" | "operator" | "admin"
 
 export interface ModuleMeta {
     id: string
@@ -14,6 +17,10 @@ export interface ModuleMeta {
     entry: string
     configSchema?: string
     preview?: string
+    audience?: ModuleAudience
+    requiredProviders?: string[]
+    requiredRole?: ModuleRole | null
+    capabilities?: string[]
 }
 
 export interface InstalledModule {
@@ -25,18 +32,18 @@ export interface InstalledModule {
 }
 
 export interface ModuleDefinition {
-    // Componente React que renderiza el módulo en el grid.
+    // Componente React que renderiza el modulo en el grid.
     Component: React.ComponentType<{ config: Record<string, unknown> }>
-    // Schema de configuración exportado por el módulo (opcional).
+    // Schema de configuracion exportado por el modulo (opcional).
     configSchema?: unknown
 }
 
 export interface ModulesIndexEntry {
-    // Ruta base (virtual) del módulo dentro de /modules/<id>/
+    // Ruta base (virtual) del modulo dentro de /modules/<id>/
     basePath: string
     // Metadata proveniente de module.json (validada)
     meta: ModuleMeta
-    // Función para importar dinámicamente el entry y el schema
+    // Funcion para importar dinamicamente el entry y el schema
     importers: {
         entry: () => Promise<{ default: ModuleDefinition["Component"] } | unknown>
         config?: () => Promise<{ default?: unknown } | unknown>
@@ -50,7 +57,7 @@ export interface MarketplaceFilters {
     sizes: ModuleSize[]
 }
 
-// Page (dashboard) según backend
+// Page (dashboard) segun backend
 export interface Page {
     _id: string
     name: string
