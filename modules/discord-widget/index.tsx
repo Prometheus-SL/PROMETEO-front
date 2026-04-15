@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Circle,
   ExternalLink,
@@ -30,6 +30,7 @@ import {
 import {
   discordService,
   type DiscordGuildInfo,
+  type DiscordEpicNotifications,
 } from "@/services/discord"
 import { accountService } from "@/services/account"
 
@@ -57,6 +58,9 @@ export default function DiscordWidget({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [linkedDiscordId, setLinkedDiscordId] = useState<string | null>(null)
+  const [, setEpicNotifications] = useState<DiscordEpicNotifications | null>(null)
+  const [initialSyncLoaded, setInitialSyncLoaded] = useState(false)
+  const lastSyncedRef = useRef<{ enabled: boolean; channelId: string; guildId: string } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -76,6 +80,68 @@ export default function DiscordWidget({
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const state = await discordService.getEpicNotifications()
+        if (cancelled) return
+        setEpicNotifications(state)
+        lastSyncedRef.current = {
+          enabled: state.enabled,
+          channelId: state.channelId ?? "",
+          guildId: state.guildId ?? "",
+        }
+        setInitialSyncLoaded(true)
+      } catch {
+        if (cancelled) return
+        setEpicNotifications(null)
+        lastSyncedRef.current = { enabled: false, channelId: "", guildId: "" }
+        setInitialSyncLoaded(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    const enabled = Boolean(config["epicNotificationsEnabled"])
+    const channelId = String(config["epicNotificationChannelId"] ?? "")
+    const guildId = serverId
+
+    if (!initialSyncLoaded || !lastSyncedRef.current) return
+
+    const previous = lastSyncedRef.current
+    if (
+      previous.enabled === enabled &&
+      previous.channelId === channelId &&
+      previous.guildId === guildId
+    ) {
+      return
+    }
+
+    if (enabled && (!channelId || !guildId)) return
+
+    lastSyncedRef.current = { enabled, channelId, guildId }
+    void (async () => {
+      try {
+        const result = await discordService.setEpicNotifications({
+          enabled,
+          channelId: channelId || null,
+          guildId: guildId || null,
+        })
+        setEpicNotifications(result.state)
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "No se pudieron guardar las notificaciones",
+        )
+      }
+    })()
+  }, [config, serverId, initialSyncLoaded])
 
   const fetchStatus = useCallback(async () => {
     setLoading(true)
@@ -203,7 +269,15 @@ export default function DiscordWidget({
     return null
   })()
 
-  const headerIcon = <MessagesSquare className="size-5" />
+  const headerIcon = guildInfo?.icon ? (
+    <img
+      src={guildInfo.icon}
+      alt={guildInfo.name}
+      className="size-7 rounded-full object-cover"
+    />
+  ) : (
+    <MessagesSquare className="size-5" />
+  )
   const headerTitle = guildInfo?.name ?? "Discord"
   const headerDescription = guildInfo
     ? `${guildInfo.channels.length} canales`

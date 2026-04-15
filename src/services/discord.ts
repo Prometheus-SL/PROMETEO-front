@@ -47,6 +47,19 @@ export type DiscordGuildInfo = {
     members: DiscordMember[];
 };
 
+export type DiscordEpicNotifications = {
+    enabled: boolean;
+    channelId: string | null;
+    guildId: string | null;
+    lastNotifiedAt: string | null;
+    lastError: string | null;
+};
+
+export type DiscordEpicNotificationsUpdateResult = {
+    state: DiscordEpicNotifications;
+    warning: string | null;
+};
+
 export const discordService = {
     async getStatus(): Promise<DiscordBotStatus> {
         return api.getData<DiscordBotStatus>("/api/v1/discord/status");
@@ -68,6 +81,19 @@ export const discordService = {
         return api.postData<{ id: string; name: string; muted: boolean }>(
             `/api/v1/discord/guilds/${encodeURIComponent(guildId)}/voice/${encodeURIComponent(userId)}/mute`,
             { mute }
+        );
+    },
+    async getEpicNotifications(): Promise<DiscordEpicNotifications> {
+        return api.getData<DiscordEpicNotifications>("/api/v1/discord/notifications/epic");
+    },
+    async setEpicNotifications(payload: {
+        enabled: boolean;
+        channelId: string | null;
+        guildId: string | null;
+    }): Promise<DiscordEpicNotificationsUpdateResult> {
+        return api.postData<DiscordEpicNotificationsUpdateResult>(
+            "/api/v1/discord/notifications/epic",
+            payload,
         );
     },
 };

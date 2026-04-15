@@ -24,6 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { loadModulesIndex, loadModuleDefinition } from "../loader";
 import { getCandidatePlacement } from "../grid-layout";
 import type { ModuleMeta, Page } from "../types";
+import { discordService } from "@/services/discord";
 
 function ZodForm({
   schema,
@@ -38,6 +39,21 @@ function ZodForm({
     string,
     z.ZodTypeAny
   >;
+
+  const [channelsByServerId, setChannelsByServerId] = useState<
+    Record<string, Array<{ id: string; name: string }>>
+  >({});
+
+  function getFieldDescription(field: z.ZodTypeAny): string {
+    const definition = (Reflect.get(field, "_def") as unknown) ?? undefined;
+    if (definition && typeof definition === "object") {
+      const desc = Reflect.get(definition as object, "description") as
+        | string
+        | undefined;
+      if (typeof desc === "string") return desc;
+    }
+    return "";
+  }
 
   function unwrap(field: z.ZodTypeAny): z.ZodTypeAny {
     let current: z.ZodTypeAny = field;
@@ -123,6 +139,71 @@ function ZodForm({
         const base = unwrap(field);
 
         if (base instanceof z.ZodString) {
+          const description =
+            getFieldDescription(field) || getFieldDescription(base);
+          if (description.startsWith("channel:")) {
+            const serverIdFieldName = description.slice("channel:".length);
+            const serverId = String(values[serverIdFieldName] ?? "");
+            const channels = serverId ? channelsByServerId[serverId] : null;
+
+            if (serverId && channels === undefined) {
+              // Kick off fetch only once per serverId.
+              void (async () => {
+                try {
+                  const info = await discordService.getGuildInfo(serverId);
+                  const textChannels = info.channels.filter(
+                    (c) => c.type === "text",
+                  );
+                  setChannelsByServerId((previous) => ({
+                    ...previous,
+                    [serverId]: textChannels.map((c) => ({
+                      id: c.id,
+                      name: c.name,
+                    })),
+                  }));
+                } catch {
+                  setChannelsByServerId((previous) => ({
+                    ...previous,
+                    [serverId]: [],
+                  }));
+                }
+              })();
+            }
+
+            return (
+              <div key={key} className="space-y-2">
+                <Label htmlFor={key}>{key}</Label>
+                <select
+                  id={key}
+                  disabled={!serverId || !channels || channels.length === 0}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  value={(values[key] as string) ?? ""}
+                  onChange={(event) =>
+                    setValues((previous) => ({
+                      ...previous,
+                      [key]: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">
+                    {!serverId
+                      ? "Configura primero serverId"
+                      : !channels
+                        ? "Cargando canales…"
+                        : channels.length === 0
+                          ? "Sin canales de texto"
+                          : "— Elige canal —"}
+                  </option>
+                  {(channels ?? []).map((channel) => (
+                    <option key={channel.id} value={channel.id}>
+                      #{channel.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          }
+
           return (
             <div key={key} className="space-y-2">
               <Label htmlFor={key}>{key}</Label>
