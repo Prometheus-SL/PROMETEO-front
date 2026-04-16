@@ -7,13 +7,16 @@ import {
   type ReactNode,
 } from "react";
 import {
+  CalendarDays,
   CheckCircle2,
+  Code2,
   ExternalLink,
   Link2,
   RefreshCw,
   ShieldCheck,
   Unplug,
   UserRound,
+  Video,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -166,6 +169,110 @@ const PROVIDER_PRESENTATIONS: Record<string, ProviderPresentation> = {
         },
       ];
     },
+  },
+  google: {
+    description:
+      "Calendar agenda, task planning and inbox summaries for focus-aware widgets.",
+    icon: (
+      <div className="grid size-10 place-items-center rounded-xl bg-[#4285F4]/10 text-[#4285F4]">
+        <CalendarDays className="size-5" />
+      </div>
+    ),
+    cardClassName:
+      "border-sky-500/15 bg-[radial-gradient(circle_at_top_right,rgba(66,133,244,0.16),transparent_38%),linear-gradient(135deg,rgba(15,23,42,0.06),transparent)]",
+    getDetails: (provider) => [
+      {
+        label: "Workspace account",
+        value:
+          readString(provider.profile, "displayName") ||
+          readString(provider.profile, "email") ||
+          "No Google account linked",
+      },
+      {
+        label: "Connected at",
+        value: formatDate(provider.connectedAt),
+      },
+      {
+        label: "Token expires",
+        value: formatDate(provider.tokenExpiresAt),
+      },
+      {
+        label: "Granted scopes",
+        value: provider.scopes.length
+          ? `${provider.scopes.length} permissions`
+          : "No permissions stored",
+      },
+    ],
+  },
+  github: {
+    description:
+      "Pull request pulse, notifications and reusable engineering identity.",
+    icon: (
+      <img
+        src="/github.svg"
+        alt="GitHub"
+        className="size-10 rounded-lg contain h-auto"
+      />
+    ),
+    cardClassName:
+      "border-slate-500/15 bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.16),transparent_38%),linear-gradient(135deg,rgba(15,23,42,0.06),transparent)]",
+    getDetails: (provider) => [
+      {
+        label: "GitHub account",
+        value:
+          readString(provider.profile, "displayName") ||
+          readString(provider.profile, "login") ||
+          "No GitHub account linked",
+      },
+      {
+        label: "Email",
+        value: readString(provider.profile, "email") || "Hidden",
+      },
+      {
+        label: "Connected at",
+        value: formatDate(provider.connectedAt),
+      },
+      {
+        label: "Granted scopes",
+        value: provider.scopes.length
+          ? `${provider.scopes.length} permissions`
+          : "No permissions stored",
+      },
+    ],
+    getExternalUrl: (_account) => null,
+  },
+  creator: {
+    description:
+      "Internal creator-source status across live channels and publishing surfaces.",
+    icon: (
+      <div className="grid size-10 place-items-center rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-300">
+        <Video className="size-5" />
+      </div>
+    ),
+    cardClassName:
+      "border-rose-500/15 bg-[radial-gradient(circle_at_top_right,rgba(244,63,94,0.14),transparent_38%),linear-gradient(135deg,rgba(15,23,42,0.06),transparent)]",
+    getDetails: (provider) => [
+      {
+        label: "Creator status",
+        value:
+          readString(provider.profile, "displayName") ||
+          "Creator sources unavailable",
+      },
+      {
+        label: "Live surfaces",
+        value:
+          readString(provider.profile, "liveCount") ||
+          String(provider.profile?.["liveCount"] ?? 0),
+      },
+      {
+        label: "Connected at",
+        value: formatDate(provider.connectedAt),
+      },
+      {
+        label: "Source mode",
+        value: provider.available === false ? "Backend config required" : "Internal",
+      },
+    ],
   },
 };
 
@@ -583,8 +690,8 @@ export default function AccountPage() {
                 </div>
                 <p className="mt-2 leading-6">
                   Spotify and Discord already run on the shared provider flow,
-                  and the same UI can now absorb Google, GitHub, Home Assistant,
-                  or internal agents with much less wiring.
+                  and the same UI can now absorb Google, GitHub, creator
+                  sources, or internal agents with much less wiring.
                 </p>
               </div>
               <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3">

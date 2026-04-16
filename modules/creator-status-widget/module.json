@@ -1,0 +1,28 @@
+[
+  {
+    "id": "creator-status-widget",
+    "name": "Creator Status",
+    "description": "Live status across creator channels like YouTube and Twitch.",
+    "category": "media",
+    "size": { "width": 2, "height": 2 },
+    "entry": "./index.tsx",
+    "configSchema": "./config.ts",
+    "audience": "dashboard",
+    "requiredProviders": [],
+    "requiredRole": null,
+    "capabilities": ["creator", "live"]
+  },
+  {
+    "id": "creator-status-widget-compact",
+    "name": "Creator Status Compact",
+    "description": "Compact live-state widget for creator surfaces.",
+    "category": "media",
+    "size": { "width": 2, "height": 1 },
+    "entry": "./index.tsx",
+    "configSchema": "./config.ts",
+    "audience": "dashboard",
+    "requiredProviders": [],
+    "requiredRole": null,
+    "capabilities": ["creator", "live"]
+  }
+]

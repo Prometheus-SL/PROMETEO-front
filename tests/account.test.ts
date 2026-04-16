@@ -119,6 +119,41 @@ describe("accountService", () => {
               connectPath: "/api/v1/account/linked-accounts/discord/connect",
               disconnectPath: "/api/v1/account/linked-accounts/discord",
             },
+            {
+              id: "google",
+              name: "Google Workspace",
+              description: "Calendar, Tasks and Gmail summary.",
+              kind: "oauth",
+              status: "connected",
+              connectedAt: "2026-04-15T08:00:00.000Z",
+              scopes: ["calendar.readonly", "gmail.readonly", "tasks"],
+              connectPath: "/api/v1/account/linked-accounts/google/connect",
+              disconnectPath: "/api/v1/account/linked-accounts/google",
+            },
+            {
+              id: "github",
+              name: "GitHub",
+              description: "Pulse for pull requests and notifications.",
+              kind: "oauth",
+              status: "connected",
+              connectedAt: "2026-04-15T08:00:00.000Z",
+              scopes: ["notifications", "repo"],
+              connectPath: "/api/v1/account/linked-accounts/github/connect",
+              disconnectPath: "/api/v1/account/linked-accounts/github",
+            },
+            {
+              id: "creator",
+              name: "Creator Status",
+              description: "Live state across creator channels.",
+              kind: "internal",
+              status: "connected",
+              connectedAt: "2026-04-15T08:00:00.000Z",
+              scopes: [],
+              connectSupported: false,
+              disconnectSupported: false,
+              connectPath: "/api/v1/account/linked-accounts/creator/connect",
+              disconnectPath: "/api/v1/account/linked-accounts/creator",
+            },
           ],
         },
       }),
@@ -126,9 +161,13 @@ describe("accountService", () => {
 
     const providers = await accountService.listProviders();
 
-    expect(providers).toHaveLength(2);
+    expect(providers).toHaveLength(5);
     expect(providers[0]?.id).toBe("spotify");
     expect(providers[0]?.status).toBe("connected");
     expect(providers[1]?.id).toBe("discord");
+    expect(providers[2]?.id).toBe("google");
+    expect(providers[3]?.id).toBe("github");
+    expect(providers[4]?.id).toBe("creator");
+    expect(providers[4]?.connectSupported).toBe(false);
   });
 });
