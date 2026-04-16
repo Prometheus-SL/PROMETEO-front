@@ -79,7 +79,8 @@ const STATUS_STYLES: Record<
 
 const PROVIDER_PRESENTATIONS: Record<string, ProviderPresentation> = {
   spotify: {
-    description: "Playback controls, queue access, and automatic token refresh.",
+    description:
+      "Playback controls, queue access, and automatic token refresh.",
     icon: (
       <img
         src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green-300x300.png"
@@ -238,7 +239,6 @@ const PROVIDER_PRESENTATIONS: Record<string, ProviderPresentation> = {
           : "No permissions stored",
       },
     ],
-    getExternalUrl: (_account) => null,
   },
   creator: {
     description:
@@ -269,7 +269,8 @@ const PROVIDER_PRESENTATIONS: Record<string, ProviderPresentation> = {
       },
       {
         label: "Source mode",
-        value: provider.available === false ? "Backend config required" : "Internal",
+        value:
+          provider.available === false ? "Backend config required" : "Internal",
       },
     ],
   },
@@ -313,7 +314,8 @@ function createLegacyProviders(
     {
       id: "spotify",
       name: "Spotify",
-      description: "Playback controls, queue access, and automatic token refresh.",
+      description:
+        "Playback controls, queue access, and automatic token refresh.",
       kind: "oauth",
       status: linkedAccounts.spotify.status,
       connectedAt: linkedAccounts.spotify.connectedAt,
@@ -359,7 +361,8 @@ function getProviderPresentation(
   return (
     PROVIDER_PRESENTATIONS[provider.id] ?? {
       description:
-        provider.description || "Reusable provider session for Prometeo modules.",
+        provider.description ||
+        "Reusable provider session for Prometeo modules.",
       icon: (
         <div className="grid size-10 place-items-center rounded-xl border border-border/70 bg-background/80">
           <Link2 className="size-5 text-primary" />
@@ -399,9 +402,9 @@ export default function AccountPage() {
   const [account, setAccount] = useState<AccountPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [connectingProviderId, setConnectingProviderId] = useState<string | null>(
-    null,
-  );
+  const [connectingProviderId, setConnectingProviderId] = useState<
+    string | null
+  >(null);
   const [disconnectingProviderId, setDisconnectingProviderId] = useState<
     string | null
   >(null);
@@ -462,8 +465,8 @@ export default function AccountPage() {
       setConnectingProviderId(null);
 
       const providerName =
-        account?.providers?.find((provider) => provider.id === providerId)?.name ||
-        providerId;
+        account?.providers?.find((provider) => provider.id === providerId)
+          ?.name || providerId;
 
       if (event.data?.status === "success") {
         toast.success(`${providerName} account linked`);
@@ -584,7 +587,8 @@ export default function AccountPage() {
         await loadAccount(true);
       } catch (err) {
         toast.error(
-          (err as Error)?.message || `${provider.name} could not be disconnected`,
+          (err as Error)?.message ||
+            `${provider.name} could not be disconnected`,
         );
       } finally {
         setDisconnectingProviderId(null);
@@ -694,7 +698,9 @@ export default function AccountPage() {
                 </p>
               </div>
               <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3">
-                <div className="font-medium text-foreground">Graceful reuse</div>
+                <div className="font-medium text-foreground">
+                  Graceful reuse
+                </div>
                 <p className="mt-2 leading-6">
                   Widgets read the same provider state everywhere, so reconnect
                   prompts, missing scopes, and degraded experiences stay
@@ -779,7 +785,10 @@ function LinkedProviderCard({
                   {statusStyle.label}
                 </Badge>
                 {provider.available === false ? (
-                  <Badge variant="outline" className="rounded-full border-amber-500/30">
+                  <Badge
+                    variant="outline"
+                    className="rounded-full border-amber-500/30"
+                  >
                     Provider unavailable
                   </Badge>
                 ) : null}
@@ -830,7 +839,11 @@ function LinkedProviderCard({
               provider.status === "connected"
             }
           >
-            {connecting ? <Spinner className="size-4" /> : <Link2 className="size-4" />}
+            {connecting ? (
+              <Spinner className="size-4" />
+            ) : (
+              <Link2 className="size-4" />
+            )}
             {connecting ? `Opening ${provider.name}...` : actionLabel}
           </Button>
 
