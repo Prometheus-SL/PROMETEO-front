@@ -38,9 +38,20 @@ export function useMarketplaceStore() {
                     if (cancelled) return
                     // Selecciona página actual: activa, o la primera, o vacía
                     const current = active ?? pages[0] ?? null
+                    const resolvedMetas = await Promise.all(
+                        index.map(async (e) => {
+                            if (e.meta.preview || !e.importers.preview) return e.meta
+                            try {
+                                const url = await e.importers.preview()
+                                return { ...e.meta, preview: url as string }
+                            } catch {
+                                return e.meta
+                            }
+                        }),
+                    )
                     setState((s) => ({
                         ...s,
-                        modules: index.map((e) => e.meta),
+                        modules: resolvedMetas,
                         pages,
                         currentPageId: current?._id,
                         installed: current?.modules ?? [],

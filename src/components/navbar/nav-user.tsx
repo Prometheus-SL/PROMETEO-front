@@ -25,6 +25,11 @@ export function NavUser() {
   const { isMobile } = useSidebar();
   const { logout, user } = useAuth();
 
+  const isDev =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1");
+
   if (!user) return null;
 
   const initials =
@@ -47,6 +52,19 @@ export function NavUser() {
             </div>
           ) : null;
         })()}
+      {isDev && (
+        <SidebarMenuItem key={`developer-mode`}>
+          <SidebarMenuButton
+            tooltip="Module development and testing sandbox"
+            asChild
+            isActive={location.pathname === "/dev/modules"}
+          >
+            <Link to="/dev/modules">
+              <span>Module development</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      )}
 
       <SidebarMenuItem>
         <DropdownMenu>

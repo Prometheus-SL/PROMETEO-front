@@ -18,14 +18,24 @@ type Listener<T = any> = (value: T) => void;
 
 interface SharedContextProviderProps {
   children: React.ReactNode;
+  initialSharedData?: Record<string, unknown>;
+  initialActions?: SharedAction[];
 }
 
 export function SharedContextProvider({
   children,
+  initialSharedData,
+  initialActions,
 }: SharedContextProviderProps) {
-  // Estado interno del contexto compartido
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [sharedData, setSharedData] = useState<Record<string, any>>(() => {
+  const readStoredSharedData = useCallback(() => {
+    if (initialSharedData) {
+      return { ...initialSharedData };
+    }
+
+    if (typeof localStorage === "undefined") {
+      return {};
+    }
+
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       return stored ? JSON.parse(stored) : {};
@@ -33,7 +43,13 @@ export function SharedContextProvider({
       console.error("Error loading shared context from localStorage:", error);
       return {};
     }
-  });
+  }, [initialSharedData]);
+
+  // Estado interno del contexto compartido
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [sharedData, setSharedData] = useState<Record<string, any>>(
+    readStoredSharedData,
+  );
 
   // Ref para acceder al estado actual sin crear dependencias
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,17 +65,27 @@ export function SharedContextProvider({
   const listenersRef = useRef<Map<string, Set<Listener<any>>>>(new Map());
 
   // Acciones (no persistentes)
-  const actionsRef = useRef<Map<string, SharedAction>>(new Map());
+  const actionsRef = useRef<Map<string, SharedAction>>(
+    new Map(initialActions?.map((action) => [action.id, action])),
+  );
   const actionListenersRef = useRef<Set<Listener<SharedAction[]>>>(new Set());
 
   // Sincronizar con localStorage cuando cambie el estado
   useEffect(() => {
+    if (typeof localStorage === "undefined") {
+      return;
+    }
+
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedData));
     } catch (error) {
       console.error("Error saving shared context to localStorage:", error);
     }
   }, [sharedData]);
+
+  useEffect(() => {
+    setSharedData(readStoredSharedData());
+  }, [readStoredSharedData]);
 
   // Establecer un valor y notificar a los listeners
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -160,6 +186,13 @@ export function SharedContextProvider({
       }
     });
   }, []);
+
+  useEffect(() => {
+    actionsRef.current = new Map(
+      initialActions?.map((action) => [action.id, action]),
+    );
+    notifyActionListeners();
+  }, [initialActions, notifyActionListeners]);
 
   const registerAction = useCallback(
     (action: SharedAction) => {

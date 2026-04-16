@@ -24,8 +24,15 @@ const ClientDashboardsPage = lazy(() => import("./pages/ClientDashboardsPage"));
 
 function RouteFallback() {
   return (
-    <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
-      Loading...
+    <div className="flex min-h-screen items-center justify-center bg-background px-6 w-full">
+      <div className="text-center">
+        <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted-foreground">
+          PROMETEO
+        </p>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Loading...
+        </p>
+      </div>
     </div>
   );
 }
@@ -38,98 +45,112 @@ function lazyElement(Component: LazyExoticComponent<ComponentType>) {
   );
 }
 
-export const appRoutes = [
-  {
-    path: "/login",
-    element: <LoginPage />,
-  },
-  {
-    path: "/register",
-    element: <RegisterPage />,
-  },
-  {
-    path: "/qr-login/:code",
-    element: <QRLoginPage />,
-  },
-  {
-    path: "/linked-account-callback",
-    element: <LinkedAccountCallbackPage />,
-  },
-  {
-    path: "/",
-    element: (
-      <PrivateRoute>
-        <AppLayout />
-      </PrivateRoute>
-    ),
-    handle: [
-      {
-        routes: [
-          { title: "Home", url: "/" },
-          { title: "Dashboards", url: "/dashboard" },
-        ],
-        adminOnly: false,
-        title: "Principal",
-      },
-      {
-        title: "Administración",
-        routes: [
-          { title: "Users", url: "/admin/users" },
-          { title: "Agents", url: "/admin/agents" },
-        ],
-        adminOnly: true,
-      },
-      {
-        title: "Marketplace",
-        routes: [{ title: "Marketplace", url: "/marketplace" }],
-        adminOnly: false,
-      },
-    ],
-    children: [
-      {
-        index: true,
-        element: <HomePage />,
-        handle: { title: "Home" },
-      },
-      {
-        path: "/dashboard",
-        element: lazyElement(DashboardsPage),
-        handle: { title: "Edit Dashboards" },
-      },
-      {
-        path: "/marketplace",
-        element: lazyElement(MarketplacePage),
-        handle: { title: "Marketplace" },
-      },
-      {
-        path: "/account",
-        element: lazyElement(AccountPage),
-        handle: { title: "Account" },
-      },
-      {
-        path: "/admin/users",
-        element: lazyElement(UsersPage),
-        handle: { title: "Users" },
-      },
-      {
-        path: "/admin/agents",
-        element: lazyElement(AgentsPage),
-        handle: { title: "Agents" },
-      },
-    ],
-  },
-  {
-    path: "/client",
-    element: lazyElement(ClientLayout),
-    children: [
-      {
-        index: true,
-        element: lazyElement(ClientDashboardsPage),
-      },
-    ],
-  },
-  {
-    path: "*",
-    element: <NotFoundPage />,
-  },
-];
+export function createAppRoutes(isDev = import.meta.env.DEV) {
+  const routes = [
+    {
+      path: "/login",
+      element: <LoginPage />,
+    },
+    {
+      path: "/register",
+      element: <RegisterPage />,
+    },
+    {
+      path: "/qr-login/:code",
+      element: <QRLoginPage />,
+    },
+    {
+      path: "/linked-account-callback",
+      element: <LinkedAccountCallbackPage />,
+    },
+    {
+      path: "/",
+      element: (
+        <PrivateRoute>
+          <AppLayout />
+        </PrivateRoute>
+      ),
+      handle: [
+        {
+          routes: [
+            { title: "Home", url: "/" },
+            { title: "Dashboards", url: "/dashboard" },
+          ],
+          adminOnly: false,
+          title: "Principal",
+        },
+        {
+          title: "Administracion",
+          routes: [
+            { title: "Users", url: "/admin/users" },
+            { title: "Agents", url: "/admin/agents" },
+          ],
+          adminOnly: true,
+        },
+        {
+          title: "Marketplace",
+          routes: [{ title: "Marketplace", url: "/marketplace" }],
+          adminOnly: false,
+        },
+      ],
+      children: [
+        {
+          index: true,
+          element: <HomePage />,
+          handle: { title: "Home" },
+        },
+        {
+          path: "/dashboard",
+          element: lazyElement(DashboardsPage),
+          handle: { title: "Edit Dashboards" },
+        },
+        {
+          path: "/marketplace",
+          element: lazyElement(MarketplacePage),
+          handle: { title: "Marketplace" },
+        },
+        {
+          path: "/account",
+          element: lazyElement(AccountPage),
+          handle: { title: "Account" },
+        },
+        {
+          path: "/admin/users",
+          element: lazyElement(UsersPage),
+          handle: { title: "Users" },
+        },
+        {
+          path: "/admin/agents",
+          element: lazyElement(AgentsPage),
+          handle: { title: "Agents" },
+        },
+      ],
+    },
+    {
+      path: "/client",
+      element: lazyElement(ClientLayout),
+      children: [
+        {
+          index: true,
+          element: lazyElement(ClientDashboardsPage),
+        },
+      ],
+    },
+    {
+      path: "*",
+      element: <NotFoundPage />,
+    },
+  ];
+
+  if (isDev) {
+    const DevModulesPage = lazy(() => import("./pages/DevModulesPage"));
+    routes.unshift({
+      path: "/dev/modules",
+      element: lazyElement(DevModulesPage),
+    });
+  }
+
+  return routes;
+}
+
+export const appRoutes = createAppRoutes();

@@ -14,6 +14,7 @@ import { NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
 import { Link } from "react-router-dom";
 import { useAuthContext } from "@/providers/AuthProvider";
+import { Badge } from "@/components/ui/badge";
 
 type Section = {
   title: string;
@@ -34,6 +35,10 @@ export function AppSidebar({
 }: React.ComponentProps<typeof Sidebar> & { sections?: Section[] }) {
   const { user } = useAuthContext();
   const isAdmin = (user?.role || "").toLowerCase().includes("admin");
+  const isDev =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1");
   const visibleSections = sections
     .filter((s) => !s.adminOnly || isAdmin)
     .map((s) => ({ ...s, routes: s.routes || [] }))
@@ -58,6 +63,14 @@ export function AppSidebar({
                   className="h-6 dark:invert"
                 />
                 <span className="text-base font-semibold">Prometeo</span>
+                {isDev ? (
+                  <Badge
+                    variant="outline"
+                    className="ml-1 text-[10px] px-1.5 py-0"
+                  >
+                    DEV
+                  </Badge>
+                ) : null}
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

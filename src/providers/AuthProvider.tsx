@@ -2,7 +2,7 @@ import { createContext, useContext } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import type { AuthUser, Tokens } from "@/services/auth";
 
-interface AuthContextProps {
+export interface AuthContextValue {
   accessToken: string | null;
   refreshToken: string | null;
   user: AuthUser | null;
@@ -22,11 +22,16 @@ interface AuthContextProps {
   clearError: () => void;
 }
 
-const AuthContext = createContext<AuthContextProps | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const auth = useAuth();
-  // Solo memorizamos el objeto de auth
+export function AuthProvider({
+  children,
+  value,
+}: {
+  children: React.ReactNode;
+  value?: AuthContextValue;
+}) {
+  const auth = value ?? useAuth();
   return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 }
 

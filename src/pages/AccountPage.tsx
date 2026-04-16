@@ -9,7 +9,6 @@ import {
 import {
   CalendarDays,
   CheckCircle2,
-  Code2,
   ExternalLink,
   Link2,
   RefreshCw,
