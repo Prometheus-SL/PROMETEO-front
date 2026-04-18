@@ -75,10 +75,14 @@ export type DiscordEpicNotificationConfig = {
     enabled: boolean;
     lastNotifiedAt: string | null;
     lastError: string | null;
+    updatedBy?: string | null;
+    updatedAt?: string | null;
 };
 
 export type DiscordEpicNotificationsState = {
     configs: DiscordEpicNotificationConfig[];
+    needsLink?: boolean;
+    needsReauth?: boolean;
 };
 
 export type DiscordEpicNotificationsUpdatePayload = {
