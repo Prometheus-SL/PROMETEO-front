@@ -47,16 +47,46 @@ export type DiscordGuildInfo = {
     members: DiscordMember[];
 };
 
-export type DiscordEpicNotifications = {
-    enabled: boolean;
+export type DiscordPermissions = {
+    isAdmin: boolean;
+    isOwner: boolean;
+    hasLinkedDiscord: boolean;
+};
+
+export type DiscordManagedGuild = {
+    id: string;
+    name: string;
+    icon: string | null;
+    isAdmin: boolean;
+    isOwner: boolean;
+    hasLinkedDiscord: boolean;
+    botPresent: boolean;
+};
+
+export type DiscordMyGuildsResponse = {
+    needsLink: boolean;
+    needsReauth: boolean;
+    guilds: DiscordManagedGuild[];
+};
+
+export type DiscordEpicNotificationConfig = {
+    guildId: string;
     channelId: string | null;
-    guildId: string | null;
+    enabled: boolean;
     lastNotifiedAt: string | null;
     lastError: string | null;
 };
 
+export type DiscordEpicNotificationsState = {
+    configs: DiscordEpicNotificationConfig[];
+};
+
+export type DiscordEpicNotificationsUpdatePayload = {
+    configs: Array<{ guildId: string; channelId: string | null; enabled: boolean }>;
+};
+
 export type DiscordEpicNotificationsUpdateResult = {
-    state: DiscordEpicNotifications;
+    configs: DiscordEpicNotificationConfig[];
     warning: string | null;
 };
 
@@ -83,14 +113,20 @@ export const discordService = {
             { mute }
         );
     },
-    async getEpicNotifications(): Promise<DiscordEpicNotifications> {
-        return api.getData<DiscordEpicNotifications>("/api/v1/discord/notifications/epic");
+    async getMyPermissions(guildId: string): Promise<DiscordPermissions> {
+        return api.getData<DiscordPermissions>(
+            `/api/v1/discord/guilds/${encodeURIComponent(guildId)}/me/permissions`,
+        );
     },
-    async setEpicNotifications(payload: {
-        enabled: boolean;
-        channelId: string | null;
-        guildId: string | null;
-    }): Promise<DiscordEpicNotificationsUpdateResult> {
+    async getMyGuilds(): Promise<DiscordMyGuildsResponse> {
+        return api.getData<DiscordMyGuildsResponse>("/api/v1/discord/my-guilds");
+    },
+    async getEpicNotifications(): Promise<DiscordEpicNotificationsState> {
+        return api.getData<DiscordEpicNotificationsState>("/api/v1/discord/notifications/epic");
+    },
+    async setEpicNotifications(
+        payload: DiscordEpicNotificationsUpdatePayload,
+    ): Promise<DiscordEpicNotificationsUpdateResult> {
         return api.postData<DiscordEpicNotificationsUpdateResult>(
             "/api/v1/discord/notifications/epic",
             payload,

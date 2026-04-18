@@ -8,7 +8,7 @@ import type { ModuleDevMockAdapter } from "@/dev/modules/types";
 import type {
     DiscordBotStatus,
     DiscordChannel,
-    DiscordEpicNotifications,
+    DiscordEpicNotificationConfig,
     DiscordGuildInfo,
     DiscordMember,
     DiscordVoiceMember,
@@ -64,10 +64,10 @@ const memberSchema = z.object({
     status: z.enum(["online", "idle", "dnd", "offline"]),
 });
 
-const epicNotificationsSchema = z.object({
-    enabled: z.boolean(),
+const epicNotificationConfigSchema = z.object({
+    guildId: z.string(),
     channelId: z.string().nullable(),
-    guildId: z.string().nullable(),
+    enabled: z.boolean(),
     lastNotifiedAt: z.string().nullable(),
     lastError: z.string().nullable(),
 });
@@ -192,13 +192,14 @@ const discordMockStateSchema = z.object({
             status: "offline",
         },
     ]),
-    epicNotifications: epicNotificationsSchema.default({
-        enabled: false,
-        channelId: null,
-        guildId: null,
-        lastNotifiedAt: null,
-        lastError: null,
-    }),
+    epicNotifications: z.array(epicNotificationConfigSchema).default([]),
+    permissions: z
+        .object({
+            isAdmin: z.boolean(),
+            isOwner: z.boolean(),
+            hasLinkedDiscord: z.boolean(),
+        })
+        .default({ isAdmin: true, isOwner: false, hasLinkedDiscord: true }),
     inviteUrl: z
         .string()
         .default(
@@ -231,8 +232,9 @@ function buildHandlers(state: {
     guilds: DiscordBotStatus["guilds"];
     channels: DiscordChannel[];
     members: DiscordMember[];
-    epicNotifications: DiscordEpicNotifications;
+    epicNotifications: DiscordEpicNotificationConfig[];
     inviteUrl: string;
+    permissions: { isAdmin: boolean; isOwner: boolean; hasLinkedDiscord: boolean };
 }) {
     return [
         // GET /api/v1/discord/status
@@ -311,9 +313,41 @@ function buildHandlers(state: {
             },
         ),
 
+        // GET /api/v1/discord/guilds/:guildId/me/permissions
+        http.get(
+            backendUrl("/api/v1/discord/guilds/:guildId/me/permissions"),
+            ({ params }) => {
+                const guild = state.guilds.find((g) => g.id === params.guildId);
+                if (!guild) {
+                    return HttpResponse.json(
+                        { success: false, message: "El bot no está en ese servidor" },
+                        { status: 404 },
+                    );
+                }
+                return success(state.permissions);
+            },
+        ),
+
+        // GET /api/v1/discord/my-guilds
+        http.get(backendUrl("/api/v1/discord/my-guilds"), () =>
+            success({
+                needsLink: false,
+                needsReauth: false,
+                guilds: state.guilds.map((g) => ({
+                    id: g.id,
+                    name: g.name,
+                    icon: g.icon,
+                    isAdmin: state.permissions.isAdmin,
+                    isOwner: state.permissions.isOwner,
+                    hasLinkedDiscord: state.permissions.hasLinkedDiscord,
+                    botPresent: true,
+                })),
+            }),
+        ),
+
         // GET /api/v1/discord/notifications/epic
         http.get(backendUrl("/api/v1/discord/notifications/epic"), () =>
-            success(state.epicNotifications),
+            success({ configs: state.epicNotifications }),
         ),
 
         // POST /api/v1/discord/notifications/epic
@@ -321,23 +355,17 @@ function buildHandlers(state: {
             backendUrl("/api/v1/discord/notifications/epic"),
             async ({ request }) => {
                 const payload = (await request.json()) as {
-                    enabled?: boolean;
-                    channelId?: string | null;
-                    guildId?: string | null;
+                    configs?: Array<{ guildId: string; channelId: string | null; enabled: boolean }>;
                 };
-                state.epicNotifications = {
-                    ...state.epicNotifications,
-                    enabled: payload.enabled ?? state.epicNotifications.enabled,
-                    channelId:
-                        payload.channelId !== undefined
-                            ? payload.channelId
-                            : state.epicNotifications.channelId,
-                    guildId:
-                        payload.guildId !== undefined
-                            ? payload.guildId
-                            : state.epicNotifications.guildId,
-                };
-                return success({ state: state.epicNotifications, warning: null });
+                const incoming = Array.isArray(payload.configs) ? payload.configs : [];
+                state.epicNotifications = incoming.map((c) => ({
+                    guildId: c.guildId,
+                    channelId: c.channelId ?? null,
+                    enabled: Boolean(c.enabled),
+                    lastNotifiedAt: null,
+                    lastError: null,
+                }));
+                return success({ configs: state.epicNotifications, warning: null });
             },
         ),
     ];
@@ -362,8 +390,9 @@ const adapter: ModuleDevMockAdapter<DiscordMockState> = {
                 guilds: live.guilds as DiscordBotStatus["guilds"],
                 channels: live.channels as DiscordChannel[],
                 members: live.members as DiscordMember[],
-                epicNotifications: live.epicNotifications as DiscordEpicNotifications,
+                epicNotifications: live.epicNotifications as DiscordEpicNotificationConfig[],
                 inviteUrl: live.inviteUrl,
+                permissions: live.permissions,
             }),
         );
     },
