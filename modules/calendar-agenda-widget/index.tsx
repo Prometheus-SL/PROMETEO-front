@@ -1,17 +1,27 @@
 import { useEffect, useMemo } from "react";
-import { CalendarDays, Clock3, ExternalLink, MapPin, Sparkles } from "lucide-react";
+import {
+  CalendarDays,
+  CalendarX2,
+  Clock3,
+  Loader2,
+  MapPin,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SHARED_NAMESPACES } from "@/contexts/shared-namespaces";
 import { useSharedContext } from "@/hooks/useSharedContext";
-import type { GoogleCalendarItem } from "@/services/google";
 import {
-  MetricBadge,
-  WidgetEmptyState,
+  WidgetContent,
+  WidgetHeader,
+  WidgetSection,
   WidgetShell,
-  formatTimestamp,
-} from "../_shared/prometeo-widget-kit";
+  WidgetState,
+  WidgetStatus,
+} from "@/modules/ui/WidgetShell";
+import type { GoogleCalendarItem } from "@/services/google";
+import { formatTimestamp } from "../_shared/prometeo-widget-kit";
 import {
   getGoogleWorkspaceMessage,
   useGoogleWorkspaceSummary,
@@ -21,20 +31,43 @@ function getPrimaryCalendarItem(
   items: GoogleCalendarItem[],
   activeEventId?: string | null,
 ) {
-  return items.find((item) => item.id && item.id === activeEventId) ?? items[0] ?? null;
+  return (
+    items.find((item) => item.id && item.id === activeEventId) ??
+    items[0] ??
+    null
+  );
 }
 
 function getDurationMinutes(startAt?: string | null, endAt?: string | null) {
   if (!startAt || !endAt) return null;
-
   const start = new Date(startAt);
   const end = new Date(endAt);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-    return null;
-  }
-
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
   const minutes = Math.round((end.getTime() - start.getTime()) / 60000);
   return minutes > 0 ? minutes : null;
+}
+
+function formatCountdown(dateStr?: string | null, isEnd = false) {
+  if (!dateStr) return null;
+  const target = new Date(dateStr);
+  if (Number.isNaN(target.getTime())) return null;
+  const diffMs = target.getTime() - Date.now();
+  if (!isEnd && diffMs < 0) return null;
+  if (isEnd && diffMs < 0) return "Ending now";
+  const totalMin = Math.round(Math.abs(diffMs) / 60000);
+  if (totalMin < 1) return isEnd ? "Ending now" : "Starting now";
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  const d = Math.floor(h / 24);
+  const rh = h % 24;
+  if (isEnd) {
+    if (d > 0) return rh > 0 ? `${d}d ${rh}h left` : `${d}d left`;
+    if (h > 0) return m > 0 ? `${h}h ${m}m left` : `${h}h left`;
+    return `${m}m left`;
+  }
+  if (d > 0) return rh > 0 ? `in ${d}d ${rh}h` : `in ${d}d`;
+  if (h > 0) return m > 0 ? `in ${h}h ${m}m` : `in ${h}h`;
+  return `in ${m}m`;
 }
 
 export default function CalendarAgendaWidget({
@@ -58,160 +91,139 @@ export default function CalendarAgendaWidget({
     [maxItems, summary.calendar.items],
   );
   const message = error ?? getGoogleWorkspaceMessage(summary);
-  const primaryItem = getPrimaryCalendarItem(items, summary.calendar.activeEventId);
+  const primaryItem = getPrimaryCalendarItem(
+    items,
+    summary.calendar.activeEventId,
+  );
   const secondaryItems = useMemo(() => {
-    if (!primaryItem?.id) {
-      return items.slice(1, 4);
-    }
-
-    return items
-      .filter((item) => item.id !== primaryItem.id)
-      .slice(0, 3);
-  }, [items, primaryItem?.id]);
+    if (!primaryItem?.id) return items.slice(1);
+    return items.filter((item) => item.id !== primaryItem.id);
+  }, [items, primaryItem]);
   const durationMinutes = getDurationMinutes(
     primaryItem?.startAt,
     primaryItem?.endAt,
   );
+  const countdown = summary.calendar.busyNow
+    ? formatCountdown(primaryItem?.endAt, true)
+    : formatCountdown(primaryItem?.startAt);
+  const accent = summary.calendar.busyNow
+    ? ("amber" as const)
+    : ("sky" as const);
 
   return (
-    <WidgetShell
-      title={title}
-      subtitle="Upcoming meetings and availability."
-      badges={[
-        <MetricBadge
-          key="state"
-          label="state"
-          value={summary.calendar.busyNow ? "Busy" : "Free"}
-          tone={summary.calendar.busyNow ? "warning" : "success"}
-        />,
-        <MetricBadge key="items" label="items" value={items.length} />,
-      ]}
-    >
-      {loading && items.length === 0 ? (
-        <WidgetEmptyState
-          title="Loading agenda"
-          message="PROMETEO is syncing your next meetings."
-        />
-      ) : items.length === 0 ? (
-        <WidgetEmptyState
-          title="No upcoming events"
-          message={
-            message ||
-            "Your calendar is clear for the current time window."
-          }
-        />
-      ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-3">
-          <div className="rounded-2xl border border-border/70 bg-background/60 p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex min-w-0 items-start gap-3">
-                <div className="mt-0.5 rounded-full border border-border/70 bg-background/80 p-2">
-                  <CalendarDays className="size-4 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                    Current state
-                  </p>
-                  <p className="mt-1 text-xl font-semibold leading-none text-foreground">
-                    {summary.calendar.busyNow ? "Busy" : "Free"}
-                  </p>
-                  <p className="mt-2 truncate text-sm font-medium text-foreground">
-                    {primaryItem?.title ?? "No highlighted event"}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {formatTimestamp(primaryItem?.startAt ?? summary.calendar.nextStartAt)}
-                  </p>
+    <WidgetShell accent={accent}>
+      <WidgetHeader
+        accent={accent}
+        icon={<CalendarDays className="size-4" />}
+        title={title}
+        description="Upcoming meetings and availability"
+        status={
+          <WidgetStatus tone={summary.calendar.busyNow ? "warning" : "success"}>
+            {summary.calendar.busyNow ? "Busy" : "Free"}
+          </WidgetStatus>
+        }
+      />
+      <WidgetContent>
+        {loading && items.length === 0 ? (
+          <WidgetState
+            accent={accent}
+            icon={<Loader2 className="size-5 animate-spin" />}
+            title="Loading agenda"
+            message="Syncing your next meetings."
+          />
+        ) : items.length === 0 ? (
+          <WidgetState
+            accent={accent}
+            icon={<CalendarX2 className="size-5" />}
+            title="No upcoming events"
+            message={message || "Your calendar is clear."}
+          />
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col gap-1.5">
+            {/* Next event */}
+            <WidgetSection accent={accent} className="space-y-1 py-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-muted-foreground text-[8px] font-medium uppercase tracking-[0.16em]">
+                  {summary.calendar.busyNow ? "In progress" : "Next event"}
+                </p>
+                <div className="flex items-center gap-1.5">
+                  {summary.calendar.busyNow ? (
+                    <Badge className="h-4 px-1.5 bg-amber-500/20 text-[9px] text-amber-700 dark:text-amber-200 hover:bg-amber-500/20">
+                      Now
+                    </Badge>
+                  ) : null}
+                  {durationMinutes ? (
+                    <Badge
+                      variant="outline"
+                      className="h-4 gap-0.5 px-1.5 text-[9px]"
+                    >
+                      <Clock3 className="size-2.5" />
+                      {durationMinutes}m
+                    </Badge>
+                  ) : null}
                 </div>
               </div>
+              <p className="truncate text-[0.85rem] font-semibold leading-tight">
+                {primaryItem?.title ?? "No highlighted event"}
+              </p>
+              <div className="flex items-center gap-1.5 text-[10px]">
+                <span className="font-medium">
+                  {formatTimestamp(
+                    primaryItem?.startAt ?? summary.calendar.nextStartAt,
+                  )}
+                </span>
+                {countdown ? (
+                  <>
+                    <Separator orientation="vertical" className="!h-3" />
+                    <span className="font-semibold text-sky-600 dark:text-sky-400">
+                      {countdown}
+                    </span>
+                  </>
+                ) : null}
+                {primaryItem?.location ? (
+                  <span className="flex items-center gap-0.5 truncate text-muted-foreground">
+                    <MapPin className="size-2.5 shrink-0" />
+                    {primaryItem.location}
+                  </span>
+                ) : null}
+              </div>
+            </WidgetSection>
 
-              {primaryItem?.meetingUrl || primaryItem?.htmlUrl ? (
-                <a
-                  href={primaryItem?.meetingUrl || primaryItem?.htmlUrl || "#"}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex shrink-0 items-center gap-1 text-xs text-primary"
-                >
-                  Open
-                  <ExternalLink className="size-3.5" />
-                </a>
-              ) : null}
-            </div>
-
-            <div className="flex flex-wrap gap-2 pt-3">
-              <Badge variant="secondary">{items.length} items</Badge>
-              {primaryItem?.location ? (
-                <Badge variant="outline" className="gap-1">
-                  <MapPin className="size-3" />
-                  {primaryItem.location}
-                </Badge>
-              ) : null}
-              {durationMinutes ? (
-                <Badge variant="outline" className="gap-1">
-                  <Clock3 className="size-3" />
-                  {durationMinutes}m
-                </Badge>
-              ) : null}
-              {summary.focus.active ? (
-                <Badge variant="secondary" className="gap-1">
-                  <Sparkles className="size-3" />
-                  Focus on
-                </Badge>
-              ) : null}
-            </div>
-          </div>
-
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="space-y-3 pr-3">
-              {(secondaryItems.length > 0 ? secondaryItems : items.slice(0, 1)).map((item) => (
-                <div
-                  key={item.id ?? item.title}
-                  className="rounded-2xl border border-border/70 bg-background/60 p-3"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 rounded-full border border-border/70 bg-background/80 p-2">
-                      <CalendarDays className="size-4 text-primary" />
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-medium text-foreground">
-                          {item.title}
-                        </p>
-                        {item.meetingUrl || item.htmlUrl ? (
-                          <a
-                            href={item.meetingUrl || item.htmlUrl || "#"}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-primary"
-                          >
-                            Open
-                            <ExternalLink className="size-3.5" />
-                          </a>
+            {/* Upcoming list */}
+            {secondaryItems.length > 0 ? (
+              <ScrollArea className="min-h-0 flex-1">
+                <div className="space-y-1">
+                  {secondaryItems.map((item) => {
+                    const itemCountdown = formatCountdown(item.startAt);
+                    return (
+                      <WidgetSection
+                        key={item.id ?? item.title}
+                        accent={accent}
+                        className="flex items-center gap-2 py-1 px-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[11px] font-medium leading-tight">
+                            {item.title}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-[9px] text-muted-foreground whitespace-nowrap">
+                          {formatTimestamp(item.startAt)}
+                          {item.isAllDay ? " · All day" : ""}
+                        </span>
+                        {itemCountdown ? (
+                          <span className="shrink-0 text-[9px] font-semibold text-sky-600 dark:text-sky-400 whitespace-nowrap">
+                            {itemCountdown}
+                          </span>
                         ) : null}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {formatTimestamp(item.startAt)}
-                      </p>
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        {item.location ? (
-                          <Badge variant="secondary">{item.location}</Badge>
-                        ) : null}
-                        {item.isAllDay ? (
-                          <Badge variant="outline">All day</Badge>
-                        ) : null}
-                        {summary.calendar.activeEventId === item.id ? (
-                          <Badge className="bg-amber-500/90 text-white hover:bg-amber-500/90">
-                            In progress
-                          </Badge>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
+                      </WidgetSection>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          </ScrollArea>
-        </div>
-      )}
+              </ScrollArea>
+            ) : null}
+          </div>
+        )}
+      </WidgetContent>
     </WidgetShell>
   );
 }

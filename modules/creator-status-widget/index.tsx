@@ -1,16 +1,20 @@
 import { useEffect, useState } from "react";
-import { Radio, Video } from "lucide-react";
+import { Loader2, Radio, Tv, Video } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { SHARED_NAMESPACES } from "@/contexts/shared-namespaces";
 import { useSharedContext } from "@/hooks/useSharedContext";
-import { creatorService, type CreatorStatus } from "@/services/creator";
 import {
-  MetricBadge,
-  WidgetEmptyState,
+  WidgetContent,
+  WidgetHeader,
+  WidgetSection,
   WidgetShell,
-  formatTimestamp,
-} from "../_shared/prometeo-widget-kit";
+  WidgetState,
+  WidgetStatus,
+} from "@/modules/ui/WidgetShell";
+import { creatorService, type CreatorStatus } from "@/services/creator";
+import { formatTimestamp } from "../_shared/prometeo-widget-kit";
 
 const EMPTY_STATUS: CreatorStatus = {
   online: false,
@@ -42,7 +46,9 @@ export default function CreatorStatusWidget({
         setError(null);
       } catch (nextError) {
         if (cancelled) return;
-        setError((nextError as Error)?.message ?? "Creator status unavailable.");
+        setError(
+          (nextError as Error)?.message ?? "Creator status unavailable.",
+        );
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -61,72 +67,83 @@ export default function CreatorStatusWidget({
     };
   }, [pollMs, setShared]);
 
+  const accent = status.liveCount > 0 ? ("rose" as const) : ("slate" as const);
+
   return (
-    <WidgetShell
-      title={title}
-      subtitle="Live visibility across creator channels."
-      badges={[
-        <MetricBadge
-          key="online"
-          label="live"
-          value={status.liveCount}
-          tone={status.liveCount > 0 ? "warning" : "neutral"}
-        />,
-      ]}
-    >
-      {loading && status.sources.length === 0 ? (
-        <WidgetEmptyState
-          title="Loading creator sources"
-          message="PROMETEO is checking your configured creator channels."
-        />
-      ) : status.sources.length === 0 ? (
-        <WidgetEmptyState
-          title="No creator sources"
-          message={
-            error ||
-            "Configure YouTube or Twitch environment variables to unlock this widget."
-          }
-        />
-      ) : (
-        <div className="space-y-3">
-          {status.sources.map((source) => (
-            <div
-              key={source.id}
-              className="rounded-2xl border border-border/70 bg-background/60 p-3"
-            >
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 rounded-full border border-border/70 bg-background/80 p-2">
-                  {source.status === "live" ? (
-                    <Radio className="size-4 text-red-500" />
-                  ) : (
-                    <Video className="size-4 text-primary" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium text-foreground">
-                      {source.label ?? source.id}
-                    </p>
+    <WidgetShell accent={accent}>
+      <WidgetHeader
+        accent={accent}
+        icon={<Tv className="size-4" />}
+        title={title}
+        description="Live visibility across creator channels"
+        status={
+          <WidgetStatus tone={status.liveCount > 0 ? "danger" : "neutral"}>
+            {status.liveCount > 0 ? `${status.liveCount} Live` : "Offline"}
+          </WidgetStatus>
+        }
+      />
+      <WidgetContent>
+        {loading && status.sources.length === 0 ? (
+          <WidgetState
+            accent={accent}
+            icon={<Loader2 className="size-5 animate-spin" />}
+            title="Loading sources"
+            message="Checking your creator channels."
+          />
+        ) : status.sources.length === 0 ? (
+          <WidgetState
+            accent={accent}
+            icon={<Tv className="size-5" />}
+            title="No creator sources"
+            message={
+              error || "Configure YouTube or Twitch to unlock this widget."
+            }
+          />
+        ) : (
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="space-y-1.5">
+              {status.sources.map((source) => (
+                <WidgetSection
+                  key={source.id}
+                  accent={accent}
+                  className="space-y-1 py-1.5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      {source.status === "live" ? (
+                        <Radio className="size-3.5 shrink-0 text-red-500" />
+                      ) : (
+                        <Video className="size-3.5 shrink-0 text-muted-foreground" />
+                      )}
+                      <p className="truncate text-[0.82rem] font-semibold leading-tight">
+                        {source.label ?? source.id}
+                      </p>
+                    </div>
                     <Badge
+                      className={
+                        source.status === "live"
+                          ? "h-4 px-1.5 bg-red-500/20 text-[9px] text-red-700 dark:text-red-200 hover:bg-red-500/20"
+                          : "h-4 px-1.5 text-[9px]"
+                      }
                       variant={source.status === "live" ? "default" : "outline"}
                     >
                       {source.status}
                     </Badge>
                   </div>
-                  <p className="text-xs leading-5 text-muted-foreground">
+                  <p className="truncate text-[11px] text-muted-foreground leading-tight">
                     {source.headline}
                   </p>
                   {source.startedAt ? (
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[10px] font-medium text-muted-foreground">
                       {formatTimestamp(source.startedAt)}
                     </p>
                   ) : null}
-                </div>
-              </div>
+                </WidgetSection>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          </ScrollArea>
+        )}
+      </WidgetContent>
     </WidgetShell>
   );
 }

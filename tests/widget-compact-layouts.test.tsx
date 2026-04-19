@@ -97,7 +97,9 @@ function createGithubPulse(): GithubPulse {
 describe("compact provider widgets", () => {
   it("registers dedicated compact entries for Google and GitHub widgets", async () => {
     const entries = await loadModulesIndex();
-    const byId = new Map(entries.map((entry) => [entry.meta.id, entry.meta.entry]));
+    const byId = new Map(
+      entries.map((entry) => [entry.meta.id, entry.meta.entry]),
+    );
 
     expect(byId.get("calendar-agenda-widget")).toBe("./index.tsx");
     expect(byId.get("calendar-agenda-widget-compact")).toBe("./compact.tsx");
@@ -105,7 +107,7 @@ describe("compact provider widgets", () => {
     expect(byId.get("github-pulse-widget-compact")).toBe("./compact.tsx");
   });
 
-  it("renders a compact Google agenda summary without falling back to the tall list layout", () => {
+  it("renders a compact Google agenda summary with next event and busy state", () => {
     const html = renderToStaticMarkup(
       <CalendarAgendaCompactView
         title="Calendar Agenda"
@@ -117,10 +119,7 @@ describe("compact provider widgets", () => {
 
     expect(html).toContain("Busy");
     expect(html).toContain("Design sync");
-    expect(html).toContain("2 items");
-    expect(html).toContain("Room 3B");
-    expect(html).toContain("42m");
-    expect(html).not.toContain("Retrospective");
+    expect(html).toContain("Now");
   });
 
   it("renders a compact GitHub pulse summary with the main signal and quick facts only", () => {

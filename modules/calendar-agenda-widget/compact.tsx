@@ -1,97 +1,60 @@
 import { useEffect, useMemo } from "react";
-import { CalendarDays, Clock3, MapPin, Sparkles } from "lucide-react";
+import { CalendarDays, CalendarX2, Clock3, Loader2 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { SHARED_NAMESPACES } from "@/contexts/shared-namespaces";
 import { useSharedContext } from "@/hooks/useSharedContext";
-import type { GoogleCalendarItem, GoogleWorkspaceSummary } from "@/services/google";
-import {
-  MetricBadge,
-  WidgetEmptyState,
-  WidgetShell,
-} from "../_shared/prometeo-widget-kit";
+import { WidgetShell, WidgetStatus } from "@/modules/ui/WidgetShell";
+import type {
+  GoogleCalendarItem,
+  GoogleWorkspaceSummary,
+} from "@/services/google";
+import { formatTimestamp } from "../_shared/prometeo-widget-kit";
 import {
   getGoogleWorkspaceMessage,
   useGoogleWorkspaceSummary,
 } from "../_shared/use-google-workspace";
 
-function getPrimaryCalendarItem(items: GoogleCalendarItem[], activeEventId?: string | null) {
-  return items.find((item) => item.id && item.id === activeEventId) ?? items[0] ?? null;
-}
-
-function getDurationMinutes(item?: GoogleCalendarItem | null) {
-  if (!item?.startAt || !item.endAt) return null;
-
-  const start = new Date(item.startAt);
-  const end = new Date(item.endAt);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-    return null;
-  }
-
-  const minutes = Math.round((end.getTime() - start.getTime()) / 60000);
-  return minutes > 0 ? minutes : null;
-}
-
-function getCompactFacts(
-  summary: GoogleWorkspaceSummary,
+function getPrimaryCalendarItem(
   items: GoogleCalendarItem[],
-  primaryItem?: GoogleCalendarItem | null,
+  activeEventId?: string | null,
 ) {
-  const facts: Array<{ key: string; label: string; tone?: "secondary" | "outline" }> = [];
-
-  facts.push({
-    key: "items",
-    label: `${items.length} item${items.length === 1 ? "" : "s"}`,
-    tone: "secondary",
-  });
-
-  if (primaryItem?.location) {
-    facts.push({
-      key: "location",
-      label: primaryItem.location,
-      tone: "outline",
-    });
-  }
-
-  const durationMinutes = getDurationMinutes(primaryItem);
-  if (durationMinutes) {
-    facts.push({
-      key: "duration",
-      label: `${durationMinutes}m`,
-      tone: "outline",
-    });
-  }
-
-  if (summary.focus.active) {
-    facts.push({
-      key: "focus",
-      label: "Focus on",
-      tone: "secondary",
-    });
-  }
-
-  return facts.slice(0, 4);
+  return (
+    items.find((item) => item.id && item.id === activeEventId) ??
+    items[0] ??
+    null
+  );
 }
 
-function getPrimaryLine(
-  summary: GoogleWorkspaceSummary,
-  primaryItem?: GoogleCalendarItem | null,
-) {
-  if (!primaryItem) {
-    return summary.focus.active ? "Focus block active" : "No upcoming meetings";
+function formatCountdown(dateStr?: string | null, isEnd = false) {
+  if (!dateStr) return null;
+  const target = new Date(dateStr);
+  if (Number.isNaN(target.getTime())) return null;
+  const diffMs = target.getTime() - Date.now();
+  if (!isEnd && diffMs < 0) return null;
+  if (isEnd && diffMs < 0) return "Ending now";
+  const totalMin = Math.round(Math.abs(diffMs) / 60000);
+  if (totalMin < 1) return isEnd ? "Ending now" : "Now";
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  const d = Math.floor(h / 24);
+  const rh = h % 24;
+  if (isEnd) {
+    if (d > 0) return rh > 0 ? `${d}d ${rh}h left` : `${d}d left`;
+    if (h > 0) return m > 0 ? `${h}h ${m}m left` : `${h}h left`;
+    return `${m}m left`;
   }
-
-  return primaryItem.title;
+  if (d > 0) return rh > 0 ? `in ${d}d ${rh}h` : `in ${d}d`;
+  if (h > 0) return m > 0 ? `in ${h}h ${m}m` : `in ${h}h`;
+  return `in ${m}m`;
 }
 
 export function CalendarAgendaCompactView({
-  title,
   summary,
   loading,
   error,
   maxItems = 5,
 }: {
-  title: string;
+  title?: string;
   summary: GoogleWorkspaceSummary;
   loading: boolean;
   error: string | null;
@@ -102,65 +65,73 @@ export function CalendarAgendaCompactView({
     [maxItems, summary.calendar.items],
   );
   const message = error ?? getGoogleWorkspaceMessage(summary);
-  const primaryItem = getPrimaryCalendarItem(items, summary.calendar.activeEventId);
-  const facts = getCompactFacts(summary, items, primaryItem);
+  const primaryItem = getPrimaryCalendarItem(
+    items,
+    summary.calendar.activeEventId,
+  );
+  const accent = summary.calendar.busyNow
+    ? ("amber" as const)
+    : ("sky" as const);
+  const countdown = summary.calendar.busyNow
+    ? formatCountdown(primaryItem?.endAt, true)
+    : formatCountdown(primaryItem?.startAt);
 
   return (
-    <WidgetShell
-      title={title}
-      badges={[
-        <MetricBadge
-          key="state"
-          label="state"
-          value={summary.calendar.busyNow ? "Busy" : "Free"}
-          tone={summary.calendar.busyNow ? "warning" : "success"}
-        />,
-      ]}
-    >
-      {loading && items.length === 0 ? (
-        <WidgetEmptyState
-          title="Loading agenda"
-          message="Syncing meetings."
-        />
-      ) : items.length === 0 ? (
-        <WidgetEmptyState
-          title="No upcoming events"
-          message={message || "Calendar is clear."}
-        />
-      ) : (
-        <div className="flex min-h-0 flex-1 flex-col justify-between gap-3">
-          <div className="rounded-2xl border border-border/70 bg-background/60 p-3">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 rounded-full border border-border/70 bg-background/80 p-2">
-                <CalendarDays className="size-4 text-primary" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xl font-semibold leading-none text-foreground">
-                  {summary.calendar.busyNow ? "Busy" : "Free"}
-                </p>
-                <p className="mt-2 truncate text-sm font-medium text-foreground">
-                  {getPrimaryLine(summary, primaryItem)}
-                </p>
-              </div>
-            </div>
+    <WidgetShell accent={accent}>
+      <div className="relative flex h-full flex-col justify-center gap-0.5 px-3 py-2">
+        {loading && items.length === 0 ? (
+          <div className="flex items-center justify-center gap-2 text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            <span className="text-[10px]">Syncing</span>
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            {facts.map((fact) => (
-              <Badge
-                key={fact.key}
-                variant={fact.tone === "secondary" ? "secondary" : "outline"}
-                className="gap-1"
+        ) : items.length === 0 ? (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <CalendarX2 className="size-4 shrink-0" />
+            <span className="truncate text-[11px]">
+              {message || "Calendar is clear"}
+            </span>
+          </div>
+        ) : (
+          <>
+            {/* Top: label + badge */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <CalendarDays className="size-3 text-muted-foreground" />
+                <span className="text-[8px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  {summary.calendar.busyNow ? "Now" : "Next"}
+                </span>
+              </div>
+              <WidgetStatus
+                tone={summary.calendar.busyNow ? "warning" : "success"}
               >
-                {fact.key === "location" ? <MapPin className="size-3" /> : null}
-                {fact.key === "duration" ? <Clock3 className="size-3" /> : null}
-                {fact.key === "focus" ? <Sparkles className="size-3" /> : null}
-                <span>{fact.label}</span>
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
+                {summary.calendar.busyNow ? "Busy" : "Free"}
+              </WidgetStatus>
+            </div>
+
+            {/* Event title */}
+            <p className="truncate text-[0.82rem] font-semibold leading-tight">
+              {primaryItem?.title ?? "No upcoming meetings"}
+            </p>
+
+            {/* Time row: date + countdown */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground">
+                {primaryItem?.isAllDay
+                  ? "All day"
+                  : formatTimestamp(
+                      primaryItem?.startAt ?? summary.calendar.nextStartAt,
+                    )}
+              </span>
+              {countdown ? (
+                <span className="flex items-center gap-0.5 text-[10px] font-semibold text-sky-600 dark:text-sky-400">
+                  <Clock3 className="size-2.5" />
+                  {countdown}
+                </span>
+              ) : null}
+            </div>
+          </>
+        )}
+      </div>
     </WidgetShell>
   );
 }

@@ -16,7 +16,7 @@ const configGlobs = import.meta.glob<{
   schema?: unknown;
 }>("/modules/*/config.{ts,js}");
 
-const previewGlobs = import.meta.glob<string>("/modules/*/preview.*", {
+const previewGlobs = import.meta.glob<string>("/modules/*/preview*.{png,jpg,jpeg,webp,svg,avif}", {
   query: "?url",
   import: "default",
 });
@@ -70,9 +70,19 @@ export async function loadModulesIndex(): Promise<ModulesIndexEntry[]> {
             ([path]) => dirname(path) === basePath
           )?.[1];
 
-          const previewImporter = Object.entries(previewGlobs).find(
-            ([path]) => dirname(path) === basePath
-          )?.[1];
+          const previewImporter = (() => {
+            if (meta.preview) {
+              const fullPreviewPath = resolveEntryPath(basePath, meta.preview);
+              return Object.entries(previewGlobs).find(([path]) => {
+                const pathNoExt = path.replace(/\.[^.]+$/, "");
+                const previewNoExt = fullPreviewPath.replace(/\.[^.]+$/, "");
+                return pathNoExt === previewNoExt;
+              })?.[1];
+            }
+            return Object.entries(previewGlobs).find(
+              ([path]) => dirname(path) === basePath
+            )?.[1];
+          })();
 
           entries.push({
             basePath,
@@ -88,8 +98,8 @@ export async function loadModulesIndex(): Promise<ModulesIndexEntry[]> {
               },
               config: configImporter
                 ? async () => {
-                    return (await configImporter()) as unknown;
-                  }
+                  return (await configImporter()) as unknown;
+                }
                 : undefined,
               preview: previewImporter
                 ? async () => await previewImporter()
