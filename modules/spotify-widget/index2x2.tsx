@@ -1,4 +1,3 @@
-import { Volume2, VolumeX } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 import { Slider } from "@/components/ui/slider";
@@ -15,11 +14,12 @@ import {
   SpotifyArtwork,
   SpotifyConnectState,
   SpotifyTransportControls,
+  SpotifyVolumeControl,
+  SpotifyWebPlaybackActivationButton,
 } from "./widget-ui";
 
 export default function SpotifyWidget({
   config,
-  onConfigChange: _onConfigChange,
 }: {
   config: Record<string, unknown>;
   onConfigChange?: (config: Record<string, unknown>) => void;
@@ -37,6 +37,7 @@ export default function SpotifyWidget({
     toggleRepeat,
     seekToPosition,
     setVolumeLevel,
+    webPlayback,
   } = useSpotifyState(config);
   const location = useLocation();
 
@@ -145,24 +146,20 @@ export default function SpotifyWidget({
                 onToggleRepeat={toggleRepeat}
               />
 
-              <div className="flex min-w-0 items-center gap-2 rounded-xl border border-border/60 bg-background/80 px-2.5 py-2 shadow-sm">
-                {Math.round(volume) === 0 ? (
-                  <VolumeX className="size-4 text-muted-foreground" />
-                ) : (
-                  <Volume2 className="size-4 text-muted-foreground" />
-                )}
-                <div className="w-20">
-                  <Slider
-                    value={[volume]}
-                    max={100}
-                    step={1}
-                    onValueCommit={([value]) => setVolumeLevel(value)}
-                    disabled={!track}
-                  />
-                </div>
-                <span className="w-9 text-right text-xs text-muted-foreground">
-                  {Math.round(volume)}%
-                </span>
+              <div className="flex items-center gap-2">
+                <SpotifyWebPlaybackActivationButton
+                  activationRequired={webPlayback.activationRequired}
+                  deviceId={webPlayback.deviceId}
+                  error={webPlayback.error}
+                  status={webPlayback.status}
+                  onActivate={webPlayback.activate}
+                />
+                <SpotifyVolumeControl
+                  volume={volume}
+                  onVolumeChange={setVolumeLevel}
+                  disabled={!track}
+                  className="w-44"
+                />
               </div>
             </div>
           </div>

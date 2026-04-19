@@ -11,7 +11,13 @@
     "requiredProviders": [],
     "requiredRole": null,
     "capabilities": ["creator", "live"],
-    "preview": "/modules/creator-status-widget/preview.png"
+    "preview": "./preview.png",
+    "marketplace": {
+      "familyId": "creator-status",
+      "familyName": "Creator Status",
+      "variantLabel": "Standard",
+      "variantOrder": 1
+    }
   },
   {
     "id": "creator-status-widget-compact",
@@ -25,6 +31,12 @@
     "requiredProviders": [],
     "requiredRole": null,
     "capabilities": ["creator", "live"],
-    "preview": "/modules/creator-status-widget/preview-compact.png"
+    "preview": "./preview-compact.png",
+    "marketplace": {
+      "familyId": "creator-status",
+      "familyName": "Creator Status",
+      "variantLabel": "Compact",
+      "variantOrder": 2
+    }
   }
 ]

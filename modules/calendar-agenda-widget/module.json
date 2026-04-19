@@ -11,7 +11,13 @@
     "requiredProviders": ["google"],
     "requiredRole": null,
     "capabilities": ["calendar", "focus"],
-    "preview": "/modules/calendar-agenda-widget/preview.png"
+    "preview": "./preview.png",
+    "marketplace": {
+      "familyId": "calendar-agenda",
+      "familyName": "Calendar Agenda",
+      "variantLabel": "Standard",
+      "variantOrder": 1
+    }
   },
   {
     "id": "calendar-agenda-widget-compact",
@@ -25,6 +31,12 @@
     "requiredProviders": ["google"],
     "requiredRole": null,
     "capabilities": ["calendar", "focus"],
-    "preview": "/modules/calendar-agenda-widget/preview-compact.png"
+    "preview": "./preview-compact.png",
+    "marketplace": {
+      "familyId": "calendar-agenda",
+      "familyName": "Calendar Agenda",
+      "variantLabel": "Compact",
+      "variantOrder": 2
+    }
   }
 ]

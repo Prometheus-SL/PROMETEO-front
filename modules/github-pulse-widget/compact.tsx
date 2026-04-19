@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Bell, Code2, MessageSquareMore } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  AlertTriangle,
+  GitPullRequest,
+  Loader2,
+  MessageSquareMore,
+} from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { SHARED_NAMESPACES } from "@/contexts/shared-namespaces";
 import { useSharedContext } from "@/hooks/useSharedContext";
+import { WidgetShell, WidgetStatus } from "@/modules/ui/WidgetShell";
 import { githubService, type GithubPulse } from "@/services/github";
-import {
-  MetricBadge,
-  WidgetEmptyState,
-  WidgetShell,
-} from "../_shared/prometeo-widget-kit";
 
 const EMPTY_PULSE: GithubPulse = {
   profile: {},
@@ -30,54 +30,7 @@ function formatReason(reason: string) {
   }
 }
 
-function getPrimarySignal(pulse: GithubPulse) {
-  if (pulse.mentionsCount > 0) {
-    return `${pulse.mentionsCount} mention${pulse.mentionsCount === 1 ? "" : "s"}`;
-  }
-
-  const prs = pulse.assignedPullRequests.length;
-  if (prs > 0) {
-    return `${prs} PR${prs === 1 ? "" : "s"}`;
-  }
-
-  const notifications = pulse.notifications.length;
-  return `${notifications} update${notifications === 1 ? "" : "s"}`;
-}
-
-function getPrimaryItem(pulse: GithubPulse) {
-  return pulse.notifications[0] ?? pulse.assignedPullRequests[0] ?? null;
-}
-
-function getCompactFacts(pulse: GithubPulse) {
-  const facts: Array<{ key: string; label: string; tone?: "secondary" | "outline" }> = [];
-
-  facts.push({
-    key: "prs",
-    label: `${pulse.assignedPullRequests.length} PR${pulse.assignedPullRequests.length === 1 ? "" : "s"}`,
-    tone: "secondary",
-  });
-
-  if (pulse.failingChecksCount > 0) {
-    facts.push({
-      key: "failing",
-      label: `${pulse.failingChecksCount} failing`,
-      tone: "outline",
-    });
-  }
-
-  if (pulse.notifications.length > 0) {
-    facts.push({
-      key: "notifications",
-      label: `${pulse.notifications.length} unread`,
-      tone: "outline",
-    });
-  }
-
-  return facts.slice(0, 3);
-}
-
 export function GithubPulseCompactView({
-  title,
   pulse,
   loading,
   error,
@@ -89,95 +42,98 @@ export function GithubPulseCompactView({
   error: string | null;
   maxItems?: number;
 }) {
-  const pullRequests = useMemo(
-    () => pulse.assignedPullRequests.slice(0, maxItems),
-    [maxItems, pulse.assignedPullRequests],
-  );
-  const notifications = useMemo(
-    () => pulse.notifications.slice(0, maxItems),
-    [maxItems, pulse.notifications],
-  );
-  const message = error ?? pulse.error ?? pulse.provider?.lastError ?? null;
-  const primaryItem = getPrimaryItem({
-    ...pulse,
-    assignedPullRequests: pullRequests,
-    notifications,
-  });
-  const facts = getCompactFacts({
-    ...pulse,
-    assignedPullRequests: pullRequests,
-    notifications,
-  });
+  const pullRequests = pulse.assignedPullRequests.slice(0, maxItems);
+  const notifications = pulse.notifications.slice(0, maxItems);
+  const hasActivity = pullRequests.length > 0 || notifications.length > 0;
+  const hasFailing = pulse.failingChecksCount > 0;
+  const hasMentions = pulse.mentionsCount > 0;
+  const primaryNotification = notifications[0] ?? null;
+  const primaryPr = pullRequests[0] ?? null;
+  const accent = hasFailing
+    ? ("rose" as const)
+    : hasMentions
+      ? ("amber" as const)
+      : ("violet" as const);
 
   return (
-    <WidgetShell
-      title={title}
-      badges={[
-        <MetricBadge
-          key="mentions"
-          label="mentions"
-          value={pulse.mentionsCount}
-          tone={pulse.mentionsCount > 0 ? "warning" : "neutral"}
-        />,
-      ]}
-    >
-      {loading && pullRequests.length === 0 && notifications.length === 0 ? (
-        <WidgetEmptyState
-          title="Loading GitHub"
-          message="Checking pulse."
-        />
-      ) : pullRequests.length === 0 && notifications.length === 0 ? (
-        <WidgetEmptyState
-          title="No GitHub activity"
-          message={message || "No PRs or notifications."}
-        />
-      ) : (
-        <div className="flex min-h-0 flex-1 flex-col justify-between gap-3">
-          <div className="rounded-2xl border border-border/70 bg-background/60 p-3">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 rounded-full border border-border/70 bg-background/80 p-2">
-                {pulse.mentionsCount > 0 ? (
-                  <MessageSquareMore className="size-4 text-amber-600" />
-                ) : pulse.failingChecksCount > 0 ? (
-                  <AlertTriangle className="size-4 text-red-500" />
+    <WidgetShell accent={accent}>
+      <div className="relative flex h-full flex-col justify-center gap-0.5 px-3 py-2">
+        {loading && !hasActivity ? (
+          <div className="flex items-center justify-center gap-2 text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            <span className="text-[10px]">Syncing</span>
+          </div>
+        ) : !hasActivity ? (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <GitPullRequest className="size-4 shrink-0" />
+            <span className="truncate text-[11px]">
+              {error || "No GitHub activity"}
+            </span>
+          </div>
+        ) : (
+          <>
+            {/* Top: icon + label + status */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                {hasFailing ? (
+                  <AlertTriangle className="size-3 text-red-500" />
+                ) : hasMentions ? (
+                  <MessageSquareMore className="size-3 text-amber-600 dark:text-amber-400" />
                 ) : (
-                  <Code2 className="size-4 text-primary" />
+                  <GitPullRequest className="size-3 text-violet-500 dark:text-violet-400" />
                 )}
+                <span className="text-[8px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  GitHub
+                </span>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xl font-semibold leading-none text-foreground">
-                  {getPrimarySignal(pulse)}
-                </p>
-                <p className="mt-2 truncate text-sm font-medium text-foreground">
-                  {"reason" in (primaryItem ?? {})
-                    ? formatReason(primaryItem?.reason ?? "")
-                    : primaryItem?.title ?? "Assigned work"}
-                </p>
-                {primaryItem?.repository ? (
-                  <p className="mt-1 truncate text-xs text-muted-foreground">
-                    {primaryItem.repository}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {facts.map((fact) => (
-              <Badge
-                key={fact.key}
-                variant={fact.tone === "secondary" ? "secondary" : "outline"}
-                className="gap-1"
+              <WidgetStatus
+                tone={
+                  hasFailing ? "danger" : hasMentions ? "warning" : "neutral"
+                }
               >
-                {fact.key === "notifications" ? <Bell className="size-3" /> : null}
-                {fact.key === "failing" ? <AlertTriangle className="size-3" /> : null}
-                {fact.key === "prs" ? <Code2 className="size-3" /> : null}
-                <span>{fact.label}</span>
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
+                {pullRequests.length} PR{pullRequests.length === 1 ? "" : "s"}
+              </WidgetStatus>
+            </div>
+
+            {/* Primary item */}
+            <p className="truncate text-[0.82rem] font-semibold leading-tight">
+              {primaryPr?.title ?? primaryNotification?.title ?? "No items"}
+            </p>
+
+            {/* Facts row */}
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+              {(primaryPr?.repository ?? primaryNotification?.repository) ? (
+                <span className="truncate">
+                  {primaryPr?.repository ?? primaryNotification?.repository}
+                </span>
+              ) : null}
+              {primaryNotification && !primaryPr ? (
+                <>
+                  <span>·</span>
+                  <span className="shrink-0">
+                    {formatReason(primaryNotification.reason)}
+                  </span>
+                </>
+              ) : null}
+              {hasFailing ? (
+                <>
+                  <span>·</span>
+                  <span className="shrink-0 font-medium text-red-600 dark:text-red-400">
+                    {pulse.failingChecksCount} failing
+                  </span>
+                </>
+              ) : notifications.length > 0 ? (
+                <>
+                  <span>·</span>
+                  <span className="shrink-0">
+                    {notifications.length} unread
+                  </span>
+                </>
+              ) : null}
+            </div>
+          </>
+        )}
+      </div>
     </WidgetShell>
   );
 }
@@ -209,17 +165,12 @@ export default function GithubPulseCompactWidget({
         if (cancelled) return;
         setError((nextError as Error)?.message ?? "GitHub pulse unavailable.");
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
     void load();
-    const intervalId = window.setInterval(() => {
-      void load();
-    }, pollMs);
-
+    const intervalId = window.setInterval(() => void load(), pollMs);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);

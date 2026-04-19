@@ -17,7 +17,14 @@
       "smart-home",
       "lights",
       "wled"
-    ]
+    ],
+    "preview": "./preview.png",
+    "marketplace": {
+      "familyId": "wled",
+      "familyName": "WLED",
+      "variantLabel": "Controller",
+      "variantOrder": 1
+    }
   },
   {
     "id": "wled-compact",
@@ -37,6 +44,13 @@
       "smart-home",
       "lights",
       "wled"
-    ]
+    ],
+    "preview": "./preview-compact.png",
+    "marketplace": {
+      "familyId": "wled",
+      "familyName": "WLED",
+      "variantLabel": "Compact",
+      "variantOrder": 2
+    }
   }
 ]

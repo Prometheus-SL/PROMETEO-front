@@ -55,6 +55,12 @@ export type SpotifyQueueItem = {
   uri: string;
 };
 
+export type SpotifyWebPlaybackToken = {
+  accessToken: string;
+  expiresAt: string | null;
+  scopes: string[];
+};
+
 function getApiErrorMessage(response: ApiFailure | null | undefined, fallback: string) {
   return response?.error || response?.message || fallback;
 }
@@ -124,9 +130,26 @@ export const spotifyService = {
     return (res as ApiSuccess<{ queue: SpotifyQueueItem[] }>).data.queue || [];
   },
 
+  async getWebPlaybackToken(): Promise<SpotifyWebPlaybackToken> {
+    const res = await api.get<
+      ApiSuccess<SpotifyWebPlaybackToken> | ApiFailure
+    >("/api/v1/integrations/spotify/player/web-token");
+    if (!res || ("success" in res && !res.success)) {
+      throw new Error(
+        getApiErrorMessage(
+          res as ApiFailure,
+          "Could not load Spotify web player token.",
+        ),
+      );
+    }
+    return (res as ApiSuccess<SpotifyWebPlaybackToken>).data;
+  },
+
   pause: () => api.put("/api/v1/integrations/spotify/player/pause"),
   play: (body?: Record<string, unknown>) =>
     api.put("/api/v1/integrations/spotify/player/play", body ?? {}),
+  transferPlayback: (deviceId: string, play = true) =>
+    api.put("/api/v1/integrations/spotify/player/transfer", { deviceId, play }),
   next: () => api.post("/api/v1/integrations/spotify/player/next"),
   previous: () => api.post("/api/v1/integrations/spotify/player/previous"),
   seek: (positionMs: number) =>

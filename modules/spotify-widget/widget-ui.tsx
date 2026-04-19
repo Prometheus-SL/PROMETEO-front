@@ -1,4 +1,5 @@
 import {
+  Loader2,
   Monitor,
   Music2,
   Pause,
@@ -12,9 +13,13 @@ import {
   Smartphone,
   Tablet,
   Tv,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
+import * as React from "react";
 import type { ReactNode } from "react";
 
+import TallHorizontalSlider from "@/components/ui/big-slider";
 import { Button } from "@/components/ui/button";
 import {
   WidgetContent,
@@ -24,6 +29,7 @@ import {
   WidgetStatus,
 } from "@/modules/ui/WidgetShell";
 import { cn } from "@/lib/utils";
+import type { SpotifyWebPlaybackStatus } from "./spotify-web-playback";
 
 type SpotifyTransportControlsProps = {
   canControl: boolean;
@@ -53,6 +59,28 @@ type SpotifyArtworkProps = {
   isTransitioning?: boolean;
   src?: string | null;
 };
+
+type SpotifyVolumeControlProps = {
+  volume: number;
+  disabled?: boolean;
+  className?: string;
+  heightClassName?: string;
+  sliderClassName?: string;
+  onVolumeChange: (volumePercent: number) => void | Promise<void>;
+};
+
+type SpotifyWebPlaybackActivationButtonProps = {
+  activationRequired?: boolean;
+  deviceId?: string | null;
+  error?: string | null;
+  status?: SpotifyWebPlaybackStatus;
+  className?: string;
+  onActivate: () => void | Promise<void>;
+};
+
+function clampSpotifyValue(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
 
 function formatSpotifyTime(ms: number) {
   const seconds = Math.floor(ms / 1000);
@@ -113,6 +141,128 @@ function SpotifyArtwork({
     >
       <Music2 className={cn("text-muted-foreground", iconClassName)} />
     </div>
+  );
+}
+
+function SpotifyVolumeControl({
+  volume,
+  disabled = false,
+  className,
+  heightClassName = "h-7",
+  sliderClassName,
+  onVolumeChange,
+}: SpotifyVolumeControlProps) {
+  const normalizedVolume = clampSpotifyValue(Math.round(volume), 0, 100);
+  const [draftVolume, setDraftVolume] = React.useState(normalizedVolume);
+
+  React.useEffect(() => {
+    setDraftVolume(normalizedVolume);
+  }, [normalizedVolume]);
+
+  const handleChange = (value: number) => {
+    const nextVolume = clampSpotifyValue(Math.round(value), 0, 100);
+    setDraftVolume(nextVolume);
+    void onVolumeChange(nextVolume);
+  };
+
+  return (
+    <div
+      className={cn(
+        "flex min-w-0 items-center gap-2 rounded-xl border border-border/60 bg-background/80 px-2.5 py-2 shadow-sm",
+        className,
+      )}
+    >
+      {draftVolume === 0 ? (
+        <VolumeX className="size-4 shrink-0 text-muted-foreground" />
+      ) : (
+        <Volume2 className="size-4 shrink-0 text-muted-foreground" />
+      )}
+
+      <TallHorizontalSlider
+        value={draftVolume}
+        max={100}
+        step={1}
+        disabled={disabled}
+        className={cn("min-w-0 flex-1 space-y-0", sliderClassName)}
+        heightClassName={heightClassName}
+        theme="custom"
+        customTheme={{
+          track: "bg-background/70 border border-border/65",
+          fill: "bg-emerald-500",
+          valueBadge: "hidden",
+          valueText: "text-foreground",
+        }}
+        fillStyle={{
+          backgroundImage:
+            "linear-gradient(90deg, rgb(16 185 129), rgb(52 211 153))",
+        }}
+        ariaLabel="Spotify volume"
+        showPercentage={true}
+        formatValue={(value) => `${Math.round(value)}%`}
+        onChange={handleChange}
+      />
+
+      <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+        {draftVolume}%
+      </span>
+    </div>
+  );
+}
+
+function SpotifyWebPlaybackActivationButton({
+  activationRequired,
+  className,
+  deviceId,
+  error,
+  status = "idle",
+  onActivate,
+}: SpotifyWebPlaybackActivationButtonProps) {
+  const isTransferring = status === "transferring";
+  const isLoading = status === "loading";
+  const isActive = status === "active";
+  const needsActivation = activationRequired || status === "activation_required";
+  const label = needsActivation
+    ? "Enable browser audio"
+    : isActive
+    ? "Browser audio active"
+    : isTransferring
+    ? "Switching to this browser"
+    : isLoading
+    ? "Preparing browser audio"
+    : status === "error" && error
+    ? `Retry browser audio: ${error}`
+    : deviceId
+    ? "Play on this browser"
+    : "Prepare browser audio";
+
+  return (
+    <Button
+      type="button"
+      variant={isActive ? "default" : "outline"}
+      size="icon-sm"
+      className={cn(
+        "rounded-xl",
+        isActive &&
+          "border-emerald-500/30 bg-emerald-500 text-white hover:bg-emerald-500/90",
+        needsActivation &&
+          "border-amber-500/35 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15 dark:text-amber-200",
+        !isActive &&
+          !needsActivation &&
+          "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/15",
+        isTransferring && "cursor-wait",
+        className,
+      )}
+      disabled={isTransferring}
+      onClick={() => void onActivate()}
+      title={label}
+      aria-label={label}
+    >
+      {isLoading || isTransferring ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : (
+        <Speaker className="size-4" />
+      )}
+    </Button>
   );
 }
 
@@ -265,11 +415,7 @@ function SpotifyTransportControls({
         disabled={!canControl}
         title={isPlaying ? "Pause" : "Play"}
       >
-        {isPlaying ? (
-          <Pause className="size-4" />
-        ) : (
-          <Play className="size-4" />
-        )}
+        {isPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
       </Button>
 
       <Button
@@ -329,5 +475,7 @@ export {
   SpotifyArtwork,
   SpotifyConnectState,
   SpotifyTransportControls,
+  SpotifyVolumeControl,
+  SpotifyWebPlaybackActivationButton,
   SpotifyDeviceStatus,
 };

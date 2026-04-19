@@ -1,17 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Bell, Code2, MessageSquareMore } from "lucide-react";
+import {
+  AlertTriangle,
+  Bell,
+  Code2,
+  GitPullRequest,
+  Loader2,
+  MessageSquareMore,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SHARED_NAMESPACES } from "@/contexts/shared-namespaces";
 import { useSharedContext } from "@/hooks/useSharedContext";
-import { githubService, type GithubPulse } from "@/services/github";
 import {
-  MetricBadge,
-  WidgetEmptyState,
+  WidgetContent,
+  WidgetHeader,
+  WidgetSection,
   WidgetShell,
-  formatTimestamp,
-} from "../_shared/prometeo-widget-kit";
+  WidgetState,
+  WidgetStatus,
+} from "@/modules/ui/WidgetShell";
+import { githubService, type GithubPulse } from "@/services/github";
+import { formatTimestamp } from "../_shared/prometeo-widget-kit";
 
 const EMPTY_PULSE: GithubPulse = {
   profile: {},
@@ -30,19 +40,6 @@ function formatReason(reason: string) {
     default:
       return reason.replaceAll("_", " ");
   }
-}
-
-function getPrimarySignal(pulse: GithubPulse) {
-  if (pulse.mentionsCount > 0) {
-    return `${pulse.mentionsCount} mention${pulse.mentionsCount === 1 ? "" : "s"}`;
-  }
-
-  const prs = pulse.assignedPullRequests.length;
-  if (prs > 0) {
-    return `${prs} PR${prs === 1 ? "" : "s"}`;
-  }
-
-  return `${pulse.notifications.length} update${pulse.notifications.length === 1 ? "" : "s"}`;
 }
 
 export default function GithubPulseWidget({
@@ -98,154 +95,147 @@ export default function GithubPulseWidget({
     [maxItems, pulse.notifications],
   );
   const message = error ?? pulse.error ?? pulse.provider?.lastError ?? null;
-  const primaryNotification = notifications[0] ?? null;
-  const primaryPullRequest = pullRequests[0] ?? null;
-  const secondaryPullRequests = pullRequests.slice(primaryPullRequest ? 1 : 0, 4);
-  const secondaryNotifications = notifications.slice(primaryNotification ? 1 : 0, 4);
+  const hasActivity = pullRequests.length > 0 || notifications.length > 0;
+  const hasFailing = pulse.failingChecksCount > 0;
+  const hasMentions = pulse.mentionsCount > 0;
+  const accent = hasFailing
+    ? ("rose" as const)
+    : hasMentions
+      ? ("amber" as const)
+      : ("violet" as const);
 
   return (
-    <WidgetShell
-      title={title}
-      subtitle="Assigned pull requests, mentions and checks."
-      badges={[
-        <MetricBadge key="prs" label="prs" value={pullRequests.length} />,
-        <MetricBadge
-          key="mentions"
-          label="mentions"
-          value={pulse.mentionsCount}
-          tone={pulse.mentionsCount > 0 ? "warning" : "neutral"}
-        />,
-      ]}
-    >
-      {loading && pullRequests.length === 0 && notifications.length === 0 ? (
-        <WidgetEmptyState
-          title="Loading GitHub pulse"
-          message="PROMETEO is checking your pull requests and notifications."
-        />
-      ) : pullRequests.length === 0 && notifications.length === 0 ? (
-        <WidgetEmptyState
-          title="No GitHub activity"
-          message={message || "No pull requests or notifications were found."}
-        />
-      ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-3">
-          <div className="rounded-2xl border border-border/70 bg-background/60 p-3">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 rounded-full border border-border/70 bg-background/80 p-2">
-                {pulse.mentionsCount > 0 ? (
-                  <MessageSquareMore className="size-4 text-amber-600" />
-                ) : pulse.failingChecksCount > 0 ? (
-                  <AlertTriangle className="size-4 text-red-500" />
-                ) : (
-                  <Code2 className="size-4 text-primary" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Priority signal
-                </p>
-                <p className="mt-1 text-xl font-semibold leading-none text-foreground">
-                  {getPrimarySignal(pulse)}
-                </p>
-                <p className="mt-2 truncate text-sm font-medium text-foreground">
-                  {primaryNotification
-                    ? formatReason(primaryNotification.reason)
-                    : primaryPullRequest?.title ?? "Assigned work"}
-                </p>
-                <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {primaryNotification?.repository ?? primaryPullRequest?.repository ?? "No repository"}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 pt-3">
-              <Badge variant="secondary" className="gap-1">
-                <Code2 className="size-3" />
-                {pullRequests.length} PR{pullRequests.length === 1 ? "" : "s"}
+    <WidgetShell accent={accent}>
+      <WidgetHeader
+        accent={accent}
+        icon={<GitPullRequest className="size-4" />}
+        title={title}
+        description="Pull requests, mentions and checks"
+        status={
+          hasFailing ? (
+            <WidgetStatus tone="danger">
+              {pulse.failingChecksCount} failing
+            </WidgetStatus>
+          ) : hasMentions ? (
+            <WidgetStatus tone="warning">
+              {pulse.mentionsCount} mention
+              {pulse.mentionsCount === 1 ? "" : "s"}
+            </WidgetStatus>
+          ) : (
+            <WidgetStatus tone="neutral">
+              {pullRequests.length} PR{pullRequests.length === 1 ? "" : "s"}
+            </WidgetStatus>
+          )
+        }
+        meta={
+          <>
+            <Badge
+              variant="secondary"
+              className="h-4 gap-0.5 px-1.5 text-[9px]"
+            >
+              <Code2 className="size-2.5" />
+              {pullRequests.length} PR{pullRequests.length === 1 ? "" : "s"}
+            </Badge>
+            {notifications.length > 0 ? (
+              <Badge
+                variant="outline"
+                className="h-4 gap-0.5 px-1.5 text-[9px]"
+              >
+                <Bell className="size-2.5" />
+                {notifications.length} unread
               </Badge>
-              {pulse.failingChecksCount > 0 ? (
-                <Badge variant="outline" className="gap-1">
-                  <AlertTriangle className="size-3" />
-                  {pulse.failingChecksCount} failing
-                </Badge>
-              ) : null}
-              {notifications.length > 0 ? (
-                <Badge variant="outline" className="gap-1">
-                  <Bell className="size-3" />
-                  {notifications.length} unread
-                </Badge>
-              ) : null}
-            </div>
-          </div>
-
+            ) : null}
+          </>
+        }
+      />
+      <WidgetContent>
+        {loading && !hasActivity ? (
+          <WidgetState
+            accent={accent}
+            icon={<Loader2 className="size-5 animate-spin" />}
+            title="Loading GitHub pulse"
+            message="Checking your pull requests and notifications."
+          />
+        ) : !hasActivity ? (
+          <WidgetState
+            accent={accent}
+            icon={<GitPullRequest className="size-5" />}
+            title="No GitHub activity"
+            message={message || "No pull requests or notifications were found."}
+          />
+        ) : (
           <ScrollArea className="min-h-0 flex-1">
-            <div className="space-y-4 pr-3">
-              {(secondaryPullRequests.length > 0 ? secondaryPullRequests : pullRequests.slice(0, 1)).map((item) => (
-                <div
-                  key={item.id ?? item.title}
-                  className="rounded-2xl border border-border/70 bg-background/60 p-3"
+            <div className="space-y-1.5">
+              {pullRequests.map((pr) => (
+                <WidgetSection
+                  key={pr.id ?? pr.title}
+                  accent={accent}
+                  className="space-y-1 py-1.5"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 rounded-full border border-border/70 bg-background/80 p-2">
-                      <Code2 className="size-4 text-primary" />
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Code2 className="size-3.5 shrink-0 text-violet-500 dark:text-violet-400" />
+                      <p className="truncate text-[0.82rem] font-semibold leading-tight">
+                        {pr.title}
+                      </p>
                     </div>
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-medium text-foreground">
-                          {item.title}
-                        </p>
-                        {item.hasFailingChecks ? (
-                          <Badge className="bg-red-500/90 text-white hover:bg-red-500/90">
-                            Failing checks
-                          </Badge>
-                        ) : null}
-                      </div>
-                      {item.repository ? (
-                        <p className="text-xs text-muted-foreground">
-                          {item.repository}
-                        </p>
-                      ) : null}
-                      {item.updatedAt ? (
-                        <p className="text-xs text-muted-foreground">
-                          {formatTimestamp(item.updatedAt)}
-                        </p>
-                      ) : null}
-                    </div>
+                    {pr.hasFailingChecks ? (
+                      <Badge className="h-4 shrink-0 bg-red-500/20 px-1.5 text-[9px] text-red-700 hover:bg-red-500/20 dark:text-red-200">
+                        <AlertTriangle className="mr-0.5 size-2.5" />
+                        Failing
+                      </Badge>
+                    ) : null}
                   </div>
-                </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    {pr.repository ? (
+                      <span className="truncate font-medium">
+                        {pr.repository}
+                      </span>
+                    ) : null}
+                    {pr.repository && pr.updatedAt ? <span>·</span> : null}
+                    {pr.updatedAt ? (
+                      <span>{formatTimestamp(pr.updatedAt)}</span>
+                    ) : null}
+                  </div>
+                </WidgetSection>
               ))}
 
-              {(secondaryNotifications.length > 0 ? secondaryNotifications : notifications.slice(0, 1)).map((item) => (
-                <div
-                  key={item.id ?? `${item.repository}-${item.title}`}
-                  className="rounded-2xl border border-border/70 bg-background/60 p-3"
+              {notifications.map((notif) => (
+                <WidgetSection
+                  key={notif.id ?? `${notif.repository}-${notif.title}`}
+                  accent={accent}
+                  className="space-y-1 py-1.5"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 rounded-full border border-border/70 bg-background/80 p-2">
-                      {item.reason === "mention" || item.reason === "review_requested" ? (
-                        <MessageSquareMore className="size-4 text-amber-600" />
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      {notif.reason === "mention" ||
+                      notif.reason === "review_requested" ? (
+                        <MessageSquareMore className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
                       ) : (
-                        <AlertTriangle className="size-4 text-primary" />
+                        <Bell className="size-3.5 shrink-0 text-muted-foreground" />
                       )}
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <p className="text-sm font-medium text-foreground">
-                        {item.title}
+                      <p className="truncate text-[0.82rem] font-semibold leading-tight">
+                        {notif.title}
                       </p>
-                      <div className="flex flex-wrap gap-2">
-                        {item.repository ? (
-                          <Badge variant="outline">{item.repository}</Badge>
-                        ) : null}
-                        <Badge variant="secondary">{formatReason(item.reason)}</Badge>
-                      </div>
                     </div>
+                    <Badge
+                      variant="outline"
+                      className="h-4 shrink-0 px-1.5 text-[9px]"
+                    >
+                      {formatReason(notif.reason)}
+                    </Badge>
                   </div>
-                </div>
+                  {notif.repository ? (
+                    <p className="truncate text-[10px] text-muted-foreground">
+                      {notif.repository}
+                    </p>
+                  ) : null}
+                </WidgetSection>
               ))}
             </div>
           </ScrollArea>
-        </div>
-      )}
+        )}
+      </WidgetContent>
     </WidgetShell>
   );
 }

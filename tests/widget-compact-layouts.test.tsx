@@ -132,7 +132,6 @@ describe("compact provider widgets", () => {
       />,
     );
 
-    expect(html).toContain("3 mentions");
     expect(html).toContain("Review requested");
     expect(html).toContain("prometeo/front");
     expect(html).toContain("2 PRs");

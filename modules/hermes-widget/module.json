@@ -16,7 +16,8 @@
     "capabilities": [
       "agent.health",
       "hermes"
-    ]
+    ],
+    "preview": "./preview-hermes-pc-widget.png"
   },
   {
     "id": "hermes-now-playing-widget",
@@ -54,6 +55,7 @@
     "capabilities": [
       "audio",
       "hermes"
-    ]
+    ],
+    "preview": "./preview-hermes-volume-widget.png"
   }
 ]

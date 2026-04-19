@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -32,7 +32,9 @@ type TallHorizontalSliderProps = {
   theme?: ThemeName;
   customTheme?: Partial<SliderTheme>;
   fillStyle?: CSSProperties;
+  ariaLabel?: string;
   onChange?: (value: number) => void;
+  onCommit?: (value: number) => void;
   formatValue?: (value: number, percentage: number) => string;
 };
 
@@ -105,12 +107,24 @@ export default function TallHorizontalSlider({
   theme = "primary",
   customTheme,
   fillStyle,
+  ariaLabel,
   onChange,
+  onCommit,
   formatValue,
 }: TallHorizontalSliderProps) {
   const isControlled = value !== undefined;
   const [internalValue, setInternalValue] = useState(defaultValue);
   const currentValue = clamp(isControlled ? value : internalValue, min, max);
+  const lastValueRef = useRef(currentValue);
+  const lastCommittedValueRef = useRef(currentValue);
+  const isInteractingRef = useRef(false);
+
+  useEffect(() => {
+    lastValueRef.current = currentValue;
+    if (!isInteractingRef.current) {
+      lastCommittedValueRef.current = currentValue;
+    }
+  }, [currentValue]);
 
   const percentage = useMemo(() => {
     if (max === min) return 0;
@@ -128,8 +142,22 @@ export default function TallHorizontalSlider({
   }, [formatValue, currentValue, percentage, showPercentage]);
 
   const handleChange = (next: number) => {
-    if (!isControlled) setInternalValue(next);
-    onChange?.(next);
+    const normalized = clamp(next, min, max);
+    isInteractingRef.current = true;
+    lastValueRef.current = normalized;
+    if (!isControlled) setInternalValue(normalized);
+    onChange?.(normalized);
+  };
+
+  const handleCommit = () => {
+    if (!isInteractingRef.current) return;
+
+    isInteractingRef.current = false;
+    const next = lastValueRef.current;
+    if (next === lastCommittedValueRef.current) return;
+
+    lastCommittedValueRef.current = next;
+    onCommit?.(next);
   };
 
   return (
@@ -198,7 +226,17 @@ export default function TallHorizontalSlider({
           max={max}
           step={step}
           value={currentValue}
+          aria-label={ariaLabel}
           disabled={disabled}
+          onPointerDown={() => {
+            isInteractingRef.current = true;
+          }}
+          onPointerUp={handleCommit}
+          onKeyDown={() => {
+            isInteractingRef.current = true;
+          }}
+          onKeyUp={handleCommit}
+          onBlur={handleCommit}
           onChange={(e) => handleChange(Number(e.target.value))}
           className={cn(
             "absolute inset-0 z-20 h-full w-full cursor-pointer appearance-none bg-transparent",

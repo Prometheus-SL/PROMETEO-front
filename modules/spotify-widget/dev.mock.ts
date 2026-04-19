@@ -16,7 +16,7 @@ const spotifyMockStateSchema = z.object({
     displayName: "Demo",
     avatarUrl: null,
     connectedAt: "2026-04-14T08:00:00.000Z",
-    scopes: ["user-read-playback-state", "user-modify-playback-state"],
+    scopes: ["streaming", "user-read-playback-state", "user-modify-playback-state"],
     lastError: null,
     product: "premium",
     externalUrl: "https://open.spotify.com/user/demo",
@@ -42,7 +42,7 @@ const spotifyMockStateSchema = z.object({
       },
       item: {
         id: "track-1",
-        name: "Infrarojo / Ultravioleta",
+        name: "Aimbot",
         artists: [{ name: "Hoke" }],
         album: {
           name: "TRES CREUS",
@@ -54,48 +54,107 @@ const spotifyMockStateSchema = z.object({
             },
           ],
         },
-        duration_ms: 262000,
+        duration_ms: 217000,
       },
     }),
   queue: z.array(z.record(z.string(), z.unknown())).default([
     {
       id: "track-2",
-      name: "Midnight City",
-      artists: [{ name: "M83" }],
+      name: "Infrarojo / Ultravioleta",
+      artists: [{ name: "Hoke" }],
       album: {
-        name: "Hurry Up, We're Dreaming",
+        name: "TRES CREUS",
         images: [
           {
-            url: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=800&q=80",
+            url: "https://i.scdn.co/image/ab67616d0000b27301c42f9ef122c20778d74836",
             width: 640,
             height: 640,
           },
         ],
       },
-      duration_ms: 244000,
+      duration_ms: 262000,
       uri: "spotify:track:track-2",
     },
     {
       id: "track-3",
-      name: "Resonance",
-      artists: [{ name: "HOME" }],
+      name: "Cicatrices",
+      artists: [{ name: "Natos y Waor" }],
       album: {
-        name: "Odyssey",
+        name: "Cicatrices",
         images: [
           {
-            url: "https://images.unsplash.com/photo-1501612780327-45045538702b?auto=format&fit=crop&w=800&q=80",
+            url: "https://picsum.photos/seed/cicatrices-nyw/640",
             width: 640,
             height: 640,
           },
         ],
       },
-      duration_ms: 212000,
+      duration_ms: 253000,
       uri: "spotify:track:track-3",
+    },
+    {
+      id: "track-4",
+      name: "Martes 13",
+      artists: [{ name: "Natos y Waor" }],
+      album: {
+        name: "Martes 13",
+        images: [
+          {
+            url: "https://picsum.photos/seed/martes13-nyw/640",
+            width: 640,
+            height: 640,
+          },
+        ],
+      },
+      duration_ms: 228000,
+      uri: "spotify:track:track-4",
+    },
+    {
+      id: "track-5",
+      name: "MONACO",
+      artists: [{ name: "Bad Bunny" }],
+      album: {
+        name: "nadie sabe lo que va a pasar mañana",
+        images: [
+          {
+            url: "https://picsum.photos/seed/nslqvapm-bb/640",
+            width: 640,
+            height: 640,
+          },
+        ],
+      },
+      duration_ms: 282000,
+      uri: "spotify:track:track-5",
+    },
+    {
+      id: "track-6",
+      name: "Tití Me Preguntó",
+      artists: [{ name: "Bad Bunny" }],
+      album: {
+        name: "Un Verano Sin Ti",
+        images: [
+          {
+            url: "https://i.scdn.co/image/ab67616d0000b27349d694203245f241a1bcaa72",
+            width: 640,
+            height: 640,
+          },
+        ],
+      },
+      duration_ms: 243000,
+      uri: "spotify:track:track-6",
     },
   ]),
 });
 
 type SpotifyMockState = z.infer<typeof spotifyMockStateSchema>;
+
+function shuffleQueuePreview(queue: SpotifyQueueItem[]) {
+  if (queue.length < 2) return queue;
+
+  const oddItems = queue.filter((_, index) => index % 2 === 1);
+  const evenItems = queue.filter((_, index) => index % 2 === 0);
+  return [...oddItems, ...evenItems];
+}
 
 function buildHandlers(state: SpotifyMockState) {
   const live = {
@@ -103,6 +162,9 @@ function buildHandlers(state: SpotifyMockState) {
     playbackState: state.playbackState as SpotifyPlaybackState | null,
     queue: state.queue as SpotifyQueueItem[],
   };
+  const defaultQueueOrder = new Map(
+    live.queue.map((item, index) => [item.id, index]),
+  );
 
   function getPlayback() {
     return live.playbackState;
@@ -122,6 +184,40 @@ function buildHandlers(state: SpotifyMockState) {
     http.get(createModuleDevBackendUrl("/api/v1/integrations/spotify/player/queue"), () =>
       createModuleDevSuccessResponse({ queue: live.queue }),
     ),
+    http.get(
+      createModuleDevBackendUrl("/api/v1/integrations/spotify/player/web-token"),
+      () =>
+        createModuleDevSuccessResponse({
+          accessToken: "spotify-dev-web-token",
+          expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
+          scopes: live.account.scopes ?? [],
+        }),
+    ),
+    http.put(
+      createModuleDevBackendUrl("/api/v1/integrations/spotify/player/transfer"),
+      async ({ request }) => {
+        const payload = (await request.json()) as {
+          deviceId?: string;
+          play?: boolean;
+        };
+        const pb = getPlayback();
+
+        if (pb?.device && payload.deviceId) {
+          setPlayback({
+            ...pb,
+            is_playing: payload.play !== false,
+            device: {
+              ...pb.device,
+              id: payload.deviceId,
+              name: "PROMETEO Web Player",
+              type: "Computer",
+            },
+          });
+        }
+
+        return createModuleDevSuccessResponse({});
+      },
+    ),
     http.put(createModuleDevBackendUrl("/api/v1/integrations/spotify/player/pause"), () => {
       const pb = getPlayback();
       if (pb) setPlayback({ ...pb, is_playing: false });
@@ -140,15 +236,15 @@ function buildHandlers(state: SpotifyMockState) {
           ...live.queue.slice(1),
           ...(current
             ? [
-                {
-                  id: current.id,
-                  name: current.name,
-                  artists: current.artists,
-                  album: current.album,
-                  duration_ms: current.duration_ms,
-                  uri: `spotify:track:${current.id}`,
-                },
-              ]
+              {
+                id: current.id,
+                name: current.name,
+                artists: current.artists,
+                album: current.album,
+                duration_ms: current.duration_ms,
+                uri: `spotify:track:${current.id}`,
+              },
+            ]
             : []),
         ];
         setPlayback({
@@ -208,7 +304,19 @@ function buildHandlers(state: SpotifyMockState) {
       async ({ request }) => {
         const payload = (await request.json()) as { state?: boolean };
         const pb = getPlayback();
-        if (pb) setPlayback({ ...pb, shuffle_state: Boolean(payload.state) });
+        const enabled = Boolean(payload.state);
+
+        if (enabled) {
+          live.queue = shuffleQueuePreview(live.queue);
+        } else {
+          live.queue = [...live.queue].sort(
+            (a, b) =>
+              (defaultQueueOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+              (defaultQueueOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+          );
+        }
+
+        if (pb) setPlayback({ ...pb, shuffle_state: enabled });
         return createModuleDevSuccessResponse({});
       },
     ),
