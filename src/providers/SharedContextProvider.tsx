@@ -20,19 +20,21 @@ interface SharedContextProviderProps {
   children: React.ReactNode;
   initialSharedData?: Record<string, unknown>;
   initialActions?: SharedAction[];
+  persist?: boolean;
 }
 
 export function SharedContextProvider({
   children,
   initialSharedData,
   initialActions,
+  persist = true,
 }: SharedContextProviderProps) {
   const readStoredSharedData = useCallback(() => {
     if (initialSharedData) {
       return { ...initialSharedData };
     }
 
-    if (typeof localStorage === "undefined") {
+    if (!persist || typeof localStorage === "undefined") {
       return {};
     }
 
@@ -43,7 +45,7 @@ export function SharedContextProvider({
       console.error("Error loading shared context from localStorage:", error);
       return {};
     }
-  }, [initialSharedData]);
+  }, [initialSharedData, persist]);
 
   // Estado interno del contexto compartido
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,7 +74,7 @@ export function SharedContextProvider({
 
   // Sincronizar con localStorage cuando cambie el estado
   useEffect(() => {
-    if (typeof localStorage === "undefined") {
+    if (!persist || typeof localStorage === "undefined") {
       return;
     }
 
@@ -81,7 +83,7 @@ export function SharedContextProvider({
     } catch (error) {
       console.error("Error saving shared context to localStorage:", error);
     }
-  }, [sharedData]);
+  }, [persist, sharedData]);
 
   useEffect(() => {
     setSharedData(readStoredSharedData());

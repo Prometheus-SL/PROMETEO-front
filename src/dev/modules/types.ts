@@ -6,6 +6,7 @@ import type { AuthUser } from "@/services/auth";
 export type ModuleDevSurface = Exclude<ModuleAudience, "all">;
 export type ModuleDevTheme = "light" | "dark" | "system";
 export type ModuleDevCanvasMode = "fit" | "actual";
+export type ModuleDevSessionRole = Extract<ModuleRole, "admin" | "user">;
 
 export type ModuleDevAuthState = {
   accessToken?: string | null;
@@ -24,8 +25,16 @@ export type ModuleDevPreset = {
   auto?: boolean;
 };
 
+export type ModuleDevSandbox = {
+  adapterKey?: string | null;
+  allowLiveRequests?: boolean;
+};
+
+export type ModuleDevMockAdapterSource = "local" | "shared" | null;
+
 export type ModuleDevDefinition = {
   presets: ModuleDevPreset[];
+  sandbox?: ModuleDevSandbox;
 };
 
 export type ModuleDevOption = {
@@ -54,10 +63,8 @@ export type ModuleDevActionDraft = {
 export type ModuleDevSession = {
   selectedEntryId: string | null;
   presetId: string | null;
-  surface: ModuleDevSurface;
   theme: ModuleDevTheme;
-  role: ModuleRole;
-  canvasMode: ModuleDevCanvasMode;
+  role: ModuleDevSessionRole;
   persist: boolean;
   configTextByEntry: Record<string, string>;
   sharedTextByEntry: Record<string, string>;

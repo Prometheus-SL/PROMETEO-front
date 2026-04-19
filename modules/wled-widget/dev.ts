@@ -1,6 +1,9 @@
 import { defineModuleDev } from "@/dev/modules";
 
 export default defineModuleDev({
+  sandbox: {
+    allowLiveRequests: true,
+  },
   presets: [
     {
       entryId: "wled-controller",

@@ -9,6 +9,12 @@ export const schema = z.object({
     mood: z.enum(["happy", "sleepy", "angry", "surprised"]).default("happy"),
     accessory: z.enum(["none", "glasses", "crown", "antenna", "batman", "spiderman", "trescreus"]).default("none"),
     autoMood: z.boolean().optional().default(true),
+    pooEnabled: z.boolean().default(true),
+    pooMinDelayMs: z.number().min(10000).max(300000).default(45000),
+    pooMaxDelayMs: z.number().min(10000).max(300000).default(90000),
+    pooMaxCount: z.number().int().min(1).max(8).default(3),
+    inactivityMs: z.number().min(5000).max(120000).default(20000),
+    inactivityStepMs: z.number().min(5000).max(120000).default(20000),
 })
 
 export default schema

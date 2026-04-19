@@ -1,0 +1,18 @@
+[
+  {
+    "id": "your-widget",
+    "name": "Your Widget",
+    "description": "Short sentence explaining what the widget does.",
+    "category": "utilities",
+    "size": {
+      "width": 2,
+      "height": 1
+    },
+    "entry": "./index.tsx",
+    "configSchema": "./config.ts",
+    "audience": "dashboard",
+    "requiredProviders": [],
+    "requiredRole": null,
+    "capabilities": ["demo"]
+  }
+]

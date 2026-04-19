@@ -11,6 +11,8 @@ import {
   createDefaultModuleDevSession,
   loadModuleDevCatalog,
   loadModuleDevMockAdapter,
+  parseModuleDevMockStateText,
+  resolveModuleDevMockState,
   restoreModuleDevSession,
   serializeModuleDevSession,
   useModuleDevMocks,
@@ -168,6 +170,10 @@ export default function DevModulesPage() {
   const [mockAdapter, setMockAdapter] = useState<ModuleDevMockAdapter | null>(
     null,
   );
+  const [mockAdapterEntryId, setMockAdapterEntryId] = useState<string | null>(
+    null,
+  );
+  const [isLoadingMockAdapter, setIsLoadingMockAdapter] = useState(false);
   const [mockStateText, setMockStateText] = useState("{}");
   const [mockStateValue, setMockStateValue] = useState<Record<string, unknown>>(
     {},
@@ -224,6 +230,12 @@ export default function DevModulesPage() {
 
     window.localStorage.removeItem(MODULE_DEV_SESSION_STORAGE_KEY);
   }, [hydrated, session]);
+
+  const sessionRef = useRef(session);
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   const filteredCatalog = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -325,7 +337,7 @@ export default function DevModulesPage() {
   const prevEntryIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!selectedItem || !selectedPreset) {
+    if (!hydrated || !selectedItem || !selectedPreset) {
       return;
     }
 
@@ -337,18 +349,19 @@ export default function DevModulesPage() {
 
     // When the module entry changes, restore persisted text if available.
     // When only the preset changes, always apply fresh preset defaults.
+    const persistedSession = sessionRef.current;
     const nextConfigText = entryChanged
-      ? (session.configTextByEntry[entryId] ?? defaults.configText)
+      ? (persistedSession.configTextByEntry[entryId] ?? defaults.configText)
       : defaults.configText;
     const nextConfig = parseJsonRecord(nextConfigText, defaults.config);
 
     const nextSharedText = entryChanged
-      ? (session.sharedTextByEntry[entryId] ?? "{}")
+      ? (persistedSession.sharedTextByEntry[entryId] ?? "{}")
       : "{}";
     const nextShared = parseJsonRecord(nextSharedText, {});
 
     const nextActionsText = entryChanged
-      ? (session.actionsTextByEntry[entryId] ?? "[]")
+      ? (persistedSession.actionsTextByEntry[entryId] ?? "[]")
       : "[]";
     const nextActions = parseActionDrafts(nextActionsText, []);
 
@@ -361,19 +374,25 @@ export default function DevModulesPage() {
     setActionsText(nextActionsText);
     setActionsValue(nextActions.value);
     setActionsError(nextActions.error);
-  }, [selectedItem, selectedPreset]);
+  }, [hydrated, selectedItem, selectedPreset]);
 
   useEffect(() => {
-    if (!selectedItem) {
-      setMockAdapter(null);
-      setMockStateText("{}");
-      setMockStateValue({});
-      setMockStateError(null);
+    if (!hydrated || !selectedItem) {
+      if (!selectedItem) {
+        setMockAdapter(null);
+        setMockAdapterEntryId(null);
+        setIsLoadingMockAdapter(false);
+        setMockStateText("{}");
+        setMockStateValue({});
+        setMockStateError(null);
+      }
       return;
     }
 
     if (!selectedItem.hasMockAdapter) {
       setMockAdapter(null);
+      setMockAdapterEntryId(null);
+      setIsLoadingMockAdapter(false);
       setMockStateText("{}");
       setMockStateValue({});
       setMockStateError(null);
@@ -381,43 +400,69 @@ export default function DevModulesPage() {
     }
 
     let cancelled = false;
+    const entryId = selectedItem.entry.meta.id;
     const basePath = selectedItem.entry.basePath;
+
+    setIsLoadingMockAdapter(true);
+    setMockAdapterEntryId(null);
+    setMockAdapter(null);
+    setMockStateText("{}");
+    setMockStateValue({});
+    setMockStateError(null);
 
     void (async () => {
       const loaded = await loadModuleDevMockAdapter(basePath);
       if (cancelled) return;
 
       setMockAdapter(loaded);
+      setMockAdapterEntryId(loaded ? entryId : null);
+      setIsLoadingMockAdapter(false);
 
       if (loaded) {
-        const entryId = selectedItem.entry.meta.id;
-        const persisted = session.mockTextByEntry[entryId];
-        const initialState = loaded.createInitialState?.() ?? {};
+        const persisted = sessionRef.current.mockTextByEntry[entryId];
+        const initialState = resolveModuleDevMockState(loaded);
 
         if (persisted) {
-          const parsed = parseJsonRecord(
+          const parsed = parseModuleDevMockStateText(
             persisted,
-            initialState as Record<string, unknown>,
+            loaded,
+            initialState,
           );
-          setMockStateText(persisted);
+          setMockStateText(
+            parsed.error ? persisted : formatJson(parsed.value),
+          );
           setMockStateValue(parsed.value);
           setMockStateError(parsed.error);
         } else {
           setMockStateText(formatJson(initialState));
-          setMockStateValue(initialState as Record<string, unknown>);
+          setMockStateValue(initialState);
           setMockStateError(null);
         }
+      } else {
+        setMockStateText("{}");
+        setMockStateValue({});
+        setMockStateError(null);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [selectedItem]);
+  }, [hydrated, selectedItem]);
 
   const previewSurface = "dashboard" as const;
   const previewAuth = { role: session.role };
   const mockLayer = useModuleDevMocks(mockAdapter, mockStateValue);
+  const needsMockLayer = Boolean(selectedItem?.hasMockAdapter);
+  const hasLoadedMockAdapterForSelection =
+    !!selectedItem &&
+    mockAdapterEntryId === selectedItem.entry.meta.id &&
+    !!mockAdapter;
+  const isMockLayerPending =
+    needsMockLayer &&
+    (isLoadingMockAdapter ||
+      !hasLoadedMockAdapterForSelection ||
+      !mockLayer.ready);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
 
@@ -467,7 +512,7 @@ export default function DevModulesPage() {
   }
 
   function handleMockStateTextChange(nextText: string) {
-    const parsed = parseJsonRecord(nextText, mockStateValue);
+    const parsed = parseModuleDevMockStateText(nextText, mockAdapter, mockStateValue);
     setMockStateText(nextText);
     setMockStateError(parsed.error);
     setMockStateValue(parsed.value);
@@ -499,9 +544,9 @@ export default function DevModulesPage() {
     setActionsError(null);
 
     if (mockAdapter) {
-      const initialState = mockAdapter.createInitialState?.() ?? {};
+      const initialState = resolveModuleDevMockState(mockAdapter);
       setMockStateText(formatJson(initialState));
-      setMockStateValue(initialState as Record<string, unknown>);
+      setMockStateValue(initialState);
       setMockStateError(null);
     }
 
@@ -518,7 +563,7 @@ export default function DevModulesPage() {
       mockTextByEntry: {
         ...previous.mockTextByEntry,
         [selectedEntryId]: mockAdapter
-          ? formatJson(mockAdapter.createInitialState?.() ?? {})
+          ? formatJson(resolveModuleDevMockState(mockAdapter))
           : "{}",
       },
       actionsTextByEntry: {
@@ -761,7 +806,9 @@ export default function DevModulesPage() {
 
         <div className="grid min-h-0 flex-1 gap-4 overflow-hidden lg:grid-cols-[minmax(0,1fr)_24rem]">
           <section className="flex items-center justify-center overflow-auto rounded-[32px] border border-border/70 bg-background/86 p-4 shadow-[0_24px_80px_-40px_rgba(15,23,42,0.45)] backdrop-blur lg:p-5">
-            {mockLayer.error ? (
+            {needsMockLayer &&
+            hasLoadedMockAdapterForSelection &&
+            mockLayer.error ? (
               <div className="flex h-full min-h-[20rem] items-center justify-center rounded-[28px] border border-rose-500/20 bg-rose-500/8 px-6 text-center">
                 <div>
                   <p className="text-sm font-semibold text-foreground">
@@ -772,7 +819,7 @@ export default function DevModulesPage() {
                   </p>
                 </div>
               </div>
-            ) : !mockLayer.ready ? (
+            ) : isMockLayerPending ? (
               <div className="flex h-full min-h-[20rem] items-center justify-center rounded-[28px] border border-border/60 bg-background/70 px-6 text-center">
                 <div>
                   <p className="text-sm font-semibold text-foreground">
