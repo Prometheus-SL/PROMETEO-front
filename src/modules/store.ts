@@ -20,7 +20,7 @@ export function useMarketplaceStore() {
     const [state, setState] = useState<MarketplaceState>({
         modules: [],
         loading: true,
-        filters: { query: "", categories: [], sizes: [] },
+        filters: { query: "", categories: [], sizes: [], providers: [], status: "all" },
         pages: [],
         currentPageId: undefined,
         installed: [],
@@ -70,10 +70,23 @@ export function useMarketplaceStore() {
     const filtered = useMemo(() => {
         const q = state.filters.query.toLowerCase()
         return state.modules.filter((m) => {
-            const matchesQuery = !q || [m.name, m.description ?? "", m.category ?? ""].some((t) => t.toLowerCase().includes(q))
+            const searchParts = [
+                m.id,
+                m.name,
+                m.description ?? "",
+                m.category ?? "",
+                m.marketplace?.familyName ?? "",
+                m.marketplace?.variantLabel ?? "",
+                ...(m.requiredProviders ?? []),
+                ...(m.capabilities ?? []),
+            ]
+            const matchesQuery = !q || searchParts.some((t) => t.toLowerCase().includes(q))
             const matchesCat = state.filters.categories.length === 0 || (m.category && state.filters.categories.includes(m.category))
             const matchesSize = state.filters.sizes.length === 0 || (m.size && state.filters.sizes.includes(m.size))
-            return matchesQuery && matchesCat && matchesSize
+            const matchesProvider =
+                state.filters.providers.length === 0 ||
+                state.filters.providers.some((provider) => (m.requiredProviders ?? []).includes(provider))
+            return matchesQuery && matchesCat && matchesSize && matchesProvider
         })
     }, [state.modules, state.filters])
 
@@ -103,6 +116,22 @@ export function useMarketplaceStore() {
         setState((s) => ({ ...s, filters: { ...s.filters, sizes: [] } }))
     }
 
+    function toggleProvider(provider: string) {
+        setState((s) => {
+            const exists = s.filters.providers.includes(provider)
+            const providers = exists ? s.filters.providers.filter((current) => current !== provider) : [...s.filters.providers, provider]
+            return { ...s, filters: { ...s.filters, providers } }
+        })
+    }
+
+    function clearProviders() {
+        setState((s) => ({ ...s, filters: { ...s.filters, providers: [] } }))
+    }
+
+    function setStatus(status: MarketplaceFilters["status"]) {
+        setState((s) => ({ ...s, filters: { ...s.filters, status } }))
+    }
+
     function resetFilters() {
         setState((s) => ({
             ...s,
@@ -110,6 +139,8 @@ export function useMarketplaceStore() {
                 query: "",
                 categories: [],
                 sizes: [],
+                providers: [],
+                status: "all",
             },
         }))
     }
@@ -387,6 +418,9 @@ export function useMarketplaceStore() {
         toggleCategory,
         toggleSize,
         clearSizes,
+        toggleProvider,
+        clearProviders,
+        setStatus,
         installModule,
         installModuleTo,
         removeModule,

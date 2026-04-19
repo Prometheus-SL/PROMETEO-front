@@ -18,7 +18,13 @@
       "lights",
       "wled"
     ],
-    "preview": "./preview.png"
+    "preview": "./preview.png",
+    "marketplace": {
+      "familyId": "wled",
+      "familyName": "WLED",
+      "variantLabel": "Controller",
+      "variantOrder": 1
+    }
   },
   {
     "id": "wled-compact",
@@ -39,6 +45,12 @@
       "lights",
       "wled"
     ],
-    "preview": "./preview-compact.png"
+    "preview": "./preview-compact.png",
+    "marketplace": {
+      "familyId": "wled",
+      "familyName": "WLED",
+      "variantLabel": "Compact",
+      "variantOrder": 2
+    }
   }
 ]

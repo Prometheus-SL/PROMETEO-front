@@ -10,7 +10,13 @@
     "audience": "dashboard",
     "requiredProviders": ["google"],
     "requiredRole": null,
-    "capabilities": ["inbox", "focus"]
+    "capabilities": ["inbox", "focus"],
+    "marketplace": {
+      "familyId": "inbox-summary",
+      "familyName": "Inbox Summary",
+      "variantLabel": "Standard",
+      "variantOrder": 1
+    }
   },
   {
     "id": "inbox-summary-widget-compact",
@@ -23,6 +29,12 @@
     "audience": "dashboard",
     "requiredProviders": ["google"],
     "requiredRole": null,
-    "capabilities": ["inbox", "focus"]
+    "capabilities": ["inbox", "focus"],
+    "marketplace": {
+      "familyId": "inbox-summary",
+      "familyName": "Inbox Summary",
+      "variantLabel": "Compact",
+      "variantOrder": 2
+    }
   }
 ]

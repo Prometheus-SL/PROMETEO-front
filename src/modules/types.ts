@@ -8,6 +8,13 @@ export type ModuleSize = {
 export type ModuleAudience = "all" | "dashboard" | "client" | "ops"
 export type ModuleRole = "viewer" | "user" | "operator" | "admin"
 
+export interface ModuleMarketplaceMeta {
+    familyId?: string
+    familyName?: string
+    variantLabel?: string
+    variantOrder?: number
+}
+
 export interface ModuleMeta {
     id: string
     name: string
@@ -21,6 +28,7 @@ export interface ModuleMeta {
     requiredProviders?: string[]
     requiredRole?: ModuleRole | null
     capabilities?: string[]
+    marketplace?: ModuleMarketplaceMeta
 }
 
 export interface InstalledModule {
@@ -55,6 +63,8 @@ export interface MarketplaceFilters {
     query: string
     categories: string[]
     sizes: ModuleSize[]
+    providers: string[]
+    status: "all" | "ready" | "needs-connection" | "restricted"
 }
 
 // Page (dashboard) segun backend

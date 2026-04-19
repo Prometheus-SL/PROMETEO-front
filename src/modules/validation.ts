@@ -3,6 +3,12 @@ import type { ModuleMeta } from "./types"
 
 const moduleAudienceSchema = z.enum(["all", "dashboard", "client", "ops"])
 const moduleRoleSchema = z.enum(["viewer", "user", "operator", "admin"])
+const moduleMarketplaceSchema = z.object({
+    familyId: z.string().min(1).optional(),
+    familyName: z.string().min(1).optional(),
+    variantLabel: z.string().min(1).optional(),
+    variantOrder: z.number().optional(),
+}).optional()
 
 // Esquema Zod para module.json
 export const moduleMetaSchema = z.object({
@@ -21,6 +27,7 @@ export const moduleMetaSchema = z.object({
     requiredProviders: z.array(z.string().min(1)).default([]),
     requiredRole: moduleRoleSchema.nullable().default(null),
     capabilities: z.array(z.string().min(1)).default([]),
+    marketplace: moduleMarketplaceSchema,
 })
 
 export type ModuleMetaValidated = z.infer<typeof moduleMetaSchema> & ModuleMeta

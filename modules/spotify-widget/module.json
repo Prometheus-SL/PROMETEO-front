@@ -19,7 +19,13 @@
       "media",
       "spotify"
     ],
-    "preview": "./preview.png"
+    "preview": "./preview.png",
+    "marketplace": {
+      "familyId": "spotify-now-playing",
+      "familyName": "Spotify Now Playing",
+      "variantLabel": "Standard",
+      "variantOrder": 1
+    }
   },
   {
     "id": "spotify-widget-compact",
@@ -41,7 +47,13 @@
       "media",
       "spotify"
     ],
-    "preview": "./preview-compact.png"
+    "preview": "./preview-compact.png",
+    "marketplace": {
+      "familyId": "spotify-now-playing",
+      "familyName": "Spotify Now Playing",
+      "variantLabel": "Compact",
+      "variantOrder": 2
+    }
   },
   {
     "id": "spotify-widget-queue",
@@ -63,6 +75,12 @@
       "media",
       "spotify"
     ],
-    "preview": "./preview-queue.png"
+    "preview": "./preview-queue.png",
+    "marketplace": {
+      "familyId": "spotify-now-playing",
+      "familyName": "Spotify Now Playing",
+      "variantLabel": "Queue",
+      "variantOrder": 3
+    }
   }
 ]

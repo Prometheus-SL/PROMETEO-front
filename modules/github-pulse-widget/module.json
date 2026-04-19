@@ -11,7 +11,13 @@
     "requiredProviders": ["github"],
     "requiredRole": null,
     "capabilities": ["github", "notifications"],
-    "preview": "./preview.png"
+    "preview": "./preview.png",
+    "marketplace": {
+      "familyId": "github-pulse",
+      "familyName": "GitHub Pulse",
+      "variantLabel": "Standard",
+      "variantOrder": 1
+    }
   },
   {
     "id": "github-pulse-widget-compact",
@@ -25,6 +31,12 @@
     "requiredProviders": ["github"],
     "requiredRole": null,
     "capabilities": ["github", "notifications"],
-    "preview": "./preview-compact.png"
+    "preview": "./preview-compact.png",
+    "marketplace": {
+      "familyId": "github-pulse",
+      "familyName": "GitHub Pulse",
+      "variantLabel": "Compact",
+      "variantOrder": 2
+    }
   }
 ]
