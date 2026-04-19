@@ -95,7 +95,7 @@ export function createAppRoutes(isDev = import.meta.env.DEV) {
         },
         {
           title: "Discord",
-          routes: [{ title: "Bot discord", url: "/discord/bot" }],
+          routes: [{ title: "Notificaciones", url: "/discord/bot" }],
           adminOnly: false,
         },
       ],
@@ -133,7 +133,7 @@ export function createAppRoutes(isDev = import.meta.env.DEV) {
         {
           path: "/discord/bot",
           element: lazyElement(BotDiscordPage),
-          handle: { title: "Bot discord" },
+          handle: { title: "Notificaciones" },
         },
       ],
     },

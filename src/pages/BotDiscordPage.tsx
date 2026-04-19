@@ -3,16 +3,19 @@ import { useBlocker } from "react-router-dom";
 import {
     AlertTriangle,
     Bot,
+    ChevronDown,
     Crown,
     ExternalLink,
     Gamepad2,
     Loader2,
     MessagesSquare,
+    Music2,
     Save,
     Search,
     Shield,
     X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +26,11 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -392,9 +400,9 @@ export default function BotDiscordPage() {
     return (
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
             <header className="flex flex-col gap-1">
-                <h1 className="text-2xl font-semibold tracking-tight">Bot discord</h1>
+                <h1 className="text-2xl font-semibold tracking-tight">Notificaciones</h1>
                 <p className="text-sm text-muted-foreground">
-                    Configura las funciones del bot en tus servidores de Discord.
+                    Configura las notificaciones que el bot envía a tus servidores de Discord.
                 </p>
             </header>
 
@@ -437,65 +445,83 @@ export default function BotDiscordPage() {
                         </Card>
                     ) : (
                         <>
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <MessagesSquare className="size-4" />
-                                        Juegos gratis · Epic
-                                    </CardTitle>
-                                    <CardDescription>
-                                        Aviso cuando Epic regala un juego. Activa cada servidor y elige un canal.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="flex flex-col gap-2">
-                                    {guilds.map((g) => (
-                                        <EpicGuildRow
-                                            key={g.id}
-                                            guild={g}
-                                            entry={draft[g.id] ?? { enabled: false, channelId: "" }}
-                                            channelsState={channelsByGuild[g.id]}
-                                            inviteUrl={inviteUrl}
-                                            onToggle={(next) => handleToggleEnabled(g.id, next)}
-                                            onChannelChange={(v) => handleChannelChange(g.id, v)}
-                                        />
-                                    ))}
-                                </CardContent>
-                            </Card>
+                            <NotificationSection
+                                title="Juegos"
+                                icon={Gamepad2}
+                                description="Avisos sobre Epic, Steam y otras tiendas."
+                                defaultOpen
+                            >
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <MessagesSquare className="size-4" />
+                                            Juegos gratis · Epic
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Aviso cuando Epic regala un juego. Activa cada servidor y elige un canal.
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="flex flex-col gap-2">
+                                        {guilds.map((g) => (
+                                            <EpicGuildRow
+                                                key={g.id}
+                                                guild={g}
+                                                entry={draft[g.id] ?? { enabled: false, channelId: "" }}
+                                                channelsState={channelsByGuild[g.id]}
+                                                inviteUrl={inviteUrl}
+                                                onToggle={(next) => handleToggleEnabled(g.id, next)}
+                                                onChannelChange={(v) => handleChannelChange(g.id, v)}
+                                            />
+                                        ))}
+                                    </CardContent>
+                                </Card>
 
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Gamepad2 className="size-4" />
-                                        Actualizaciones · Steam
-                                    </CardTitle>
-                                    <CardDescription>
-                                        Aviso cuando salen parches o notas de actualización de los juegos que suscribas.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="flex flex-col gap-2">
-                                    {guilds.map((g) => (
-                                        <SteamGuildRow
-                                            key={g.id}
-                                            guild={g}
-                                            channels={channelsByGuild[g.id]?.channels ?? []}
-                                            entry={gameUpdatesDraft[g.id] ?? emptyGameUpdatesEntry()}
-                                            inviteUrl={inviteUrl}
-                                            disabled={!g.botPresent}
-                                            onChange={(next) => {
-                                                setGameUpdatesDraft((prev) => ({ ...prev, [g.id]: next }));
-                                                if (
-                                                    next.enabled &&
-                                                    g.botPresent &&
-                                                    !channelsByGuild[g.id]?.channels &&
-                                                    !channelsByGuild[g.id]?.loading
-                                                ) {
-                                                    void loadChannelsForGuild(g.id);
-                                                }
-                                            }}
-                                        />
-                                    ))}
-                                </CardContent>
-                            </Card>
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Gamepad2 className="size-4" />
+                                            Actualizaciones · Steam
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Aviso cuando salen parches o notas de actualización de los juegos que suscribas.
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="flex flex-col gap-2">
+                                        {guilds.map((g) => (
+                                            <SteamGuildRow
+                                                key={g.id}
+                                                guild={g}
+                                                channels={channelsByGuild[g.id]?.channels ?? []}
+                                                entry={gameUpdatesDraft[g.id] ?? emptyGameUpdatesEntry()}
+                                                inviteUrl={inviteUrl}
+                                                disabled={!g.botPresent}
+                                                onChange={(next) => {
+                                                    setGameUpdatesDraft((prev) => ({ ...prev, [g.id]: next }));
+                                                    if (
+                                                        next.enabled &&
+                                                        g.botPresent &&
+                                                        !channelsByGuild[g.id]?.channels &&
+                                                        !channelsByGuild[g.id]?.loading
+                                                    ) {
+                                                        void loadChannelsForGuild(g.id);
+                                                    }
+                                                }}
+                                            />
+                                        ))}
+                                    </CardContent>
+                                </Card>
+                            </NotificationSection>
+                            <NotificationSection
+                                title="Música"
+                                icon={Music2}
+                                description="Reproducción de música del bot en tus canales de voz."
+                            >
+                                <Card>
+                                    <CardContent className="p-6 text-sm text-muted-foreground">
+                                        Próximamente: el bot podrá reproducir música de Spotify en tus canales de voz.
+                                    </CardContent>
+                                </Card>
+                            </NotificationSection>
                         </>
                     )}
 
@@ -827,5 +853,42 @@ function SteamGuildRow({ guild, channels, entry, inviteUrl, onChange, disabled }
                 </div>
             ) : null}
         </div>
+    );
+}
+
+type NotificationSectionProps = {
+    title: string;
+    icon: LucideIcon;
+    description?: string;
+    defaultOpen?: boolean;
+    children: React.ReactNode;
+};
+
+function NotificationSection({
+    title,
+    icon: Icon,
+    description,
+    defaultOpen = false,
+    children,
+}: NotificationSectionProps) {
+    return (
+        <Collapsible defaultOpen={defaultOpen} className="rounded-lg border bg-card">
+            <CollapsibleTrigger
+                className="group flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
+                aria-label={`Mostrar u ocultar la sección ${title}`}
+            >
+                <Icon className="size-5 shrink-0 text-muted-foreground" />
+                <div className="flex flex-1 flex-col min-w-0">
+                    <span className="text-base font-semibold tracking-tight">{title}</span>
+                    {description ? (
+                        <span className="text-xs text-muted-foreground">{description}</span>
+                    ) : null}
+                </div>
+                <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                <div className="flex flex-col gap-2 p-4 pt-0">{children}</div>
+            </CollapsibleContent>
+        </Collapsible>
     );
 }
