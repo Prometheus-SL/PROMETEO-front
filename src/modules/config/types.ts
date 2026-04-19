@@ -9,6 +9,7 @@ export type ModuleConfigInput =
   | "slider"
   | "switch"
   | "select"
+  | "async-select"
   | "segmented"
   | "color"
   | "json";
@@ -28,6 +29,20 @@ export type WidgetPreviewMode = "sample" | "live";
 export type ModuleConfigOption = {
   value: string;
   label: string;
+  description?: string;
+  badge?: string;
+  disabled?: boolean;
+};
+
+export type ModuleConfigDynamicOptions = {
+  source: string;
+  dependsOn?: string[];
+  placeholder?: string;
+  loadingText?: string;
+  emptyText?: string;
+  errorText?: string;
+  blockedText?: string;
+  manualText?: string;
 };
 
 export type ModuleConfigFieldDefinition = {
@@ -43,6 +58,7 @@ export type ModuleConfigFieldDefinition = {
   max?: number;
   step?: number;
   options?: ModuleConfigOption[];
+  dynamicOptions?: ModuleConfigDynamicOptions;
 };
 
 export type ModuleConfigUiDefinition = {

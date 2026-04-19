@@ -1,5 +1,13 @@
-import { ChevronDown, ChevronRight, Eye, EyeOff } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  Keyboard,
+  Loader2,
+  RefreshCcw,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { z } from "zod";
 
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +25,9 @@ import {
   toConfigValue,
   toDisplayValue,
 } from "./schema";
+import { loadDynamicOptions } from "./dynamic-options";
 import type {
+  ModuleConfigOption,
   ModuleConfigValidation,
   ResolvedModuleConfigField,
 } from "./types";
@@ -45,6 +55,202 @@ function formatUnit(field: ResolvedModuleConfigField) {
   if (field.unit === "items") return "items";
   if (field.unit === "count") return "count";
   return null;
+}
+
+function optionText(option: ModuleConfigOption) {
+  return option.badge ? `${option.label} (${option.badge})` : option.label;
+}
+
+function AsyncSelectControl({
+  current,
+  field,
+  inputId,
+  value,
+  onChange,
+}: {
+  current: unknown;
+  field: ResolvedModuleConfigField;
+  inputId: string;
+  value: Record<string, unknown>;
+  onChange: (nextValue: unknown) => void;
+}) {
+  const [manual, setManual] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [state, setState] = useState<{
+    status: "idle" | "loading" | "blocked" | "ready" | "error";
+    options: ModuleConfigOption[];
+    missingDependencies: string[];
+    error?: string;
+  }>({
+    status: "idle",
+    options: [],
+    missingDependencies: [],
+  });
+  const dynamicOptions = field.dynamicOptions;
+  const valueRef = useRef(value);
+  const dependencySignature = useMemo(() => {
+    if (!dynamicOptions) return "";
+    return JSON.stringify([
+      dynamicOptions.source,
+      (dynamicOptions.dependsOn ?? []).map((key) => [key, value[key] ?? ""]),
+    ]);
+  }, [dynamicOptions, value]);
+
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+
+  useEffect(() => {
+    if (!dynamicOptions || manual) return;
+
+    const controller = new AbortController();
+    setState((previous) => ({
+      status: "loading",
+      options: previous.options,
+      missingDependencies: [],
+    }));
+
+    void loadDynamicOptions(dynamicOptions, valueRef.current, controller.signal)
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        if (result.status === "blocked") {
+          setState({
+            status: "blocked",
+            options: [],
+            missingDependencies: result.missingDependencies,
+          });
+          return;
+        }
+
+        setState({
+          status: "ready",
+          options: result.options,
+          missingDependencies: [],
+        });
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setState({
+          status: "error",
+          options: [],
+          missingDependencies: [],
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      });
+
+    return () => controller.abort();
+  }, [dependencySignature, dynamicOptions, manual, reloadKey]);
+
+  if (!dynamicOptions || manual) {
+    return (
+      <div className="space-y-2">
+        <Input
+          id={inputId}
+          value={String(current ?? "")}
+          placeholder={field.placeholder}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        {dynamicOptions ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-xs"
+            onClick={() => setManual(false)}
+          >
+            Use discovered options
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+
+  const currentValue = String(current ?? "");
+  const selected = state.options.find((option) => option.value === currentValue);
+  const currentIsUnknown =
+    currentValue.length > 0 && state.options.every((option) => option.value !== currentValue);
+  const blockedMessage =
+    dynamicOptions.blockedText ??
+    `Complete ${state.missingDependencies.join(", ")} first.`;
+  const statusMessage = (() => {
+    if (state.status === "loading") {
+      return dynamicOptions.loadingText ?? "Loading options...";
+    }
+    if (state.status === "blocked") return blockedMessage;
+    if (state.status === "error") {
+      return dynamicOptions.errorText ?? state.error ?? "Could not load options.";
+    }
+    if (state.status === "ready" && state.options.length === 0) {
+      return dynamicOptions.emptyText ?? "No options found.";
+    }
+    return selected?.description ?? null;
+  })();
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <select
+          id={inputId}
+          className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          value={currentValue}
+          disabled={state.status === "loading" || state.status === "blocked"}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          <option value="">
+            {state.status === "loading"
+              ? dynamicOptions.loadingText ?? "Loading options..."
+              : dynamicOptions.placeholder ?? field.placeholder ?? "Select an option"}
+          </option>
+          {currentIsUnknown ? (
+            <option value={currentValue}>Current value ({currentValue})</option>
+          ) : null}
+          {state.options.map((option) => (
+            <option
+              key={option.value}
+              value={option.value}
+              disabled={option.disabled}
+            >
+              {optionText(option)}
+            </option>
+          ))}
+        </select>
+        {state.status === "loading" ? (
+          <div className="grid size-10 shrink-0 place-items-center rounded-md border border-border/70 text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Reload options"
+            onClick={() => setReloadKey((previous) => previous + 1)}
+          >
+            <RefreshCcw className="size-4" />
+          </Button>
+        )}
+      </div>
+
+      <div className="flex min-h-7 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        {selected?.badge ? (
+          <Badge variant="outline" className="border-border/70">
+            {selected.badge}
+          </Badge>
+        ) : null}
+        {statusMessage ? <span>{statusMessage}</span> : null}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="ml-auto h-7 px-2 text-xs"
+          onClick={() => setManual(true)}
+        >
+          <Keyboard className="size-3.5" />
+          {dynamicOptions.manualText ?? "Enter manually"}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function FieldShell({
@@ -158,6 +364,18 @@ function FieldControl({
           </option>
         ))}
       </select>
+    );
+  }
+
+  if (field.input === "async-select") {
+    return (
+      <AsyncSelectControl
+        current={current}
+        field={field}
+        inputId={inputId}
+        value={value}
+        onChange={setFieldValue}
+      />
     );
   }
 
@@ -374,15 +592,17 @@ export function WidgetConfigForm({
               visibleAdvanced ? "block" : "hidden",
             )}
           >
-            {advanced.map((field) => (
-              <FieldShell
-                key={field.key}
-                field={field}
-                error={validation.errorsByKey[field.key]}
-              >
-                <FieldControl field={field} value={value} onChange={onChange} />
-              </FieldShell>
-            ))}
+            {visibleAdvanced
+              ? advanced.map((field) => (
+                  <FieldShell
+                    key={field.key}
+                    field={field}
+                    error={validation.errorsByKey[field.key]}
+                  >
+                    <FieldControl field={field} value={value} onChange={onChange} />
+                  </FieldShell>
+                ))
+              : null}
           </div>
         </div>
       ) : null}

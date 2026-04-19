@@ -102,6 +102,28 @@ describe("module config helpers", () => {
     );
   });
 
+  it("uses dynamic option pickers for provider-owned identifiers", () => {
+    const discordFields = resolveConfigFields({
+      schema: discordSchema,
+      meta: meta("discord-widget"),
+      value: {},
+    });
+    const hermesFields = resolveConfigFields({
+      schema: hermesSchema,
+      meta: meta("hermes-pc-widget"),
+      value: {},
+    });
+
+    expect(discordFields.find((field) => field.key === "serverId")).toMatchObject({
+      input: "async-select",
+      dynamicOptions: { source: "discord.guilds" },
+    });
+    expect(hermesFields.find((field) => field.key === "agentId")).toMatchObject({
+      input: "async-select",
+      dynamicOptions: { source: "hermes.agents" },
+    });
+  });
+
   it("uses the dashboard widget grid dimensions for preview canvases", () => {
     expect(resolveWidgetPreviewCanvasSize({ width: 2, height: 1 })).toEqual({
       width: 492,

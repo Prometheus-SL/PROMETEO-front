@@ -11,10 +11,16 @@ const loaderMocks = vi.hoisted(() => ({
   loadModulesIndex: vi.fn<() => Promise<ModulesIndexEntry[]>>(),
   loadModuleDefinition: vi.fn(),
 }));
+const dynamicOptionMocks = vi.hoisted(() => ({
+  loadDynamicOptions: vi.fn(),
+}));
 
 vi.mock("../src/modules/loader", () => ({
   loadModulesIndex: loaderMocks.loadModulesIndex,
   loadModuleDefinition: loaderMocks.loadModuleDefinition,
+}));
+vi.mock("../src/modules/config/dynamic-options", () => ({
+  loadDynamicOptions: dynamicOptionMocks.loadDynamicOptions,
 }));
 
 import { ModuleConfigModal } from "../src/modules/ui/ModuleConfigModal";
@@ -68,6 +74,11 @@ function setInputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+function setSelectValue(select: HTMLSelectElement, value: string) {
+  select.value = value;
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 function clickButton(label: string) {
   const button = Array.from(document.querySelectorAll("button")).find((item) =>
     item.textContent?.includes(label),
@@ -89,6 +100,11 @@ describe("ModuleConfigModal", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    dynamicOptionMocks.loadDynamicOptions.mockResolvedValue({
+      status: "ready",
+      options: [],
+      missingDependencies: [],
+    });
     container = document.createElement("div");
     document.body.appendChild(container);
   });
@@ -204,6 +220,51 @@ describe("ModuleConfigModal", () => {
       },
       undefined,
     );
+  });
+
+  it("loads discovered provider options and saves the selected ID", async () => {
+    const meta = createMeta("discord-widget", "Discord Widget");
+    const schema = z.object({
+      serverId: z.string().min(1).default(""),
+    });
+    const onSave = vi.fn();
+
+    dynamicOptionMocks.loadDynamicOptions.mockResolvedValueOnce({
+      status: "ready",
+      options: [
+        {
+          value: "guild-1",
+          label: "Prometeo Lab",
+          description: "Admin - Bot installed",
+          badge: "Ready",
+        },
+      ],
+      missingDependencies: [],
+    });
+
+    await renderModal({ meta, schema, onSave });
+
+    expect(dynamicOptionMocks.loadDynamicOptions).toHaveBeenCalledWith(
+      expect.objectContaining({ source: "discord.guilds" }),
+      expect.any(Object),
+      expect.any(Object),
+    );
+    expect(document.body.textContent).toContain("Prometeo Lab");
+
+    const select = document.querySelector(
+      "select[id$='serverId']",
+    ) as HTMLSelectElement | null;
+    expect(select).not.toBeNull();
+
+    await act(async () => {
+      setSelectValue(select!, "guild-1");
+    });
+
+    await act(async () => {
+      clickButton("Save");
+    });
+
+    expect(onSave).toHaveBeenCalledWith({ serverId: "guild-1" }, undefined);
   });
 
   it("switches preview modes without saving draft config", async () => {

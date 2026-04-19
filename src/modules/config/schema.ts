@@ -17,8 +17,10 @@ export {
   hasExplicitFieldDefinition,
 } from "./definitions";
 export type {
+  ModuleConfigDynamicOptions,
   ModuleConfigFieldDefinition,
   ModuleConfigInput,
+  ModuleConfigOption,
   ModuleConfigUiDefinition,
   ResolvedModuleConfigField,
   WidgetPreviewMode,
@@ -248,6 +250,7 @@ export function resolveConfigFields({
       max,
       step,
       options,
+      dynamicOptions: definition?.dynamicOptions,
     };
   });
 }
