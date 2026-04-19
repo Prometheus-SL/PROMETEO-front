@@ -13,11 +13,11 @@ import {
   SpotifyArtwork,
   SpotifyConnectState,
   SpotifyTransportControls,
+  SpotifyWebPlaybackActivationButton,
 } from "./widget-ui";
 
 export default function SpotifyWidgetCompact({
   config,
-  onConfigChange: _onConfigChange,
 }: {
   config: Record<string, unknown>;
   onConfigChange?: (config: Record<string, unknown>) => void;
@@ -32,6 +32,7 @@ export default function SpotifyWidgetCompact({
     skipPrevious,
     toggleShuffle,
     toggleRepeat,
+    webPlayback,
   } = useSpotifyState(config);
   const location = useLocation();
 
@@ -113,18 +114,28 @@ export default function SpotifyWidgetCompact({
             />
           </div>
 
-          <SpotifyTransportControls
-            compact
-            canControl={Boolean(track)}
-            isPlaying={Boolean(playbackState?.is_playing)}
-            shuffleEnabled={playbackState?.shuffle_state}
-            repeatState={playbackState?.repeat_state}
-            onToggleShuffle={toggleShuffle}
-            onPrevious={skipPrevious}
-            onTogglePlay={playPause}
-            onNext={skipNext}
-            onToggleRepeat={toggleRepeat}
-          />
+          <div className="flex items-center gap-1">
+            <SpotifyWebPlaybackActivationButton
+              activationRequired={webPlayback.activationRequired}
+              deviceId={webPlayback.deviceId}
+              error={webPlayback.error}
+              status={webPlayback.status}
+              onActivate={webPlayback.activate}
+              className="h-8 w-8"
+            />
+            <SpotifyTransportControls
+              compact
+              canControl={Boolean(track)}
+              isPlaying={Boolean(playbackState?.is_playing)}
+              shuffleEnabled={playbackState?.shuffle_state}
+              repeatState={playbackState?.repeat_state}
+              onToggleShuffle={toggleShuffle}
+              onPrevious={skipPrevious}
+              onTogglePlay={playPause}
+              onNext={skipNext}
+              onToggleRepeat={toggleRepeat}
+            />
+          </div>
         </WidgetSection>
       </WidgetContent>
     </WidgetShell>

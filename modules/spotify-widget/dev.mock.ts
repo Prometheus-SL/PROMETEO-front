@@ -16,7 +16,7 @@ const spotifyMockStateSchema = z.object({
     displayName: "Demo",
     avatarUrl: null,
     connectedAt: "2026-04-14T08:00:00.000Z",
-    scopes: ["user-read-playback-state", "user-modify-playback-state"],
+    scopes: ["streaming", "user-read-playback-state", "user-modify-playback-state"],
     lastError: null,
     product: "premium",
     externalUrl: "https://open.spotify.com/user/demo",
@@ -183,6 +183,40 @@ function buildHandlers(state: SpotifyMockState) {
     ),
     http.get(createModuleDevBackendUrl("/api/v1/integrations/spotify/player/queue"), () =>
       createModuleDevSuccessResponse({ queue: live.queue }),
+    ),
+    http.get(
+      createModuleDevBackendUrl("/api/v1/integrations/spotify/player/web-token"),
+      () =>
+        createModuleDevSuccessResponse({
+          accessToken: "spotify-dev-web-token",
+          expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
+          scopes: live.account.scopes ?? [],
+        }),
+    ),
+    http.put(
+      createModuleDevBackendUrl("/api/v1/integrations/spotify/player/transfer"),
+      async ({ request }) => {
+        const payload = (await request.json()) as {
+          deviceId?: string;
+          play?: boolean;
+        };
+        const pb = getPlayback();
+
+        if (pb?.device && payload.deviceId) {
+          setPlayback({
+            ...pb,
+            is_playing: payload.play !== false,
+            device: {
+              ...pb.device,
+              id: payload.deviceId,
+              name: "PROMETEO Web Player",
+              type: "Computer",
+            },
+          });
+        }
+
+        return createModuleDevSuccessResponse({});
+      },
     ),
     http.put(createModuleDevBackendUrl("/api/v1/integrations/spotify/player/pause"), () => {
       const pb = getPlayback();

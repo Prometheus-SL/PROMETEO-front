@@ -1,4 +1,5 @@
 import {
+  Loader2,
   Monitor,
   Music2,
   Pause,
@@ -28,6 +29,7 @@ import {
   WidgetStatus,
 } from "@/modules/ui/WidgetShell";
 import { cn } from "@/lib/utils";
+import type { SpotifyWebPlaybackStatus } from "./spotify-web-playback";
 
 type SpotifyTransportControlsProps = {
   canControl: boolean;
@@ -65,6 +67,15 @@ type SpotifyVolumeControlProps = {
   heightClassName?: string;
   sliderClassName?: string;
   onVolumeChange: (volumePercent: number) => void | Promise<void>;
+};
+
+type SpotifyWebPlaybackActivationButtonProps = {
+  activationRequired?: boolean;
+  deviceId?: string | null;
+  error?: string | null;
+  status?: SpotifyWebPlaybackStatus;
+  className?: string;
+  onActivate: () => void | Promise<void>;
 };
 
 function clampSpotifyValue(value: number, min: number, max: number) {
@@ -195,6 +206,63 @@ function SpotifyVolumeControl({
         {draftVolume}%
       </span>
     </div>
+  );
+}
+
+function SpotifyWebPlaybackActivationButton({
+  activationRequired,
+  className,
+  deviceId,
+  error,
+  status = "idle",
+  onActivate,
+}: SpotifyWebPlaybackActivationButtonProps) {
+  const isTransferring = status === "transferring";
+  const isLoading = status === "loading";
+  const isActive = status === "active";
+  const needsActivation = activationRequired || status === "activation_required";
+  const label = needsActivation
+    ? "Enable browser audio"
+    : isActive
+    ? "Browser audio active"
+    : isTransferring
+    ? "Switching to this browser"
+    : isLoading
+    ? "Preparing browser audio"
+    : status === "error" && error
+    ? `Retry browser audio: ${error}`
+    : deviceId
+    ? "Play on this browser"
+    : "Prepare browser audio";
+
+  return (
+    <Button
+      type="button"
+      variant={isActive ? "default" : "outline"}
+      size="icon-sm"
+      className={cn(
+        "rounded-xl",
+        isActive &&
+          "border-emerald-500/30 bg-emerald-500 text-white hover:bg-emerald-500/90",
+        needsActivation &&
+          "border-amber-500/35 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15 dark:text-amber-200",
+        !isActive &&
+          !needsActivation &&
+          "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/15",
+        isTransferring && "cursor-wait",
+        className,
+      )}
+      disabled={isTransferring}
+      onClick={() => void onActivate()}
+      title={label}
+      aria-label={label}
+    >
+      {isLoading || isTransferring ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : (
+        <Speaker className="size-4" />
+      )}
+    </Button>
   );
 }
 
@@ -408,5 +476,6 @@ export {
   SpotifyConnectState,
   SpotifyTransportControls,
   SpotifyVolumeControl,
+  SpotifyWebPlaybackActivationButton,
   SpotifyDeviceStatus,
 };

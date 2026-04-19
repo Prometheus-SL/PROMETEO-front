@@ -13,6 +13,7 @@ import {
   type SpotifyQueueItem,
 } from "./spotify-service";
 import { getSpotifyQueueAdvanceSteps } from "./queue-controls";
+import { useSpotifyWebPlayback } from "./spotify-web-playback";
 
 type SpotifyAuthState = Pick<
   LinkedSpotifyAccount,
@@ -137,6 +138,7 @@ export function useSpotifyState(_config: Record<string, unknown>) {
     null
   );
   const pendingVolumeRef = React.useRef<number | null>(null);
+  const lastWebPlaybackRefreshRef = React.useRef<string | null>(null);
   const [isTransitioning, setIsTransitioning] = React.useState(false);
   const [state, setState] = React.useState<SpotifyState>({ ...globalSpotifyState });
 
@@ -228,6 +230,8 @@ export function useSpotifyState(_config: Record<string, unknown>) {
       handleSpotifyError(error, "Could not load Spotify queue.");
     }
   }, [handleSpotifyError]);
+
+  const webPlayback = useSpotifyWebPlayback(state.auth.isAuthenticated);
 
   const runAndRefresh = React.useCallback(
     async (
@@ -462,6 +466,26 @@ export function useSpotifyState(_config: Record<string, unknown>) {
   }, [fetchPlaybackState, state.auth.isAuthenticated, state.playbackState?.is_playing]);
 
   React.useEffect(() => {
+    if (webPlayback.status !== "active" || !webPlayback.deviceId) return;
+    if (lastWebPlaybackRefreshRef.current === webPlayback.deviceId) return;
+
+    lastWebPlaybackRefreshRef.current = webPlayback.deviceId;
+    updateGlobalState({ error: null });
+    void fetchPlaybackState();
+    void fetchQueue();
+  }, [
+    fetchPlaybackState,
+    fetchQueue,
+    webPlayback.deviceId,
+    webPlayback.status,
+  ]);
+
+  React.useEffect(() => {
+    if (webPlayback.status !== "error" || !webPlayback.error) return;
+    updateGlobalState({ error: webPlayback.error });
+  }, [webPlayback.error, webPlayback.status]);
+
+  React.useEffect(() => {
     const currentTrackId = state.playbackState?.item?.id;
     const previousTrackId = previousTrackIdRef.current;
 
@@ -645,6 +669,7 @@ export function useSpotifyState(_config: Record<string, unknown>) {
     fetchQueue,
     advanceToQueueIndex,
     playTrack,
+    webPlayback,
     refreshStatus: loadSpotifyStatus,
   };
 }

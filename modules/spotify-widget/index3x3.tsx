@@ -19,6 +19,7 @@ import {
   SpotifyArtwork,
   SpotifyTransportControls,
   SpotifyVolumeControl,
+  SpotifyWebPlaybackActivationButton,
 } from "./widget-ui";
 
 function SpotifyQueueConnectState({
@@ -166,6 +167,7 @@ export default function SpotifyWidgetQueue({
     setVolumeLevel,
     fetchQueue,
     advanceToQueueIndex,
+    webPlayback,
   } = useSpotifyState(config);
   const location = useLocation();
 
@@ -287,13 +289,23 @@ export default function SpotifyWidgetQueue({
             accent="emerald"
             className="flex min-h-0 flex-col overflow-hidden p-0"
           >
-            <div className="flex items-center justify-between gap-2 border-b border-border/50 px-3 py-1.5">
+            <div className="flex items-center justify-between gap-2 border-b border-border/50 px-3 py-2">
               <div>
                 <p className="text-sm font-semibold">Queue</p>
               </div>
-              <WidgetStatus tone="neutral" className="h-5 px-2 text-[10px]">
-                {queue.length} tracks
-              </WidgetStatus>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <WidgetStatus tone="neutral" className="h-5 px-2 text-[10px]">
+                  {queue.length} tracks
+                </WidgetStatus>
+                <SpotifyWebPlaybackActivationButton
+                  activationRequired={webPlayback.activationRequired}
+                  deviceId={webPlayback.deviceId}
+                  error={webPlayback.error}
+                  status={webPlayback.status}
+                  onActivate={webPlayback.activate}
+                  className="h-7 w-7 rounded-lg"
+                />
+              </div>
             </div>
 
             {queue.length ? (

@@ -15,6 +15,7 @@ import {
   SpotifyConnectState,
   SpotifyTransportControls,
   SpotifyVolumeControl,
+  SpotifyWebPlaybackActivationButton,
 } from "./widget-ui";
 
 export default function SpotifyWidget({
@@ -36,6 +37,7 @@ export default function SpotifyWidget({
     toggleRepeat,
     seekToPosition,
     setVolumeLevel,
+    webPlayback,
   } = useSpotifyState(config);
   const location = useLocation();
 
@@ -144,12 +146,21 @@ export default function SpotifyWidget({
                 onToggleRepeat={toggleRepeat}
               />
 
-              <SpotifyVolumeControl
-                volume={volume}
-                onVolumeChange={setVolumeLevel}
-                disabled={!track}
-                className="w-44"
-              />
+              <div className="flex items-center gap-2">
+                <SpotifyWebPlaybackActivationButton
+                  activationRequired={webPlayback.activationRequired}
+                  deviceId={webPlayback.deviceId}
+                  error={webPlayback.error}
+                  status={webPlayback.status}
+                  onActivate={webPlayback.activate}
+                />
+                <SpotifyVolumeControl
+                  volume={volume}
+                  onVolumeChange={setVolumeLevel}
+                  disabled={!track}
+                  className="w-44"
+                />
+              </div>
             </div>
           </div>
         </WidgetSection>
