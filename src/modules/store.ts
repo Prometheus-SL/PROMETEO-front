@@ -40,7 +40,7 @@ export function useMarketplaceStore() {
                     const current = active ?? pages[0] ?? null
                     const resolvedMetas = await Promise.all(
                         index.map(async (e) => {
-                            if (e.meta.preview || !e.importers.preview) return e.meta
+                            if (!e.importers.preview) return e.meta
                             try {
                                 const url = await e.importers.preview()
                                 return { ...e.meta, preview: url as string }

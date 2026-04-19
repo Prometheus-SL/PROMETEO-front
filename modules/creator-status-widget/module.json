@@ -11,7 +11,7 @@
     "requiredProviders": [],
     "requiredRole": null,
     "capabilities": ["creator", "live"],
-    "preview": "/modules/creator-status-widget/preview.png"
+    "preview": "./preview.png"
   },
   {
     "id": "creator-status-widget-compact",
@@ -25,6 +25,6 @@
     "requiredProviders": [],
     "requiredRole": null,
     "capabilities": ["creator", "live"],
-    "preview": "/modules/creator-status-widget/preview-compact.png"
+    "preview": "./preview-compact.png"
   }
 ]
