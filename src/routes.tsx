@@ -21,6 +21,7 @@ const AgentsPage = lazy(() => import("./pages/admin/AgentsPage"));
 const MarketplacePage = lazy(() => import("./pages/MarketplacePage"));
 const DashboardsPage = lazy(() => import("./pages/DashboardsPage"));
 const ClientDashboardsPage = lazy(() => import("./pages/ClientDashboardsPage"));
+const BotDiscordPage = lazy(() => import("./pages/BotDiscordPage"));
 
 function RouteFallback() {
   return (
@@ -92,6 +93,11 @@ export function createAppRoutes(isDev = import.meta.env.DEV) {
           routes: [{ title: "Marketplace", url: "/marketplace" }],
           adminOnly: false,
         },
+        {
+          title: "Discord",
+          routes: [{ title: "Bot discord", url: "/discord/bot" }],
+          adminOnly: false,
+        },
       ],
       children: [
         {
@@ -123,6 +129,11 @@ export function createAppRoutes(isDev = import.meta.env.DEV) {
           path: "/admin/agents",
           element: lazyElement(AgentsPage),
           handle: { title: "Agents" },
+        },
+        {
+          path: "/discord/bot",
+          element: lazyElement(BotDiscordPage),
+          handle: { title: "Bot discord" },
         },
       ],
     },

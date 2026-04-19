@@ -1,4 +1,4 @@
-import { HttpResponse, http } from "msw";
+﻿import { HttpResponse, http } from "msw";
 import { z } from "zod";
 
 import {
@@ -9,7 +9,7 @@ import {
 import type {
   DiscordBotStatus,
   DiscordChannel,
-  DiscordEpicNotifications,
+  DiscordEpicNotificationConfig,
   DiscordGuildInfo,
   DiscordMember,
   DiscordVoiceMember,
@@ -40,10 +40,10 @@ const memberSchema = z.object({
   status: z.enum(["online", "idle", "dnd", "offline"]),
 });
 
-const epicNotificationsSchema = z.object({
-  enabled: z.boolean(),
+const epicNotificationConfigSchema = z.object({
+  guildId: z.string(),
   channelId: z.string().nullable(),
-  guildId: z.string().nullable(),
+  enabled: z.boolean(),
   lastNotifiedAt: z.string().nullable(),
   lastError: z.string().nullable(),
 });
@@ -168,13 +168,14 @@ const discordMockStateSchema = z.object({
       status: "offline",
     },
   ]),
-  epicNotifications: epicNotificationsSchema.default({
-    enabled: false,
-    channelId: null,
-    guildId: null,
-    lastNotifiedAt: null,
-    lastError: null,
-  }),
+  epicNotifications: z.array(epicNotificationConfigSchema).default([]),
+  permissions: z
+    .object({
+      isAdmin: z.boolean(),
+      isOwner: z.boolean(),
+      hasLinkedDiscord: z.boolean(),
+    })
+    .default({ isAdmin: true, isOwner: false, hasLinkedDiscord: true }),
   inviteUrl: z
     .string()
     .default(
@@ -191,7 +192,8 @@ function buildHandlers(state: DiscordMockState) {
     guilds: state.guilds as DiscordBotStatus["guilds"],
     channels: state.channels as DiscordChannel[],
     members: state.members as DiscordMember[],
-    epicNotifications: state.epicNotifications as DiscordEpicNotifications,
+    epicNotifications: state.epicNotifications as DiscordEpicNotificationConfig[],
+    permissions: state.permissions,
     inviteUrl: state.inviteUrl,
   };
 
@@ -274,33 +276,54 @@ function buildHandlers(state: DiscordMockState) {
         });
       },
     ),
+    http.get(
+      createModuleDevBackendUrl("/api/v1/discord/guilds/:guildId/me/permissions"),
+      ({ params }) => {
+        const guild = live.guilds.find((item) => item.id === params.guildId);
+        if (!guild) {
+          return HttpResponse.json(
+            { success: false, message: "El bot no está en ese servidor" },
+            { status: 404 },
+          );
+        }
+        return createModuleDevSuccessResponse(live.permissions);
+      },
+    ),
+    http.get(createModuleDevBackendUrl("/api/v1/discord/my-guilds"), () =>
+      createModuleDevSuccessResponse({
+        needsLink: false,
+        needsReauth: false,
+        guilds: live.guilds.map((g) => ({
+          id: g.id,
+          name: g.name,
+          icon: g.icon,
+          isAdmin: live.permissions.isAdmin,
+          isOwner: live.permissions.isOwner,
+          hasLinkedDiscord: live.permissions.hasLinkedDiscord,
+          botPresent: true,
+        })),
+      }),
+    ),
     http.get(createModuleDevBackendUrl("/api/v1/discord/notifications/epic"), () =>
-      createModuleDevSuccessResponse(live.epicNotifications),
+      createModuleDevSuccessResponse({ configs: live.epicNotifications }),
     ),
     http.post(
       createModuleDevBackendUrl("/api/v1/discord/notifications/epic"),
       async ({ request }) => {
         const payload = (await request.json()) as {
-          enabled?: boolean;
-          channelId?: string | null;
-          guildId?: string | null;
+          configs?: Array<{ guildId: string; channelId: string | null; enabled: boolean }>;
         };
-
-        live.epicNotifications = {
-          ...live.epicNotifications,
-          enabled: payload.enabled ?? live.epicNotifications.enabled,
-          channelId:
-            payload.channelId !== undefined
-              ? payload.channelId
-              : live.epicNotifications.channelId,
-          guildId:
-            payload.guildId !== undefined
-              ? payload.guildId
-              : live.epicNotifications.guildId,
-        };
+        const incoming = Array.isArray(payload.configs) ? payload.configs : [];
+        live.epicNotifications = incoming.map((c) => ({
+          guildId: c.guildId,
+          channelId: c.channelId ?? null,
+          enabled: Boolean(c.enabled),
+          lastNotifiedAt: null,
+          lastError: null,
+        }));
 
         return createModuleDevSuccessResponse({
-          state: live.epicNotifications,
+          configs: live.epicNotifications,
           warning: null,
         });
       },

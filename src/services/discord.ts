@@ -47,16 +47,88 @@ export type DiscordGuildInfo = {
     members: DiscordMember[];
 };
 
-export type DiscordEpicNotifications = {
-    enabled: boolean;
+export type DiscordPermissions = {
+    isAdmin: boolean;
+    isOwner: boolean;
+    hasLinkedDiscord: boolean;
+};
+
+export type DiscordManagedGuild = {
+    id: string;
+    name: string;
+    icon: string | null;
+    isAdmin: boolean;
+    isOwner: boolean;
+    hasLinkedDiscord: boolean;
+    botPresent: boolean;
+};
+
+export type DiscordMyGuildsResponse = {
+    needsLink: boolean;
+    needsReauth: boolean;
+    guilds: DiscordManagedGuild[];
+};
+
+export type DiscordEpicNotificationConfig = {
+    guildId: string;
     channelId: string | null;
-    guildId: string | null;
+    enabled: boolean;
+    lastNotifiedAt: string | null;
+    lastError: string | null;
+    updatedBy?: string | null;
+    updatedAt?: string | null;
+};
+
+export type DiscordEpicNotificationsState = {
+    configs: DiscordEpicNotificationConfig[];
+    needsLink?: boolean;
+    needsReauth?: boolean;
+};
+
+export type DiscordEpicNotificationsUpdatePayload = {
+    configs: Array<{ guildId: string; channelId: string | null; enabled: boolean }>;
+};
+
+export type DiscordEpicNotificationsUpdateResult = {
+    configs: DiscordEpicNotificationConfig[];
+    warning: string | null;
+};
+
+export type DiscordSteamGame = { appId: number; name: string };
+
+export type DiscordGameUpdateSubscription = {
+    appId: number;
+    name: string;
     lastNotifiedAt: string | null;
     lastError: string | null;
 };
 
-export type DiscordEpicNotificationsUpdateResult = {
-    state: DiscordEpicNotifications;
+export type DiscordGameUpdatesConfig = {
+    guildId: string;
+    channelId: string | null;
+    enabled: boolean;
+    subscriptions: DiscordGameUpdateSubscription[];
+    updatedBy?: string | null;
+    updatedAt?: string | null;
+};
+
+export type DiscordGameUpdatesState = {
+    configs: DiscordGameUpdatesConfig[];
+    needsLink?: boolean;
+    needsReauth?: boolean;
+};
+
+export type DiscordGameUpdatesUpdatePayload = {
+    configs: Array<{
+        guildId: string;
+        channelId: string | null;
+        enabled: boolean;
+        subscriptions: Array<{ appId: number }>;
+    }>;
+};
+
+export type DiscordGameUpdatesUpdateResult = {
+    configs: DiscordGameUpdatesConfig[];
     warning: string | null;
 };
 
@@ -83,16 +155,42 @@ export const discordService = {
             { mute }
         );
     },
-    async getEpicNotifications(): Promise<DiscordEpicNotifications> {
-        return api.getData<DiscordEpicNotifications>("/api/v1/discord/notifications/epic");
+    async getMyPermissions(guildId: string): Promise<DiscordPermissions> {
+        return api.getData<DiscordPermissions>(
+            `/api/v1/discord/guilds/${encodeURIComponent(guildId)}/me/permissions`,
+        );
     },
-    async setEpicNotifications(payload: {
-        enabled: boolean;
-        channelId: string | null;
-        guildId: string | null;
-    }): Promise<DiscordEpicNotificationsUpdateResult> {
+    async getMyGuilds(): Promise<DiscordMyGuildsResponse> {
+        return api.getData<DiscordMyGuildsResponse>("/api/v1/discord/my-guilds");
+    },
+    async getEpicNotifications(): Promise<DiscordEpicNotificationsState> {
+        return api.getData<DiscordEpicNotificationsState>("/api/v1/discord/notifications/epic");
+    },
+    async setEpicNotifications(
+        payload: DiscordEpicNotificationsUpdatePayload,
+    ): Promise<DiscordEpicNotificationsUpdateResult> {
         return api.postData<DiscordEpicNotificationsUpdateResult>(
             "/api/v1/discord/notifications/epic",
+            payload,
+        );
+    },
+    async searchGames(query: string, limit = 20): Promise<DiscordSteamGame[]> {
+        const trimmed = query.trim();
+        if (trimmed.length < 2) return [];
+        const params = new URLSearchParams({ q: trimmed, limit: String(limit) });
+        const data = await api.getData<{ results: DiscordSteamGame[] }>(
+            `/api/v1/discord/games/search?${params.toString()}`,
+        );
+        return Array.isArray(data.results) ? data.results : [];
+    },
+    async getGameUpdates(): Promise<DiscordGameUpdatesState> {
+        return api.getData<DiscordGameUpdatesState>("/api/v1/discord/notifications/game-updates");
+    },
+    async setGameUpdates(
+        payload: DiscordGameUpdatesUpdatePayload,
+    ): Promise<DiscordGameUpdatesUpdateResult> {
+        return api.postData<DiscordGameUpdatesUpdateResult>(
+            "/api/v1/discord/notifications/game-updates",
             payload,
         );
     },

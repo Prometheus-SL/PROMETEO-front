@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   Circle,
   ExternalLink,
@@ -9,7 +9,6 @@ import {
   MicOff,
   MonitorPlay,
   RefreshCcw,
-  Users,
   Video,
   Volume2,
   WifiOff,
@@ -30,7 +29,7 @@ import {
 import {
   discordService,
   type DiscordGuildInfo,
-  type DiscordEpicNotifications,
+  type DiscordPermissions,
 } from "@/services/discord"
 import { accountService } from "@/services/account"
 
@@ -58,9 +57,10 @@ export default function DiscordWidget({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [linkedDiscordId, setLinkedDiscordId] = useState<string | null>(null)
-  const [, setEpicNotifications] = useState<DiscordEpicNotifications | null>(null)
-  const [initialSyncLoaded, setInitialSyncLoaded] = useState(false)
-  const lastSyncedRef = useRef<{ enabled: boolean; channelId: string; guildId: string } | null>(null)
+  const [permissions, setPermissions] = useState<DiscordPermissions | null>(null)
+  const canModerate = Boolean(
+    permissions && (permissions.isAdmin || permissions.isOwner),
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -81,68 +81,6 @@ export default function DiscordWidget({
     }
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const state = await discordService.getEpicNotifications()
-        if (cancelled) return
-        setEpicNotifications(state)
-        lastSyncedRef.current = {
-          enabled: state.enabled,
-          channelId: state.channelId ?? "",
-          guildId: state.guildId ?? "",
-        }
-        setInitialSyncLoaded(true)
-      } catch {
-        if (cancelled) return
-        setEpicNotifications(null)
-        lastSyncedRef.current = { enabled: false, channelId: "", guildId: "" }
-        setInitialSyncLoaded(true)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
-    const enabled = Boolean(config["epicNotificationsEnabled"])
-    const channelId = String(config["epicNotificationChannelId"] ?? "")
-    const guildId = serverId
-
-    if (!initialSyncLoaded || !lastSyncedRef.current) return
-
-    const previous = lastSyncedRef.current
-    if (
-      previous.enabled === enabled &&
-      previous.channelId === channelId &&
-      previous.guildId === guildId
-    ) {
-      return
-    }
-
-    if (enabled && (!channelId || !guildId)) return
-
-    lastSyncedRef.current = { enabled, channelId, guildId }
-    void (async () => {
-      try {
-        const result = await discordService.setEpicNotifications({
-          enabled,
-          channelId: channelId || null,
-          guildId: guildId || null,
-        })
-        setEpicNotifications(result.state)
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "No se pudieron guardar las notificaciones",
-        )
-      }
-    })()
-  }, [config, serverId, initialSyncLoaded])
-
   const fetchStatus = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -151,7 +89,7 @@ export default function DiscordWidget({
       setBotConnected(status.connected)
       return status.connected
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error de conexión")
+      setError(err instanceof Error ? err.message : "Connection error")
       setBotConnected(false)
       return false
     } finally {
@@ -169,7 +107,7 @@ export default function DiscordWidget({
         setError(null)
       } catch (err) {
         setGuildInfo(null)
-        setError(err instanceof Error ? err.message : "Error obteniendo servidor")
+        setError(err instanceof Error ? err.message : "Error fetching server")
       }
     },
     [serverId],
@@ -187,6 +125,25 @@ export default function DiscordWidget({
       cancelled = true
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!serverId || botConnected !== true) {
+      setPermissions(null)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const perms = await discordService.getMyPermissions(serverId)
+        if (!cancelled) setPermissions(perms)
+      } catch {
+        if (!cancelled) setPermissions(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [serverId, botConnected])
 
   useEffect(() => {
     if (!serverId || botConnected !== true) return
@@ -219,7 +176,7 @@ export default function DiscordWidget({
         await discordService.disconnectVoiceMember(serverId, userId)
         await fetchGuild()
       } catch (err) {
-        setError(err instanceof Error ? err.message : "No se pudo expulsar al miembro")
+        setError(err instanceof Error ? err.message : "Could not disconnect the member")
       }
     },
     [serverId, fetchGuild],
@@ -232,18 +189,10 @@ export default function DiscordWidget({
         await discordService.setVoiceMute(serverId, userId, mute)
         await fetchGuild()
       } catch (err) {
-        setError(err instanceof Error ? err.message : "No se pudo mutear al miembro")
+        setError(err instanceof Error ? err.message : "Could not mute the member")
       }
     },
     [serverId, fetchGuild],
-  )
-
-  const onlineCount = useMemo(
-    () =>
-      guildInfo
-        ? guildInfo.members.filter((m) => m.status !== "offline").length
-        : 0,
-    [guildInfo],
   )
 
   const headerStatus = (() => {
@@ -279,9 +228,6 @@ export default function DiscordWidget({
     <MessagesSquare className="size-5" />
   )
   const headerTitle = guildInfo?.name ?? "Discord"
-  const headerDescription = guildInfo
-    ? `${guildInfo.channels.length} canales`
-    : "Servicio de comunidad"
 
   return (
     <WidgetShell accent={ACCENT}>
@@ -289,15 +235,7 @@ export default function DiscordWidget({
         accent={ACCENT}
         icon={headerIcon}
         title={headerTitle}
-        description={headerDescription}
         status={headerStatus}
-        meta={
-          guildInfo ? (
-            <WidgetStatus tone="info" icon={<Users className="size-3" />}>
-              {onlineCount} online
-            </WidgetStatus>
-          ) : null
-        }
         actions={
           <Button
             type="button"
@@ -306,7 +244,7 @@ export default function DiscordWidget({
             className="h-8 w-8 rounded-lg bg-background/80"
             onClick={handleRefresh}
             disabled={loading}
-            title="Refrescar"
+            title="Refresh"
           >
             <RefreshCcw className={cn("size-4", loading && "animate-spin")} />
           </Button>
@@ -321,6 +259,7 @@ export default function DiscordWidget({
           guildInfo,
           serverId,
           linkedDiscordId,
+          canModerate,
           onInvite: handleInvite,
           onRetry: handleRefresh,
           onDisconnectVoice: handleDisconnectVoice,
@@ -338,6 +277,7 @@ function renderBody({
   guildInfo,
   serverId,
   linkedDiscordId,
+  canModerate,
   onInvite,
   onRetry,
   onDisconnectVoice,
@@ -349,6 +289,7 @@ function renderBody({
   guildInfo: DiscordGuildInfo | null
   serverId: string
   linkedDiscordId: string | null
+  canModerate: boolean
   onInvite: () => void
   onRetry: () => void
   onDisconnectVoice: (userId: string) => void
@@ -363,8 +304,8 @@ function renderBody({
       <WidgetState
         accent={ACCENT}
         icon={<MessagesSquare className="size-5" />}
-        title="Bot no conectado"
-        message="Añade el bot a un servidor para empezar a usar Discord."
+        title="Bot not connected"
+        message="Add the bot to a server to start using Discord."
         action={
           <Button
             type="button"
@@ -373,7 +314,7 @@ function renderBody({
             onClick={onInvite}
           >
             <ExternalLink className="size-3.5" />
-            Añadir bot
+            Add bot
           </Button>
         }
       />
@@ -385,8 +326,8 @@ function renderBody({
       <WidgetState
         accent={ACCENT}
         icon={<MessagesSquare className="size-5" />}
-        title="Sin servidor"
-        message="Configura un serverId para mostrar tu servidor de Discord."
+        title="No server"
+        message="Set a serverId to display your Discord server."
         action={
           <Button
             type="button"
@@ -395,7 +336,7 @@ function renderBody({
             onClick={onInvite}
           >
             <ExternalLink className="size-3.5" />
-            Añadir a servidor
+            Add to server
           </Button>
         }
       />
@@ -403,7 +344,7 @@ function renderBody({
   }
 
   if (error && !guildInfo) {
-    const notInGuild = /servidor/i.test(error)
+    const notInGuild = /servidor|server/i.test(error)
     return (
       <WidgetState
         accent={notInGuild ? ACCENT : "rose"}
@@ -415,10 +356,10 @@ function renderBody({
             <WifiOff className="size-5" />
           )
         }
-        title={notInGuild ? "Bot no está en el servidor" : "No se pudo conectar"}
+        title={notInGuild ? "Bot is not in the server" : "Could not connect"}
         message={
           notInGuild
-            ? "Vuelve a invitar al bot para seguir viendo este servidor."
+            ? "Re-invite the bot to keep viewing this server."
             : error
         }
         action={
@@ -431,7 +372,7 @@ function renderBody({
                 onClick={onInvite}
               >
                 <ExternalLink className="size-3.5" />
-                Reinvitar
+                Reinvite
               </Button>
             ) : null}
             <Button
@@ -442,7 +383,7 @@ function renderBody({
               onClick={onRetry}
             >
               <RefreshCcw className="size-3.5" />
-              Reintentar
+              Retry
             </Button>
           </div>
         }
@@ -459,6 +400,7 @@ function renderBody({
       <ChannelList
         guild={guildInfo}
         linkedDiscordId={linkedDiscordId}
+        canModerate={canModerate}
         onDisconnectVoice={onDisconnectVoice}
         onToggleMute={onToggleMute}
       />
@@ -470,10 +412,10 @@ function renderBody({
 function YouBadge() {
   return (
     <span
-      title="Tu cuenta vinculada"
+      title="Your linked account"
       className="inline-flex shrink-0 items-center rounded bg-violet-500/20 px-1 py-[1px] text-[8px] font-bold uppercase tracking-wider text-violet-500"
     >
-      Tú
+      You
     </span>
   )
 }
@@ -481,11 +423,13 @@ function YouBadge() {
 function ChannelList({
   guild,
   linkedDiscordId,
+  canModerate,
   onDisconnectVoice,
   onToggleMute,
 }: {
   guild: DiscordGuildInfo
   linkedDiscordId: string | null
+  canModerate: boolean
   onDisconnectVoice: (userId: string) => void
   onToggleMute: (userId: string, mute: boolean) => void
 }) {
@@ -500,13 +444,13 @@ function ChannelList({
   return (
     <WidgetSection accent={ACCENT} className="flex min-h-0 flex-col p-0">
       <p className="border-b border-violet-500/15 px-2.5 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        En voz · {activeVoiceChannels.length}
+        In voice · {activeVoiceChannels.length}
       </p>
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-1 p-1.5">
           {activeVoiceChannels.length === 0 ? (
             <p className="px-2 py-6 text-center text-[11px] text-muted-foreground">
-              Nadie está conectado a voz
+              Nobody is in voice
             </p>
           ) : null}
           {activeVoiceChannels.map((ch) => {
@@ -544,17 +488,17 @@ function ChannelList({
                             <div className="flex items-center gap-1">
                               {m.streaming ? (
                                 <span
-                                  title="En directo"
+                                  title="Live"
                                   className="flex shrink-0 items-center gap-0.5 rounded bg-rose-500/15 px-1 py-[1px] text-[8px] font-semibold uppercase tracking-wider text-rose-500"
                                 >
                                   <MonitorPlay className="size-2.5" />
-                                  Directo
+                                  Live
                                 </span>
                               ) : null}
                               {m.video ? (
                                 <Video
                                   className="size-3 shrink-0 text-emerald-500"
-                                  aria-label="Cámara activa"
+                                  aria-label="Camera on"
                                 />
                               ) : null}
                               {m.deafened ? (
@@ -562,31 +506,35 @@ function ChannelList({
                               ) : null}
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => onToggleMute(m.id, !m.muted)}
-                            aria-label={m.muted ? "Desmutear" : "Mutear"}
-                            className={cn(
-                              "grid size-9 shrink-0 place-items-center rounded-lg border transition-colors active:scale-95",
-                              m.muted
-                                ? "border-rose-500/30 bg-rose-500/15 text-rose-500"
-                                : "border-violet-500/20 bg-background/60 text-muted-foreground hover:bg-violet-500/15 hover:text-foreground",
-                            )}
-                          >
-                            {m.muted ? (
-                              <MicOff className="size-4" />
-                            ) : (
-                              <Mic className="size-4" />
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onDisconnectVoice(m.id)}
-                            aria-label="Expulsar del canal de voz"
-                            className="grid size-9 shrink-0 place-items-center rounded-lg border border-rose-500/25 bg-rose-500/10 text-rose-500 transition-colors hover:bg-rose-500/20 active:scale-95"
-                          >
-                            <LogOut className="size-4" />
-                          </button>
+                          {canModerate ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => onToggleMute(m.id, !m.muted)}
+                                aria-label={m.muted ? "Unmute" : "Mute"}
+                                className={cn(
+                                  "grid size-9 shrink-0 place-items-center rounded-lg border transition-colors active:scale-95",
+                                  m.muted
+                                    ? "border-rose-500/30 bg-rose-500/15 text-rose-500"
+                                    : "border-violet-500/20 bg-background/60 text-muted-foreground hover:bg-violet-500/15 hover:text-foreground",
+                                )}
+                              >
+                                {m.muted ? (
+                                  <MicOff className="size-4" />
+                                ) : (
+                                  <Mic className="size-4" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onDisconnectVoice(m.id)}
+                                aria-label="Disconnect from voice channel"
+                                className="grid size-9 shrink-0 place-items-center rounded-lg border border-rose-500/25 bg-rose-500/10 text-rose-500 transition-colors hover:bg-rose-500/20 active:scale-95"
+                              >
+                                <LogOut className="size-4" />
+                              </button>
+                            </>
+                          ) : null}
                         </div>
                       ))}
                     </div>
@@ -619,7 +567,7 @@ function MemberList({
   return (
     <WidgetSection accent={ACCENT} className="flex min-h-0 flex-col p-0">
       <p className="border-b border-violet-500/15 px-2.5 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        Conectados · {activeMembers.length}
+        Online · {activeMembers.length}
       </p>
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-1 p-1.5">
