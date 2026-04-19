@@ -10,7 +10,8 @@
     "audience": "dashboard",
     "requiredProviders": ["github"],
     "requiredRole": null,
-    "capabilities": ["github", "notifications"]
+    "capabilities": ["github", "notifications"],
+    "preview": "./preview.png"
   },
   {
     "id": "github-pulse-widget-compact",
@@ -23,6 +24,7 @@
     "audience": "dashboard",
     "requiredProviders": ["github"],
     "requiredRole": null,
-    "capabilities": ["github", "notifications"]
+    "capabilities": ["github", "notifications"],
+    "preview": "./preview-compact.png"
   }
 ]
