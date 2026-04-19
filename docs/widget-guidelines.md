@@ -9,7 +9,11 @@ Widgets in `PROMETEO-front/modules` should feel like one product family:
 - Based on `shadcn` primitives
 - Consistent before decorative
 
-Use [`WidgetShell`](../src/modules/ui/WidgetShell.tsx) as the default frame for new modules.
+These guidelines are shared defaults, not a rigid design checklist. Use them to keep the module ecosystem coherent while still leaving room for modules with stronger personality or more specialized behavior.
+
+Use `WidgetShell` as the default frame for new modules.
+
+In practice, many current widgets import it through [`modules/_shared/prometeo-widget-kit.tsx`](../modules/_shared/prometeo-widget-kit.tsx), and that is still a good default for new modules.
 
 ## Preferred Building Blocks
 

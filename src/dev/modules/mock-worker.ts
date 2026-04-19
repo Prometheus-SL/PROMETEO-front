@@ -10,6 +10,10 @@ export type MockLayerState = {
 const INITIAL_NO_ADAPTER: MockLayerState = { ready: true, error: null };
 const INITIAL_LOADING: MockLayerState = { ready: false, error: null };
 
+function toErrorMessage(error: unknown) {
+    return error instanceof Error ? error.message : String(error);
+}
+
 export function useModuleDevMocks(
     adapter: ModuleDevMockAdapter | null,
     adapterState: Record<string, unknown>,
@@ -18,47 +22,90 @@ export function useModuleDevMocks(
         adapter ? INITIAL_LOADING : INITIAL_NO_ADAPTER,
     );
 
-    const adapterRef = useRef(adapter);
-    const stateRef = useRef(adapterState);
+    const activeAdapterRef = useRef<ModuleDevMockAdapter | null>(null);
+    const requestIdRef = useRef(0);
+    const readyRef = useRef(false);
+    const mountedRef = useRef(true);
+    const queueRef = useRef(Promise.resolve());
 
     useEffect(() => {
-        adapterRef.current = adapter;
-    }, [adapter]);
+        mountedRef.current = true;
+
+        return () => {
+            mountedRef.current = false;
+            const adapterToCleanup = activeAdapterRef.current;
+            queueRef.current = queueRef.current
+                .then(async () => {
+                    await adapterToCleanup?.cleanup?.();
+                })
+                .catch(() => undefined);
+        };
+    }, []);
 
     useEffect(() => {
-        stateRef.current = adapterState;
-    }, [adapterState]);
+        const previousAdapter = activeAdapterRef.current;
+        const adapterChanged = previousAdapter !== adapter;
+        const requestId = ++requestIdRef.current;
 
-    useEffect(() => {
         if (!adapter) {
+            readyRef.current = false;
+            activeAdapterRef.current = null;
             setLayer(INITIAL_NO_ADAPTER);
+
+            queueRef.current = queueRef.current
+                .then(async () => {
+                    await previousAdapter?.cleanup?.();
+                })
+                .catch(() => undefined);
             return;
         }
 
-        let cancelled = false;
+        const shouldShowLoading = adapterChanged || !readyRef.current;
+        activeAdapterRef.current = adapter;
 
-        setLayer(INITIAL_LOADING);
+        if (shouldShowLoading) {
+            setLayer(INITIAL_LOADING);
+        }
 
-        void (async () => {
-            try {
-                await adapter.apply(adapterState);
-                if (!cancelled) {
+        queueRef.current = queueRef.current
+            .then(async () => {
+                try {
+                    if (adapterChanged) {
+                        await previousAdapter?.cleanup?.();
+                    } else {
+                        await adapter.cleanup?.();
+                    }
+
+                    if (!mountedRef.current) {
+                        return;
+                    }
+
+                    await adapter.apply(adapterState);
+
+                    if (!mountedRef.current) {
+                        return;
+                    }
+
+                    if (requestId !== requestIdRef.current) {
+                        await adapter.cleanup?.();
+                        return;
+                    }
+
+                    readyRef.current = true;
                     setLayer({ ready: true, error: null });
-                }
-            } catch (error) {
-                if (!cancelled) {
+                } catch (error) {
+                    if (!mountedRef.current || requestId !== requestIdRef.current) {
+                        return;
+                    }
+
+                    readyRef.current = false;
                     setLayer({
                         ready: false,
-                        error: error instanceof Error ? error.message : String(error),
+                        error: toErrorMessage(error),
                     });
                 }
-            }
-        })();
-
-        return () => {
-            cancelled = true;
-            void adapter.cleanup?.();
-        };
+            })
+            .catch(() => undefined);
     }, [adapter, adapterState]);
 
     return layer;

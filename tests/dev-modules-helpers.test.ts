@@ -96,4 +96,17 @@ describe("dev modules helpers", () => {
       mode: "auto",
     });
   });
+
+  it("does not invent placeholder values for required fields without defaults", () => {
+    const schema = z.object({
+      city: z.string().default("Madrid"),
+      apiKey: z.string().min(1),
+      units: z.enum(["metric", "imperial"]).default("metric"),
+    });
+
+    expect(resolveConfigDefaults(schema)).toEqual({
+      city: "Madrid",
+      units: "metric",
+    });
+  });
 });

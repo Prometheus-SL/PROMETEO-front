@@ -71,76 +71,10 @@ export function listPresetOptions(
   }));
 }
 
-function unwrapField(field: z.ZodTypeAny): z.ZodTypeAny {
-  let current = field;
-
-  for (let index = 0; index < 10; index += 1) {
-    const ZodCatchCtor = Reflect.get(z, "ZodCatch");
-    const ZodEffectsCtor = Reflect.get(z, "ZodEffects");
-
-    if (
-      current instanceof z.ZodDefault ||
-      current instanceof z.ZodOptional ||
-      current instanceof z.ZodNullable ||
-      (typeof ZodCatchCtor === "function" && current instanceof ZodCatchCtor)
-    ) {
-      const definition = Reflect.get(current, "_def") as unknown as
-        | { innerType?: z.ZodTypeAny }
-        | undefined;
-      if (!definition?.innerType) {
-        break;
-      }
-      current = definition.innerType;
-      continue;
-    }
-
-    if (typeof ZodEffectsCtor === "function" && current instanceof ZodEffectsCtor) {
-      const definition = Reflect.get(current, "_def") as unknown as
-        | { schema?: z.ZodTypeAny }
-        | undefined;
-      if (!definition?.schema) {
-        break;
-      }
-      current = definition.schema;
-      continue;
-    }
-
-    break;
-  }
-
-  return current;
-}
-
 function resolveFieldDefault(field: z.ZodTypeAny): unknown {
   const parsed = field.safeParse(undefined);
   if (parsed.success && parsed.data !== undefined) {
     return parsed.data;
-  }
-
-  const base = unwrapField(field);
-
-  if (base instanceof z.ZodString) {
-    return "";
-  }
-
-  if (base instanceof z.ZodNumber) {
-    return 0;
-  }
-
-  if (base instanceof z.ZodBoolean) {
-    return false;
-  }
-
-  if (base instanceof z.ZodEnum) {
-    return base.options[0] ?? "";
-  }
-
-  if (base instanceof z.ZodArray) {
-    return [];
-  }
-
-  if (base instanceof z.ZodObject) {
-    return resolveConfigDefaults(base);
   }
 
   return undefined;

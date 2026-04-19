@@ -1,4 +1,5 @@
 import type { ModuleDevMockAdapter } from "@/dev/modules/types";
+import { z } from "zod";
 
 import type {
     HermesAgent,
@@ -124,7 +125,31 @@ const DEFAULT_HERMES_STATE: HermesMockState = {
     commandResults: [],
 };
 
-// State is not schema-validated; the adapter uses a static default instead.
+const hermesRecordSchema = z.record(z.string(), z.unknown());
+const hermesAgentSchema = hermesRecordSchema as unknown as z.ZodType<HermesAgent>;
+const hermesSnapshotSchema =
+    hermesRecordSchema as unknown as z.ZodType<HermesSnapshot>;
+const hermesMediaSnapshotSchema =
+    hermesRecordSchema as unknown as z.ZodType<HermesMediaSnapshot>;
+const hermesCommandResultSchema =
+    hermesRecordSchema as unknown as z.ZodType<HermesCommandResult>;
+
+const hermesMockStateSchema = z.object({
+    agents: z.array(hermesAgentSchema).default(
+        cloneValue(DEFAULT_HERMES_STATE.agents),
+    ),
+    systemByAgentId: z.record(
+        z.string(),
+        hermesSnapshotSchema,
+    ).default(cloneValue(DEFAULT_HERMES_STATE.systemByAgentId)),
+    mediaByAgentId: z.record(
+        z.string(),
+        hermesMediaSnapshotSchema,
+    ).default(cloneValue(DEFAULT_HERMES_STATE.mediaByAgentId)),
+    commandResults: z.array(hermesCommandResultSchema).default(
+        cloneValue(DEFAULT_HERMES_STATE.commandResults),
+    ),
+}) as unknown as z.ZodType<HermesMockState>;
 
 function applyWindowState(state: HermesMockState) {
     if (typeof window === "undefined") {
@@ -144,10 +169,12 @@ function cleanupWindowState() {
 }
 
 const adapter: ModuleDevMockAdapter<HermesMockState> = {
-    createInitialState: () => cloneValue(DEFAULT_HERMES_STATE),
+    stateSchema: hermesMockStateSchema,
+
+    createInitialState: () => hermesMockStateSchema.parse({}),
 
     apply(state) {
-        applyWindowState(state as HermesMockState);
+        applyWindowState(state);
     },
 
     cleanup() {

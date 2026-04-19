@@ -24,6 +24,8 @@ const previewGlobs = import.meta.glob<string>("/modules/*/preview.*", {
 let modulesIndexPromise: Promise<ModulesIndexEntry[]> | null = null;
 const moduleDefinitionCache = new Map<string, ModuleDefinition>();
 const moduleDefinitionPromises = new Map<string, Promise<ModuleDefinition>>();
+const moduleConfigSchemaCache = new Map<string, unknown>();
+const moduleConfigSchemaPromises = new Map<string, Promise<unknown>>();
 
 function dirname(path: string) {
   const idx = path.lastIndexOf("/");
@@ -141,14 +143,7 @@ export async function loadModuleDefinition(
       );
     }
 
-    let configSchema: unknown | undefined;
-    if (entry.importers.config) {
-      const cfg = (await entry.importers.config()) as
-        | Record<string, unknown>
-        | unknown;
-      const cfgObject = cfg as Record<string, unknown>;
-      configSchema = (cfgObject && (cfgObject.default ?? cfgObject.schema)) ?? cfg;
-    }
+    const configSchema = await loadModuleConfigSchema(entry);
 
     const definition = { Component, configSchema };
     moduleDefinitionCache.set(cacheKey, definition);
@@ -158,5 +153,39 @@ export async function loadModuleDefinition(
   });
 
   moduleDefinitionPromises.set(cacheKey, promise);
+  return promise;
+}
+
+export async function loadModuleConfigSchema(
+  entry: ModulesIndexEntry
+): Promise<unknown | undefined> {
+  const cacheKey = entry.meta.id;
+
+  if (moduleConfigSchemaCache.has(cacheKey)) {
+    return moduleConfigSchemaCache.get(cacheKey);
+  }
+
+  const pending = moduleConfigSchemaPromises.get(cacheKey);
+  if (pending) {
+    return pending;
+  }
+
+  const promise = (async () => {
+    if (!entry.importers.config) {
+      moduleConfigSchemaCache.set(cacheKey, undefined);
+      return undefined;
+    }
+
+    const cfg = (await entry.importers.config()) as Record<string, unknown> | unknown;
+    const cfgObject = cfg as Record<string, unknown> | null;
+    const configSchema = (cfgObject && (cfgObject.default ?? cfgObject.schema)) ?? cfg;
+
+    moduleConfigSchemaCache.set(cacheKey, configSchema);
+    return configSchema;
+  })().finally(() => {
+    moduleConfigSchemaPromises.delete(cacheKey);
+  });
+
+  moduleConfigSchemaPromises.set(cacheKey, promise);
   return promise;
 }

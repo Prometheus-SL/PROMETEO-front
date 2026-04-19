@@ -1,4 +1,5 @@
 import {
+  loadModuleConfigSchema,
   loadModuleDefinition,
   loadModulesIndex,
 } from "@/modules/loader";
@@ -9,9 +10,12 @@ import {
   getPresetsForEntry,
   resolveConfigDefaults,
 } from "./helpers";
+import { loadSharedMockAdapter } from "./mock-registry";
+import { resolveModuleDevSandbox } from "./sandbox";
 import type {
   ModuleDevDefinition,
   ModuleDevMockAdapter,
+  ModuleDevMockAdapterSource,
   ModuleDevPreset,
 } from "./types";
 
@@ -21,6 +25,8 @@ export type ModuleDevCatalogItem = {
   defaultPreset: ModuleDevPreset;
   presets: ModuleDevPreset[];
   hasMockAdapter: boolean;
+  mockAdapterKey: string | null;
+  mockAdapterSource: ModuleDevMockAdapterSource;
 };
 
 export type ModuleDevRuntimeEntry = {
@@ -100,14 +106,14 @@ function validateExplicitDefinition(
 async function buildAutoPreset(
   entry: ModulesIndexEntry,
 ): Promise<ModuleDevPreset> {
-  const module = await loadModuleDefinition(entry);
+  const configSchema = await loadModuleConfigSchema(entry);
 
   return {
     entryId: entry.meta.id,
     id: "auto",
     name: "Auto",
     auto: true,
-    config: resolveConfigDefaults(module.configSchema),
+    config: resolveConfigDefaults(configSchema),
   };
 }
 
@@ -119,33 +125,39 @@ async function buildDefinitionForBasePath(
   validateExplicitDefinition(basePath, explicitDefinition, entries);
 
   const presets = [...(explicitDefinition?.presets ?? [])];
-
-  for (const entry of entries) {
-    const alreadyHasAutoPreset = presets.some(
+  const missingAutoPresetEntries = entries.filter((entry) => {
+    return !presets.some(
       (preset) => preset.entryId === entry.meta.id && preset.id === "auto",
     );
-    if (alreadyHasAutoPreset) {
-      continue;
-    }
+  });
 
-    presets.push(await buildAutoPreset(entry));
-  }
+  presets.push(...(await Promise.all(missingAutoPresetEntries.map(buildAutoPreset))));
 
-  return { presets };
+  return {
+    presets,
+    sandbox: explicitDefinition?.sandbox,
+  };
 }
 
-function hasMockAdapter(basePath: string) {
+function hasLocalMockAdapter(basePath: string) {
   return Boolean(mockAdapterModules[`${basePath}/dev.mock.ts`]);
 }
 
 export async function loadModuleDevMockAdapter(basePath: string) {
   const loader = mockAdapterModules[`${basePath}/dev.mock.ts`];
-  if (!loader) {
+  if (loader) {
+    const loaded = await loader();
+    return loaded.default ?? null;
+  }
+
+  const catalog = await loadModuleDevCatalog();
+  const item = catalog.find((candidate) => candidate.entry.basePath === basePath);
+
+  if (!item?.mockAdapterKey || item.mockAdapterSource !== "shared") {
     return null;
   }
 
-  const loaded = await loader();
-  return loaded.default ?? null;
+  return loadSharedMockAdapter(item.mockAdapterKey);
 }
 
 export async function loadModuleDevCatalog(): Promise<ModuleDevCatalogItem[]> {
@@ -164,17 +176,32 @@ export async function loadModuleDevCatalog(): Promise<ModuleDevCatalogItem[]> {
     }
 
     const definitionsByBasePath = new Map<string, ModuleDevDefinition>();
+    const sandboxByBasePath = new Map<
+      string,
+      ReturnType<typeof resolveModuleDevSandbox>
+    >();
     for (const [basePath, entries] of entriesByBasePath) {
-      definitionsByBasePath.set(
+      const definition = await buildDefinitionForBasePath(basePath, entries);
+      definitionsByBasePath.set(basePath, definition);
+      sandboxByBasePath.set(
         basePath,
-        await buildDefinitionForBasePath(basePath, entries),
+        resolveModuleDevSandbox(
+          basePath,
+          entries,
+          definition,
+          hasLocalMockAdapter(basePath),
+        ),
       );
     }
 
     return modules.map((entry) => {
       const definition = definitionsByBasePath.get(entry.basePath);
+      const sandbox = sandboxByBasePath.get(entry.basePath);
       if (!definition) {
         throw new Error(`Missing dev definition for "${entry.basePath}".`);
+      }
+      if (!sandbox) {
+        throw new Error(`Missing dev sandbox resolution for "${entry.basePath}".`);
       }
 
       return {
@@ -182,7 +209,9 @@ export async function loadModuleDevCatalog(): Promise<ModuleDevCatalogItem[]> {
         definition,
         defaultPreset: getDefaultPreset(definition, entry.meta.id),
         presets: getPresetsForEntry(definition, entry.meta.id),
-        hasMockAdapter: hasMockAdapter(entry.basePath),
+        hasMockAdapter: sandbox.hasMockAdapter,
+        mockAdapterKey: sandbox.mockAdapterKey,
+        mockAdapterSource: sandbox.mockAdapterSource,
       };
     });
   })().catch((error) => {

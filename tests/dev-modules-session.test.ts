@@ -10,10 +10,8 @@ describe("dev modules session", () => {
     expect(createDefaultModuleDevSession("spotify-widget")).toEqual({
       selectedEntryId: "spotify-widget",
       presetId: null,
-      surface: "dashboard",
-      theme: "system",
       role: "admin",
-      canvasMode: "fit",
+      theme: "system",
       persist: true,
       configTextByEntry: {},
       sharedTextByEntry: {},
@@ -27,10 +25,8 @@ describe("dev modules session", () => {
       JSON.stringify({
         selectedEntryId: "wled-controller",
         presetId: "device-online",
-        surface: "ops",
         theme: "dark",
         role: "operator",
-        canvasMode: "actual",
         configTextByEntry: {
           "wled-controller": '{"deviceIp":"192.168.1.55"}',
         },
@@ -40,10 +36,8 @@ describe("dev modules session", () => {
 
     expect(session.selectedEntryId).toBe("wled-controller");
     expect(session.presetId).toBe("device-online");
-    expect(session.surface).toBe("ops");
     expect(session.theme).toBe("dark");
-    expect(session.role).toBe("operator");
-    expect(session.canvasMode).toBe("actual");
+    expect(session.role).toBe("admin");
     expect(session.configTextByEntry["wled-controller"]).toContain(
       "192.168.1.55",
     );
@@ -53,5 +47,21 @@ describe("dev modules session", () => {
     expect(restoreModuleDevSession("not-json", "weather-widget")).toEqual(
       createDefaultModuleDevSession("weather-widget"),
     );
+  });
+
+  it("ignores legacy session fields that are no longer used by the page", () => {
+    const session = restoreModuleDevSession(
+      JSON.stringify({
+        selectedEntryId: "spotify-widget",
+        surface: "ops",
+        canvasMode: "actual",
+        role: "user",
+      }),
+      "spotify-widget",
+    );
+
+    expect("surface" in session).toBe(false);
+    expect("canvasMode" in session).toBe(false);
+    expect(session.role).toBe("user");
   });
 });

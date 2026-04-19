@@ -1,73 +1,65 @@
-# React + TypeScript + Vite
+# PROMETEO Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The frontend is a React + TypeScript + Vite application that powers the PROMETEO dashboard, module runtime, and development surfaces.
 
-Currently, two official plugins are available:
+## Requirements
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Node.js `^22.19.0`
+- npm
 
-## React Compiler
+## Getting Started
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The app starts with Vite. For a LAN-accessible dev server, use:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+npm run dev:host
+```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Common Commands
+
+```bash
+npm run dev
+npm run build
+npm run test
+npm run lint
+```
+
+## Project Areas
+
+- `src/`: application shell, routes, shared UI, services, and runtime code
+- `modules/`: marketplace modules and shared module utilities
+- `docs/`: authoring notes, templates, and UI guidance
+
+## Module Authoring
+
+Modules live in `modules/<module-id>/`.
+
+The fastest way to start a new module is to copy the example template in:
+
+- [docs/module-template/README.md](./docs/module-template/README.md)
+
+That template is intentionally presented as one example starting point, not the only valid long-term structure. As the module ecosystem grows, additional examples and more specialized templates can be added alongside it.
+
+For contribution guidance, see:
+
+- [CONTRIBUTING.md](./CONTRIBUTING.md)
+- [docs/widget-guidelines.md](./docs/widget-guidelines.md)
+
+## Development Notes
+
+- Use `/dev/modules` to preview modules in isolation while iterating on configuration, layout, and local development behavior.
+- Keep module UI compact and dashboard-aware. The current visual guidance lives in [`docs/widget-guidelines.md`](./docs/widget-guidelines.md).
+
+## Desktop Shell
+
+The repository also includes a desktop shell workspace. Useful commands:
+
+```bash
+npm run desktop:start
+npm run desktop:dev
 ```

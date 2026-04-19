@@ -1,31 +1,20 @@
 import type {
-  ModuleDevCanvasMode,
   ModuleDevSession,
-  ModuleDevSurface,
   ModuleDevTheme,
 } from "./types";
 
 export const MODULE_DEV_SESSION_STORAGE_KEY = "prometeo-dev-modules-session";
 
-function isSurface(value: unknown): value is ModuleDevSurface {
-  return value === "dashboard" || value === "client" || value === "ops";
-}
-
 function isTheme(value: unknown): value is ModuleDevTheme {
   return value === "light" || value === "dark" || value === "system";
 }
 
-function isCanvasMode(value: unknown): value is ModuleDevCanvasMode {
-  return value === "fit" || value === "actual";
+function isRole(value: unknown): value is ModuleDevSession["role"] {
+  return value === "user" || value === "admin";
 }
 
-function isRole(value: unknown): value is ModuleDevSession["role"] {
-  return (
-    value === "viewer" ||
-    value === "user" ||
-    value === "operator" ||
-    value === "admin"
-  );
+function normalizeRole(value: unknown): ModuleDevSession["role"] {
+  return isRole(value) ? value : "admin";
 }
 
 function asStringRecord(value: unknown): Record<string, string> {
@@ -46,10 +35,8 @@ export function createDefaultModuleDevSession(
   return {
     selectedEntryId,
     presetId: null,
-    surface: "dashboard",
     theme: "system",
     role: "admin",
-    canvasMode: "fit",
     persist: true,
     configTextByEntry: {},
     sharedTextByEntry: {},
@@ -77,12 +64,8 @@ export function restoreModuleDevSession(
           ? parsed.selectedEntryId
           : defaults.selectedEntryId,
       presetId: typeof parsed.presetId === "string" ? parsed.presetId : null,
-      surface: isSurface(parsed.surface) ? parsed.surface : defaults.surface,
       theme: isTheme(parsed.theme) ? parsed.theme : defaults.theme,
-      role: isRole(parsed.role) ? parsed.role : defaults.role,
-      canvasMode: isCanvasMode(parsed.canvasMode)
-        ? parsed.canvasMode
-        : defaults.canvasMode,
+      role: normalizeRole(parsed.role),
       persist:
         typeof parsed.persist === "boolean" ? parsed.persist : defaults.persist,
       configTextByEntry: asStringRecord(parsed.configTextByEntry),
