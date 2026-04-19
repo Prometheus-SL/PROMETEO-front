@@ -251,7 +251,7 @@ export default function BotDiscordPage() {
                 setLoadError(
                     err instanceof Error
                         ? err.message
-                        : "No se pudo cargar la configuración",
+                        : "Failed to load configuration",
                 );
             } finally {
                 if (!cancelled) setLoading(false);
@@ -304,7 +304,7 @@ export default function BotDiscordPage() {
                 [guildId]: {
                     loading: false,
                     channels: null,
-                    error: err instanceof Error ? err.message : "No se pudieron cargar los canales",
+                    error: err instanceof Error ? err.message : "Failed to load channels",
                 },
             }));
         }
@@ -344,7 +344,7 @@ export default function BotDiscordPage() {
 
         const missingChannel = configs.find((c) => c.enabled && !c.channelId);
         if (missingChannel) {
-            toast.error("Selecciona un canal para cada servidor activo");
+            toast.error("Select a channel for each enabled server");
             return;
         }
 
@@ -356,7 +356,7 @@ export default function BotDiscordPage() {
         }));
         const guMissingChannel = guConfigs.find((c) => c.enabled && !c.channelId);
         if (guMissingChannel) {
-            toast.error("Selecciona un canal para las actualizaciones de juegos en cada servidor activo");
+            toast.error("Select a channel for game updates in each enabled server");
             return;
         }
 
@@ -375,12 +375,12 @@ export default function BotDiscordPage() {
 
             if (epicWarning) toast.warning(epicWarning);
             if (guResult.warning) toast.warning(guResult.warning);
-            if (!epicWarning && !guResult.warning) toast.success("Configuración guardada");
+            if (!epicWarning && !guResult.warning) toast.success("Configuration saved");
         } catch (err) {
             toast.error(
                 err instanceof Error
                     ? err.message
-                    : "No se pudo guardar la configuración",
+                    : "Failed to save configuration",
             );
         } finally {
             setSaving(false);
@@ -400,16 +400,16 @@ export default function BotDiscordPage() {
     return (
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
             <header className="flex flex-col gap-1">
-                <h1 className="text-2xl font-semibold tracking-tight">Notificaciones</h1>
+                <h1 className="text-2xl font-semibold tracking-tight">Notifications</h1>
                 <p className="text-sm text-muted-foreground">
-                    Configura las notificaciones que el bot envía a tus servidores de Discord.
+                    Configure the notifications the bot sends to your Discord servers.
                 </p>
             </header>
 
             {loading ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="size-4 animate-spin" />
-                    Cargando…
+                    Loading…
                 </div>
             ) : loadError ? (
                 <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
@@ -420,7 +420,7 @@ export default function BotDiscordPage() {
                     {needsLink ? (
                         <Card>
                             <CardContent className="p-6 text-sm">
-                                Vincula tu cuenta de Discord en Ajustes para configurar notificaciones.
+                                Link your Discord account in Settings to configure notifications.
                             </CardContent>
                         </Card>
                     ) : needsReauth ? (
@@ -428,37 +428,37 @@ export default function BotDiscordPage() {
                             <CardContent className="flex flex-col gap-3 p-6 text-sm">
                                 <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
                                     <AlertTriangle className="size-4" />
-                                    Permisos insuficientes
+                                    Insufficient permissions
                                 </div>
                                 <p className="text-muted-foreground">
-                                    Para listar los servidores donde eres administrador o propietario,
-                                    vuelve a vincular tu cuenta de Discord concediendo el permiso de
-                                    acceso a tus servidores.
+                                    To list the servers where you are administrator or owner,
+                                    relink your Discord account and grant permission to access
+                                    your servers.
                                 </p>
                             </CardContent>
                         </Card>
                     ) : guilds.length === 0 ? (
                         <Card>
                             <CardContent className="p-6 text-sm text-muted-foreground">
-                                No hemos encontrado servidores donde seas administrador o propietario.
+                                We couldn't find any servers where you are administrator or owner.
                             </CardContent>
                         </Card>
                     ) : (
                         <>
                             <NotificationSection
-                                title="Juegos"
+                                title="Games"
                                 icon={Gamepad2}
-                                description="Avisos sobre Epic, Steam y otras tiendas."
+                                description="Alerts about Epic, Steam and other stores."
                                 defaultOpen
                             >
                                 <Card>
                                     <CardHeader>
                                         <CardTitle className="flex items-center gap-2">
                                             <MessagesSquare className="size-4" />
-                                            Juegos gratis · Epic
+                                            Free Games · Epic
                                         </CardTitle>
                                         <CardDescription>
-                                            Aviso cuando Epic regala un juego. Activa cada servidor y elige un canal.
+                                            Alerts when Epic gives away a game. Enable each server and pick a channel.
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="flex flex-col gap-2">
@@ -480,10 +480,10 @@ export default function BotDiscordPage() {
                                     <CardHeader>
                                         <CardTitle className="flex items-center gap-2">
                                             <Gamepad2 className="size-4" />
-                                            Actualizaciones · Steam
+                                            Updates · Steam
                                         </CardTitle>
                                         <CardDescription>
-                                            Aviso cuando salen parches o notas de actualización de los juegos que suscribas.
+                                            Alerts when patches or update notes ship for the games you subscribe to.
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="flex flex-col gap-2">
@@ -512,13 +512,13 @@ export default function BotDiscordPage() {
                                 </Card>
                             </NotificationSection>
                             <NotificationSection
-                                title="Música"
+                                title="Music"
                                 icon={Music2}
-                                description="Reproducción de música del bot en tus canales de voz."
+                                description="Bot music playback in your voice channels."
                             >
                                 <Card>
                                     <CardContent className="p-6 text-sm text-muted-foreground">
-                                        Próximamente: el bot podrá reproducir música de Spotify en tus canales de voz.
+                                        Coming soon: the bot will play Spotify music in your voice channels.
                                     </CardContent>
                                 </Card>
                             </NotificationSection>
@@ -536,7 +536,7 @@ export default function BotDiscordPage() {
                             ) : (
                                 <Save className="size-4" />
                             )}
-                            Guardar cambios
+                            Save changes
                         </Button>
                     </div>
                 </>
@@ -545,17 +545,17 @@ export default function BotDiscordPage() {
             <AlertDialog open={showLeaveDialog}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>¿Salir sin guardar?</AlertDialogTitle>
+                        <AlertDialogTitle>Leave without saving?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Tienes cambios sin guardar. Si sales ahora, se perderán.
+                            You have unsaved changes. If you leave now, they will be lost.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={handleCancelLeave}>
-                            Seguir editando
+                            Keep editing
                         </AlertDialogCancel>
                         <AlertDialogAction onClick={handleConfirmLeave}>
-                            Salir sin guardar
+                            Leave without saving
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -581,12 +581,12 @@ function GuildIdentity({ guild }: { guild: DiscordManagedGuild }) {
                     {guild.isOwner ? (
                         <Crown
                             className="size-3.5 shrink-0 text-amber-500"
-                            aria-label="Propietario"
+                            aria-label="Owner"
                         />
                     ) : guild.isAdmin ? (
                         <Shield
                             className="size-3.5 shrink-0 text-emerald-500"
-                            aria-label="Administrador"
+                            aria-label="Administrator"
                         />
                     ) : null}
                     <span className="truncate font-medium">{guild.name}</span>
@@ -595,12 +595,12 @@ function GuildIdentity({ guild }: { guild: DiscordManagedGuild }) {
                     {guild.botPresent ? (
                         <>
                             <Bot className="size-3" />
-                            Bot presente
+                            Bot connected
                         </>
                     ) : (
                         <>
                             <AlertTriangle className="size-3 text-amber-500" />
-                            Bot no instalado
+                            Bot not installed
                         </>
                     )}
                 </div>
@@ -614,7 +614,7 @@ function InviteBotButton({ url }: { url: string }) {
         <Button type="button" size="sm" variant="outline" asChild className="shrink-0">
             <a href={url} target="_blank" rel="noreferrer">
                 <ExternalLink className="size-3.5" />
-                Invitar bot
+                Invite bot
             </a>
         </Button>
     );
@@ -650,7 +650,7 @@ function EpicGuildRow({
                         checked={entry.enabled}
                         disabled={!canEnable}
                         onCheckedChange={onToggle}
-                        aria-label={`Activar notificaciones de Epic en ${guild.name}`}
+                        aria-label={`Enable Epic notifications in ${guild.name}`}
                     />
                 </div>
             </div>
@@ -660,7 +660,7 @@ function EpicGuildRow({
                         htmlFor={`epic-channel-${guild.id}`}
                         className="text-xs text-muted-foreground sm:shrink-0"
                     >
-                        Canal
+                        Channel
                     </Label>
                     <div className="flex-1">
                         <Select
@@ -672,8 +672,8 @@ function EpicGuildRow({
                                 <SelectValue
                                     placeholder={
                                         channelsState?.loading
-                                            ? "Cargando canales…"
-                                            : "Selecciona un canal"
+                                            ? "Loading channels…"
+                                            : "Select a channel"
                                     }
                                 />
                             </SelectTrigger>
@@ -745,7 +745,7 @@ function SteamGuildRow({ guild, channels, entry, inviteUrl, onChange, disabled }
                         checked={entry.enabled}
                         onCheckedChange={(v) => onChange({ ...entry, enabled: Boolean(v) })}
                         disabled={disabled}
-                        aria-label={`Activar actualizaciones de Steam en ${guild.name}`}
+                        aria-label={`Enable Steam updates in ${guild.name}`}
                     />
                 </div>
             </div>
@@ -757,7 +757,7 @@ function SteamGuildRow({ guild, channels, entry, inviteUrl, onChange, disabled }
                             htmlFor={`gu-channel-${guild.id}`}
                             className="text-xs text-muted-foreground sm:shrink-0"
                         >
-                            Canal
+                            Channel
                         </Label>
                         <Select
                             value={entry.channelId || undefined}
@@ -765,7 +765,7 @@ function SteamGuildRow({ guild, channels, entry, inviteUrl, onChange, disabled }
                             disabled={disabled}
                         >
                             <SelectTrigger id={`gu-channel-${guild.id}`} className="w-full sm:max-w-xs">
-                                <SelectValue placeholder="Selecciona un canal" />
+                                <SelectValue placeholder="Select a channel" />
                             </SelectTrigger>
                             <SelectContent>
                                 {textChannels.map((c) => (
@@ -779,14 +779,14 @@ function SteamGuildRow({ guild, channels, entry, inviteUrl, onChange, disabled }
 
                     <div className="flex flex-col gap-1.5">
                         <Label className="text-xs text-muted-foreground">
-                            Juegos suscritos ({entry.appIds.length}/25)
+                            Subscribed games ({entry.appIds.length}/25)
                         </Label>
                     <Popover open={open} onOpenChange={setOpen} modal={false}>
                         <PopoverAnchor asChild>
                             <div className="relative">
                                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder={maxReached ? "Máximo 25 juegos alcanzado" : "Buscar juegos en Steam..."}
+                                    placeholder={maxReached ? "Reached max of 25 games" : "Search games on Steam..."}
                                     value={query}
                                     onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
                                     onFocus={() => { if (query.trim().length > 0) setOpen(true); }}
@@ -804,12 +804,12 @@ function SteamGuildRow({ guild, channels, entry, inviteUrl, onChange, disabled }
                                 if ((e.target as HTMLElement)?.tagName === "INPUT") e.preventDefault();
                             }}
                         >
-                            {loading && <div className="px-2 py-1.5 text-sm text-muted-foreground">Buscando…</div>}
+                            {loading && <div className="px-2 py-1.5 text-sm text-muted-foreground">Searching…</div>}
                             {!loading && query.trim().length < 2 && (
-                                <div className="px-2 py-1.5 text-sm text-muted-foreground">Escribe al menos 2 caracteres</div>
+                                <div className="px-2 py-1.5 text-sm text-muted-foreground">Type at least 2 characters</div>
                             )}
                             {!loading && query.trim().length >= 2 && results.length === 0 && (
-                                <div className="px-2 py-1.5 text-sm text-muted-foreground">Sin resultados</div>
+                                <div className="px-2 py-1.5 text-sm text-muted-foreground">No results</div>
                             )}
                             {!loading && results.map((g) => {
                                 const already = subscribedSet.has(g.appId);
@@ -821,7 +821,7 @@ function SteamGuildRow({ guild, channels, entry, inviteUrl, onChange, disabled }
                                         disabled={already || maxReached}
                                         onClick={() => addGame(g)}
                                     >
-                                        {g.name}{already && " (ya añadido)"}
+                                        {g.name}{already && " (already added)"}
                                     </button>
                                 );
                             })}
@@ -838,7 +838,7 @@ function SteamGuildRow({ guild, channels, entry, inviteUrl, onChange, disabled }
                                         <span className="min-w-0 break-words">{s.name}</span>
                                         <button
                                             type="button"
-                                            aria-label={`Eliminar ${s.name}`}
+                                            aria-label={`Remove ${s.name}`}
                                             onClick={() => removeGame(s.appId)}
                                             disabled={disabled}
                                             className="mt-0.5 shrink-0 rounded-full outline-none hover:bg-muted-foreground/20"
@@ -875,7 +875,7 @@ function NotificationSection({
         <Collapsible defaultOpen={defaultOpen} className="rounded-lg border bg-card">
             <CollapsibleTrigger
                 className="group flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
-                aria-label={`Mostrar u ocultar la sección ${title}`}
+                aria-label={`Show or hide the ${title} section`}
             >
                 <Icon className="size-5 shrink-0 text-muted-foreground" />
                 <div className="flex flex-1 flex-col min-w-0">

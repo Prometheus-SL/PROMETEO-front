@@ -2,7 +2,7 @@
   {
     "id": "discord-widget",
     "name": "Discord",
-    "description": "Muestra el estado de tu servidor de Discord: miembros conectados, canales de voz activos y actividad reciente.",
+    "description": "Shows the status of your Discord server: connected members, active voice channels and recent activity.",
     "category": "social",
     "size": { "width": 2, "height": 4 },
     "entry": "./index.tsx",
