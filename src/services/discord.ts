@@ -94,6 +94,44 @@ export type DiscordEpicNotificationsUpdateResult = {
     warning: string | null;
 };
 
+export type DiscordSteamGame = { appId: number; name: string };
+
+export type DiscordGameUpdateSubscription = {
+    appId: number;
+    name: string;
+    lastNotifiedAt: string | null;
+    lastError: string | null;
+};
+
+export type DiscordGameUpdatesConfig = {
+    guildId: string;
+    channelId: string | null;
+    enabled: boolean;
+    subscriptions: DiscordGameUpdateSubscription[];
+    updatedBy?: string | null;
+    updatedAt?: string | null;
+};
+
+export type DiscordGameUpdatesState = {
+    configs: DiscordGameUpdatesConfig[];
+    needsLink?: boolean;
+    needsReauth?: boolean;
+};
+
+export type DiscordGameUpdatesUpdatePayload = {
+    configs: Array<{
+        guildId: string;
+        channelId: string | null;
+        enabled: boolean;
+        subscriptions: Array<{ appId: number }>;
+    }>;
+};
+
+export type DiscordGameUpdatesUpdateResult = {
+    configs: DiscordGameUpdatesConfig[];
+    warning: string | null;
+};
+
 export const discordService = {
     async getStatus(): Promise<DiscordBotStatus> {
         return api.getData<DiscordBotStatus>("/api/v1/discord/status");
@@ -133,6 +171,26 @@ export const discordService = {
     ): Promise<DiscordEpicNotificationsUpdateResult> {
         return api.postData<DiscordEpicNotificationsUpdateResult>(
             "/api/v1/discord/notifications/epic",
+            payload,
+        );
+    },
+    async searchGames(query: string, limit = 20): Promise<DiscordSteamGame[]> {
+        const trimmed = query.trim();
+        if (trimmed.length < 2) return [];
+        const params = new URLSearchParams({ q: trimmed, limit: String(limit) });
+        const data = await api.getData<{ results: DiscordSteamGame[] }>(
+            `/api/v1/discord/games/search?${params.toString()}`,
+        );
+        return Array.isArray(data.results) ? data.results : [];
+    },
+    async getGameUpdates(): Promise<DiscordGameUpdatesState> {
+        return api.getData<DiscordGameUpdatesState>("/api/v1/discord/notifications/game-updates");
+    },
+    async setGameUpdates(
+        payload: DiscordGameUpdatesUpdatePayload,
+    ): Promise<DiscordGameUpdatesUpdateResult> {
+        return api.postData<DiscordGameUpdatesUpdateResult>(
+            "/api/v1/discord/notifications/game-updates",
             payload,
         );
     },
