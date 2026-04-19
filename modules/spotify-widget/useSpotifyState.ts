@@ -12,6 +12,7 @@ import {
   type SpotifyPlaybackState,
   type SpotifyQueueItem,
 } from "./spotify-service";
+import { getSpotifyQueueAdvanceSteps } from "./queue-controls";
 
 type SpotifyAuthState = Pick<
   LinkedSpotifyAccount,
@@ -126,6 +127,8 @@ function createAuthState(account?: Partial<LinkedSpotifyAccount> | null): Spotif
 }
 
 export function useSpotifyState(_config: Record<string, unknown>) {
+  void _config;
+
   const { setShared, getShared, registerAction, unregisterAction } =
     useSharedContext();
 
@@ -284,8 +287,22 @@ export function useSpotifyState(_config: Record<string, unknown>) {
   }, [runAndRefresh]);
 
   const toggleShuffle = React.useCallback(async () => {
-    const nextState = !Boolean(globalSpotifyState.playbackState?.shuffle_state);
-    await runAndRefresh(() => spotifyService.shuffle(nextState), { delayMs: 120 });
+    const nextState = !globalSpotifyState.playbackState?.shuffle_state;
+    const playbackState = globalSpotifyState.playbackState;
+
+    if (playbackState) {
+      updateGlobalState({
+        playbackState: {
+          ...playbackState,
+          shuffle_state: nextState,
+        },
+      });
+    }
+
+    await runAndRefresh(() => spotifyService.shuffle(nextState), {
+      delayMs: 250,
+      syncQueue: true,
+    });
   }, [runAndRefresh]);
 
   const toggleRepeat = React.useCallback(async () => {
@@ -302,13 +319,31 @@ export function useSpotifyState(_config: Record<string, unknown>) {
 
   const seekToPosition = React.useCallback(
     async (position: number) => {
+      const playbackState = globalSpotifyState.playbackState;
+      const duration = playbackState?.item?.duration_ms ?? position;
+      const normalized = Math.max(
+        0,
+        Math.min(Math.floor(position), Math.max(0, duration)),
+      );
+
+      if (playbackState) {
+        updateGlobalState({
+          playbackState: {
+            ...playbackState,
+            progress_ms: normalized,
+          },
+        });
+      }
+
       try {
-        await spotifyService.seek(position);
+        await spotifyService.seek(normalized);
+        await wait(120);
+        await fetchPlaybackState();
       } catch (error) {
         handleSpotifyError(error, "Spotify could not update the playback position.");
       }
     },
-    [handleSpotifyError]
+    [fetchPlaybackState, handleSpotifyError]
   );
 
   const setVolumeLevel = React.useCallback(
@@ -349,12 +384,26 @@ export function useSpotifyState(_config: Record<string, unknown>) {
 
   const advanceToQueueIndex = React.useCallback(
     async (targetIndex: number) => {
-      const normalizedIndex = Math.max(0, Math.floor(targetIndex));
-      const queueItem = globalSpotifyState.queue[normalizedIndex];
-      if (!queueItem?.uri) return;
-      await playTrack(queueItem.uri);
+      const steps = getSpotifyQueueAdvanceSteps(
+        globalSpotifyState.queue.length,
+        targetIndex,
+      );
+
+      if (steps === null) return;
+
+      await runAndRefresh(
+        async () => {
+          for (let step = 0; step < steps; step += 1) {
+            await spotifyService.next();
+            if (step < steps - 1) {
+              await wait(140);
+            }
+          }
+        },
+        { delayMs: 350, syncQueue: true },
+      );
     },
-    [playTrack]
+    [runAndRefresh]
   );
 
   React.useEffect(() => {

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Music2, Volume2, VolumeX } from "lucide-react";
+import { Music2 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
   formatSpotifyTime,
   SpotifyArtwork,
   SpotifyTransportControls,
+  SpotifyVolumeControl,
 } from "./widget-ui";
 
 function SpotifyQueueConnectState({
@@ -145,7 +146,6 @@ function SpotifyQueueConnectState({
 
 export default function SpotifyWidgetQueue({
   config,
-  onConfigChange: _onConfigChange,
 }: {
   config: Record<string, unknown>;
   onConfigChange?: (config: Record<string, unknown>) => void;
@@ -271,25 +271,13 @@ export default function SpotifyWidgetQueue({
                     onToggleRepeat={toggleRepeat}
                   />
 
-                  <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-border/60 bg-background/80 px-3 py-2 shadow-sm">
-                    {Math.round(volume) === 0 ? (
-                      <VolumeX className="size-4 text-muted-foreground" />
-                    ) : (
-                      <Volume2 className="size-4 text-muted-foreground" />
-                    )}
-                    <div className="w-28">
-                      <Slider
-                        value={[volume]}
-                        max={100}
-                        step={1}
-                        onValueCommit={([value]) => setVolumeLevel(value)}
-                        disabled={!track}
-                      />
-                    </div>
-                    <span className="w-10 text-right text-xs text-muted-foreground">
-                      {Math.round(volume)}%
-                    </span>
-                  </div>
+                  <SpotifyVolumeControl
+                    volume={volume}
+                    onVolumeChange={setVolumeLevel}
+                    disabled={!track}
+                    className="w-44 rounded-2xl px-3"
+                    heightClassName="h-7"
+                  />
                 </div>
               </div>
             </div>

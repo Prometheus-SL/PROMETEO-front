@@ -148,12 +148,23 @@ const spotifyMockStateSchema = z.object({
 
 type SpotifyMockState = z.infer<typeof spotifyMockStateSchema>;
 
+function shuffleQueuePreview(queue: SpotifyQueueItem[]) {
+  if (queue.length < 2) return queue;
+
+  const oddItems = queue.filter((_, index) => index % 2 === 1);
+  const evenItems = queue.filter((_, index) => index % 2 === 0);
+  return [...oddItems, ...evenItems];
+}
+
 function buildHandlers(state: SpotifyMockState) {
   const live = {
     account: state.account as LinkedSpotifyAccount,
     playbackState: state.playbackState as SpotifyPlaybackState | null,
     queue: state.queue as SpotifyQueueItem[],
   };
+  const defaultQueueOrder = new Map(
+    live.queue.map((item, index) => [item.id, index]),
+  );
 
   function getPlayback() {
     return live.playbackState;
@@ -259,7 +270,19 @@ function buildHandlers(state: SpotifyMockState) {
       async ({ request }) => {
         const payload = (await request.json()) as { state?: boolean };
         const pb = getPlayback();
-        if (pb) setPlayback({ ...pb, shuffle_state: Boolean(payload.state) });
+        const enabled = Boolean(payload.state);
+
+        if (enabled) {
+          live.queue = shuffleQueuePreview(live.queue);
+        } else {
+          live.queue = [...live.queue].sort(
+            (a, b) =>
+              (defaultQueueOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+              (defaultQueueOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+          );
+        }
+
+        if (pb) setPlayback({ ...pb, shuffle_state: enabled });
         return createModuleDevSuccessResponse({});
       },
     ),
