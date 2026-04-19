@@ -17,7 +17,8 @@
       "smart-home",
       "lights",
       "wled"
-    ]
+    ],
+    "preview": "./preview.png"
   },
   {
     "id": "wled-compact",
@@ -37,6 +38,7 @@
       "smart-home",
       "lights",
       "wled"
-    ]
+    ],
+    "preview": "./preview-compact.png"
   }
 ]

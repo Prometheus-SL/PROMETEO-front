@@ -18,7 +18,8 @@
     "capabilities": [
       "media",
       "spotify"
-    ]
+    ],
+    "preview": "./preview.png"
   },
   {
     "id": "spotify-widget-compact",
@@ -39,7 +40,8 @@
     "capabilities": [
       "media",
       "spotify"
-    ]
+    ],
+    "preview": "./preview-compact.png"
   },
   {
     "id": "spotify-widget-queue",
@@ -60,6 +62,7 @@
     "capabilities": [
       "media",
       "spotify"
-    ]
+    ],
+    "preview": "./preview-queue.png"
   }
 ]
