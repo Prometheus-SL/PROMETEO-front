@@ -75,13 +75,14 @@ export interface Page {
     description?: string
     style?: Record<string, unknown>
     active: boolean
+    principal?: boolean
     order: number
     modules: InstalledModule[]
     createdAt?: string
     updatedAt?: string
 }
 
-export type PageSummary = Pick<Page, "_id" | "name" | "slug" | "active" | "order">
+export type PageSummary = Pick<Page, "_id" | "name" | "slug" | "active" | "principal" | "order">
 
 export interface PageOrderItem {
     id: string

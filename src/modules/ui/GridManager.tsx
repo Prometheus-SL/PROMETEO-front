@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Grip, Pencil, Sparkles, Trash2, Wrench } from "lucide-react";
+import { Grip, Pencil, Sparkles, Trash2, Undo2, Wrench } from "lucide-react";
 
 import { SharedContextProvider } from "@/providers/SharedContextProvider";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,13 @@ type DragState = {
   startPosition: GridCell;
 };
 
+type LastMove = {
+  id: string;
+  moduleName: string;
+  from: GridCell;
+  to: GridCell;
+};
+
 function samePositionMap(
   left: Record<string, GridCell>,
   right: Record<string, GridCell>,
@@ -54,10 +61,7 @@ function samePositionMap(
   return leftKeys.every((key) => sameCell(left[key], right[key]));
 }
 
-function buildRepairMessage(
-  repairCount: number,
-  hiddenCount: number,
-) {
+function buildRepairMessage(repairCount: number, hiddenCount: number) {
   if (hiddenCount > 0) {
     return `This layout has ${hiddenCount} widget${hiddenCount === 1 ? "" : "s"} that no longer fit in the grid. Remove some widgets before repairing it.`;
   }
@@ -87,14 +91,44 @@ export function GridManager({
   const [dragging, setDragging] = useState<DragState | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isRepairing, setIsRepairing] = useState(false);
+  const [lastMove, setLastMove] = useState<LastMove | null>(null);
 
   const gridRef = useRef<HTMLDivElement | null>(null);
+  const scaleWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [gridScale, setGridScale] = useState(1);
   const positionsRef = useRef<Record<string, GridCell>>({});
+  const gridBaseWidth = 1024;
+  const gridBaseHeight = 500;
 
   const layoutAnalysis = useMemo(
     () => analyzeInstalledModules(installed),
     [installed],
   );
+
+  useEffect(() => {
+    const updateScale = () => {
+      const wrapper = scaleWrapperRef.current;
+      if (!wrapper) return;
+
+      const rect = wrapper.getBoundingClientRect();
+      const availableHeight = Math.max(280, window.innerHeight - rect.top - 24);
+      const nextScale = Math.min(
+        rect.width / gridBaseWidth,
+        availableHeight / gridBaseHeight,
+      );
+      setGridScale(Math.max(0.55, nextScale));
+    };
+
+    updateScale();
+    const observer = new ResizeObserver(updateScale);
+    if (scaleWrapperRef.current) observer.observe(scaleWrapperRef.current);
+    window.addEventListener("resize", updateScale);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateScale);
+    };
+  }, []);
 
   const editingModule = useMemo(
     () =>
@@ -270,6 +304,17 @@ export function GridManager({
         !sameCell(finalPosition, dragging.startPosition) &&
         onMove
       ) {
+        const moduleName =
+          installed.find(
+            (moduleInstance) =>
+              (moduleInstance._id ?? moduleInstance.meta.id) === dragging.id,
+          )?.meta.name ?? "Widget";
+        setLastMove({
+          id: dragging.id,
+          moduleName,
+          from: dragging.startPosition,
+          to: finalPosition,
+        });
         onMove(dragging.id, finalPosition);
       }
     };
@@ -285,7 +330,7 @@ export function GridManager({
       document.body.style.userSelect = previousUserSelect;
       document.body.style.cursor = previousCursor;
     };
-  }, [dragging, onMove, updatePosition]);
+  }, [dragging, installed, onMove, updatePosition]);
 
   const sortedItems = useMemo(() => {
     return [...installed]
@@ -317,9 +362,17 @@ export function GridManager({
     }
   }
 
+  const handleUndoMove = useCallback(() => {
+    if (!lastMove) return;
+
+    updatePosition(lastMove.id, lastMove.from);
+    onMove?.(lastMove.id, lastMove.from);
+    setLastMove(null);
+  }, [lastMove, onMove, updatePosition]);
+
   return (
     <SharedContextProvider>
-      <div className="space-y-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
         {layoutAnalysis.needsRepair ? (
           <div className="flex flex-col gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-4 text-sm text-amber-900 dark:text-amber-100 md:flex-row md:items-center md:justify-between">
             <div className="space-y-1">
@@ -329,7 +382,8 @@ export function GridManager({
               </div>
               <p className="text-sm text-amber-800/90 dark:text-amber-100/90">
                 {buildRepairMessage(
-                  layoutAnalysis.movedModuleIds.length || layoutAnalysis.issues.length,
+                  layoutAnalysis.movedModuleIds.length ||
+                    layoutAnalysis.issues.length,
                   layoutAnalysis.unplacedModuleIds.length,
                 )}
               </p>
@@ -348,123 +402,164 @@ export function GridManager({
           </div>
         ) : null}
 
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">
+              {sortedItems.length} widget{sortedItems.length === 1 ? "" : "s"}
+            </span>
+            <span>
+              {GRID_COLS}x{GRID_ROWS}
+            </span>
+            {lastMove ? <span>Moved {lastMove.moduleName}</span> : null}
+          </div>
+          {lastMove ? (
+            <Button variant="outline" size="sm" onClick={handleUndoMove}>
+              <Undo2 className="size-4" />
+              Undo Move
+            </Button>
+          ) : null}
+        </div>
+
         <div
-          ref={gridRef}
-          className="relative mx-auto h-[500px] w-full max-w-[1024px] touch-none select-none overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
+          ref={scaleWrapperRef}
+          className="w-full overflow-hidden"
+          style={{ height: gridBaseHeight * gridScale }}
         >
           <div
-            className="pointer-events-none absolute inset-0 grid"
+            ref={gridRef}
+            className="relative touch-none select-none overflow-hidden rounded-lg border border-border/70 bg-background shadow-inner"
             style={{
-              gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
-              gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
+              width: gridBaseWidth,
+              height: gridBaseHeight,
+              transform: `scale(${gridScale})`,
+              transformOrigin: "top left",
             }}
           >
-            {Array.from({ length: GRID_COLS * GRID_ROWS }).map((_, index) => (
-              <div
-                key={index}
-                className="border border-dashed border-zinc-200 dark:border-zinc-800"
-              />
-            ))}
-          </div>
-
-          {sortedItems.map((moduleInstance) => {
-            const id = moduleInstance._id ?? moduleInstance.meta.id;
-            const position = positions[id];
-            const Definition = definitions[moduleInstance.meta.id]?.Component;
-            const isDragging = dragging?.id === id;
-
-            if (!position) {
-              return null;
-            }
-
-            return (
-              <div
-                key={id}
-                className="absolute p-2"
-                style={{
-                  left: `calc(${position.x} / ${GRID_COLS} * 100%)`,
-                  top: `calc(${position.y} / ${GRID_ROWS} * 100%)`,
-                  width: `calc(${position.w} / ${GRID_COLS} * 100%)`,
-                  height: `calc(${position.h} / ${GRID_ROWS} * 100%)`,
-                  zIndex: isDragging ? 30 : 10,
-                }}
-              >
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "linear-gradient(135deg, color-mix(in srgb, hsl(var(--muted)) 70%, transparent), transparent 55%)",
+              }}
+            />
+            <div
+              className="pointer-events-none absolute inset-0 grid"
+              style={{
+                gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
+                gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
+              }}
+            >
+              {Array.from({ length: GRID_COLS * GRID_ROWS }).map((_, index) => (
                 <div
-                  data-widget-id={id}
-                  className={cn(
-                    "group relative h-full w-full overflow-hidden rounded-lg border bg-background shadow-sm transition-shadow",
-                    isDragging
-                      ? "border-primary/60 shadow-xl ring-2 ring-primary/25"
-                      : "border-border hover:shadow-md",
-                  )}
-                >
-                  <div className="absolute right-2 top-2 z-20 flex items-center gap-1 rounded-md bg-background/90 p-1 shadow-sm backdrop-blur-sm">
-                    <Button
-                      size="icon-sm"
-                      variant="secondary"
-                      className="cursor-grab active:cursor-grabbing"
-                      title="Move widget"
-                      onPointerDown={(event) => handlePointerDown(event, id)}
-                    >
-                      <Grip className="size-4" />
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="secondary"
-                      title="Edit widget"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setEditingId(id);
-                      }}
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="destructive"
-                      title="Delete widget"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onRemove?.(id);
-                      }}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
+                  key={index}
+                  className="border border-dashed border-border/55 bg-background/20"
+                />
+              ))}
+            </div>
 
-                  <div className="h-full w-full">
-                    {Definition ? (
-                      <Definition
-                        config={moduleInstance.config}
-                        onConfigChange={(config) => {
-                          onUpdateConfig?.(id, config);
-                        }}
-                      />
-                    ) : (
-                      <div className="grid h-full place-items-center text-sm text-zinc-500">
-                        Loading...
-                      </div>
+            {sortedItems.map((moduleInstance) => {
+              const id = moduleInstance._id ?? moduleInstance.meta.id;
+              const position = positions[id];
+              const Definition = definitions[moduleInstance.meta.id]?.Component;
+              const isDragging = dragging?.id === id;
+
+              if (!position) {
+                return null;
+              }
+
+              return (
+                <div
+                  key={id}
+                  className="absolute p-2"
+                  style={{
+                    left: `calc(${position.x} / ${GRID_COLS} * 100%)`,
+                    top: `calc(${position.y} / ${GRID_ROWS} * 100%)`,
+                    width: `calc(${position.w} / ${GRID_COLS} * 100%)`,
+                    height: `calc(${position.h} / ${GRID_ROWS} * 100%)`,
+                    zIndex: isDragging ? 30 : 10,
+                  }}
+                >
+                  <div
+                    data-widget-id={id}
+                    className={cn(
+                      "group relative h-full w-full overflow-hidden rounded-lg border bg-background/95 shadow-sm transition-[border-color,box-shadow]",
+                      isDragging
+                        ? "border-primary/60 shadow-xl ring-2 ring-primary/25"
+                        : "border-border/80 hover:border-primary/40 hover:shadow-md",
                     )}
+                  >
+                    <div className="absolute right-2 top-2 z-20 flex items-center gap-1 rounded-md border border-border/70 bg-background/90 p-1 shadow-sm backdrop-blur-sm opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                      <Button
+                        size="icon-sm"
+                        variant="secondary"
+                        className="cursor-grab active:cursor-grabbing"
+                        title="Move widget"
+                        aria-label={`Move ${moduleInstance.meta.name}`}
+                        onPointerDown={(event) => handlePointerDown(event, id)}
+                      >
+                        <Grip className="size-4" />
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="secondary"
+                        title="Edit widget"
+                        aria-label={`Edit ${moduleInstance.meta.name}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setEditingId(id);
+                        }}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="destructive"
+                        title="Delete widget"
+                        aria-label={`Delete ${moduleInstance.meta.name}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onRemove?.(id);
+                        }}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+
+                    <div className="h-full w-full">
+                      {Definition ? (
+                        <Definition
+                          config={moduleInstance.config}
+                          onConfigChange={(config) => {
+                            onUpdateConfig?.(id, config);
+                          }}
+                        />
+                      ) : (
+                        <div className="grid h-full place-items-center text-sm text-zinc-500">
+                          Loading...
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
 
-          {editingId && editingModule ? (
-            <ModuleConfigModal
-              key={`edit-${editingId}`}
-              meta={editingModule.meta}
-              open={Boolean(editingId)}
-              onClose={() => setEditingId(null)}
-              onSave={(config) => {
-                onUpdateConfig?.(editingId, config);
-                setEditingId(null);
-              }}
-              mode="edit"
-              initialConfig={editingModule.config}
-            />
-          ) : null}
+            {editingId && editingModule ? (
+              <ModuleConfigModal
+                key={`edit-${editingId}`}
+                meta={editingModule.meta}
+                open={Boolean(editingId)}
+                onClose={() => setEditingId(null)}
+                onSave={(config) => {
+                  onUpdateConfig?.(editingId, config);
+                  setEditingId(null);
+                }}
+                mode="edit"
+                initialConfig={editingModule.config}
+              />
+            ) : null}
+          </div>
         </div>
       </div>
     </SharedContextProvider>

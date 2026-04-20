@@ -41,11 +41,11 @@ export const dashboardService = {
         const data = await api.getData<{ page: Page }>(`/api/v1/dashboard/pages/${id}`);
         return data.page;
     },
-    async createPage(payload: Partial<Pick<Page, "name" | "slug" | "description" | "style" | "active">>): Promise<Page> {
+    async createPage(payload: Partial<Pick<Page, "name" | "slug" | "description" | "style" | "active" | "principal">>): Promise<Page> {
         const data = await api.postData<{ page: Page }>("/api/v1/dashboard/pages", payload);
         return data.page;
     },
-    async updatePage(id: string, payload: Partial<Pick<Page, "name" | "slug" | "description" | "style" | "active">>): Promise<Page> {
+    async updatePage(id: string, payload: Partial<Pick<Page, "name" | "slug" | "description" | "style" | "active" | "principal">>): Promise<Page> {
         const data = await api.patchData<{ page: Page }>(`/api/v1/dashboard/pages/${id}`, payload);
         return data.page;
     },

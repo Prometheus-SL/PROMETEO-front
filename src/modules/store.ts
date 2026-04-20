@@ -3,6 +3,7 @@ import type { InstalledModule, MarketplaceFilters, ModuleMeta } from "./types"
 import { loadModulesIndex } from "./loader"
 import { dashboardService } from "@/services/dashboards"
 import type { Page } from "./types"
+import { selectDashboardPage } from "./dashboard-pages"
 import { analyzeInstalledModules, getCandidatePlacement } from "./grid-layout"
 
 
@@ -37,7 +38,7 @@ export function useMarketplaceStore() {
                     ])
                     if (cancelled) return
                     // Selecciona página actual: activa, o la primera, o vacía
-                    const current = active ?? pages[0] ?? null
+                    const current = selectDashboardPage(pages, active?._id)
                     const resolvedMetas = await Promise.all(
                         index.map(async (e) => {
                             if (!e.importers.preview) return e.meta
@@ -348,17 +349,22 @@ export function useMarketplaceStore() {
     }
 
     async function createDashboard(name: string): Promise<Page>
-    async function createDashboard(payload: Partial<Pick<Page, "name" | "slug" | "description" | "style" | "active">>): Promise<Page>
-    async function createDashboard(input: string | Partial<Pick<Page, "name" | "slug" | "description" | "style" | "active">>): Promise<Page> {
+    async function createDashboard(payload: Partial<Pick<Page, "name" | "slug" | "description" | "style" | "active" | "principal">>): Promise<Page>
+    async function createDashboard(input: string | Partial<Pick<Page, "name" | "slug" | "description" | "style" | "active" | "principal">>): Promise<Page> {
         const basePayload = typeof input === "string" ? { name: input } : input
         if (!basePayload?.name) {
             throw new Error("Name is required")
         }
         const shouldBeActive = basePayload.active ?? state.pages.length === 0
-        const created = await dashboardService.createPage({ ...basePayload, active: shouldBeActive })
+        const shouldBePrincipal = basePayload.principal ?? state.pages.length === 0
+        const created = await dashboardService.createPage({
+            ...basePayload,
+            active: shouldBePrincipal ? true : shouldBeActive,
+            principal: shouldBePrincipal,
+        })
         setState((s) => {
             const pages = [
-                ...s.pages.map((p) => (created.active ? { ...p, active: false } : p)),
+                ...s.pages.map((p) => (created.principal ? { ...p, principal: false } : p)),
                 created,
             ]
             return {
@@ -371,16 +377,16 @@ export function useMarketplaceStore() {
         return created
     }
 
-    async function updateDashboard(id: string, payload: Partial<Pick<Page, "name" | "slug" | "description" | "style" | "active">>): Promise<Page> {
+    async function updateDashboard(id: string, payload: Partial<Pick<Page, "name" | "slug" | "description" | "style" | "active" | "principal">>): Promise<Page> {
         const updated = await dashboardService.updatePage(id, payload)
         setState((s) => {
             const pages = s.pages.map((p) => {
                 if (p._id === id) return updated
-                return updated.active ? { ...p, active: false } : p
+                return updated.principal ? { ...p, principal: false } : p
             })
             const isCurrent = s.currentPageId === id
-            const currentPageId = updated.active ? updated._id : isCurrent ? updated._id : s.currentPageId
-            const installed = updated.active || isCurrent ? (updated.modules ?? []) : s.installed
+            const currentPageId = updated.principal ? updated._id : isCurrent ? updated._id : s.currentPageId
+            const installed = updated.principal || isCurrent ? (updated.modules ?? []) : s.installed
             return {
                 ...s,
                 pages,
@@ -401,14 +407,61 @@ export function useMarketplaceStore() {
         })
     }
 
-    async function activateDashboard(id: string) {
-        const updated = await dashboardService.updatePage(id, { active: true })
+    async function setDashboardVisibility(id: string, active: boolean) {
+        const updated = await dashboardService.updatePage(id, { active })
         setState((s) => {
-            const pages = s.pages.map((p) => ({ ...p, active: p._id === id }))
-            const currentPageId = id
-            const installed = updated.modules ?? []
+            const pages = s.pages.map((p) => (p._id === id ? updated : p))
+            const currentPageId = s.currentPageId === id || active ? id : s.currentPageId
+            const installed = currentPageId === id ? (updated.modules ?? []) : s.installed
             return { ...s, pages, currentPageId, installed }
         })
+    }
+
+    async function activateDashboard(id: string) {
+        return setDashboardVisibility(id, true)
+    }
+
+    async function setPrincipalDashboard(id: string) {
+        const updated = await dashboardService.updatePage(id, { principal: true, active: true })
+        setState((s) => {
+            const pages = s.pages.map((p) =>
+                p._id === id ? updated : { ...p, principal: false }
+            )
+            return {
+                ...s,
+                pages,
+                currentPageId: id,
+                installed: updated.modules ?? [],
+            }
+        })
+    }
+
+    async function reorderDashboardPages(orderedIds: string[]) {
+        const items = orderedIds.map((id, index) => ({ id, order: index }))
+        await dashboardService.reorderPages(items)
+        setState((s) => {
+            const orderMap = new Map(items.map((item) => [item.id, item.order]))
+            const pages = s.pages
+                .map((p) => ({ ...p, order: orderMap.get(p._id) ?? p.order }))
+                .sort((a, b) => a.order - b.order)
+            return { ...s, pages }
+        })
+    }
+
+    async function refreshDashboards(preferredPageId = state.currentPageId) {
+        const pages = await safeListPages()
+        const current = selectDashboardPage(pages, preferredPageId)
+
+        setState((s) => ({
+            ...s,
+            pages,
+            currentPageId: current?._id,
+            installed: current?.modules ?? [],
+            loading: false,
+            error: undefined,
+        }))
+
+        return current
     }
 
     return {
@@ -432,8 +485,12 @@ export function useMarketplaceStore() {
         createDashboard,
         deleteDashboard,
         activateDashboard,
+        setDashboardVisibility,
+        setPrincipalDashboard,
         updateDashboard,
         repairDashboardLayout,
+        reorderDashboardPages,
+        refreshDashboards,
     }
 }
 

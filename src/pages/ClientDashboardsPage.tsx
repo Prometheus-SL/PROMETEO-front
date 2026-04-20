@@ -10,6 +10,10 @@ import {
 } from "@/components/ui/carousel";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import {
+  getClientDashboardPages,
+  selectClientInitialPage,
+} from "@/modules/dashboard-pages";
 import { ClientGrid } from "@/modules/ui/ClientGrid";
 import type { Page, PageSummary } from "@/modules/types";
 import { dashboardService } from "@/services/dashboards";
@@ -18,21 +22,13 @@ type PageCache = Record<string, Page>;
 type PageStatusMap = Record<string, string>;
 type PageLoadingMap = Record<string, true>;
 
-function sortPageSummaries(pages: PageSummary[]): PageSummary[] {
-  return [...pages].sort((a, b) => {
-    if (a.active === b.active) {
-      return a.order - b.order;
-    }
-    return a.active ? -1 : 1;
-  });
-}
-
 function toPageSummary(page: Page): PageSummary {
   return {
     _id: page._id,
     name: page.name,
     slug: page.slug,
     active: page.active,
+    principal: page.principal,
     order: page.order,
   };
 }
@@ -45,7 +41,7 @@ function mergePageSummary(
     "modules" in summaryLike ? toPageSummary(summaryLike) : summaryLike;
   const exists = pages.some((page) => page._id === summary._id);
 
-  return sortPageSummaries(
+  return getClientDashboardPages(
     exists
       ? pages.map((page) => (page._id === summary._id ? summary : page))
       : [...pages, summary],
@@ -168,18 +164,20 @@ export default function ClientDashboardsPage() {
       setError(null);
 
       try {
-        const [summariesResponse, activePage] = await Promise.all([
+        const [summariesResponse, principalPage] = await Promise.all([
           dashboardService.listPageSummaries(),
           dashboardService.getActivePage(),
         ]);
 
         if (cancelled) return;
 
-        const summaries = activePage
-          ? mergePageSummary(summariesResponse, activePage)
-          : sortPageSummaries(summariesResponse);
+        const summaries = principalPage
+          ? mergePageSummary(summariesResponse, principalPage)
+          : getClientDashboardPages(summariesResponse);
 
-        const initialCache = activePage ? { [activePage._id]: activePage } : {};
+        const initialCache = principalPage
+          ? { [principalPage._id]: principalPage }
+          : {};
 
         pageCacheRef.current = initialCache;
         pageLoadingRef.current = {};
@@ -189,7 +187,7 @@ export default function ClientDashboardsPage() {
         setPageErrors({});
         setPageLoading({});
 
-        const initialPageId = activePage?._id ?? summaries[0]?._id ?? null;
+        const initialPageId = selectClientInitialPage(summaries)?._id ?? null;
         setSelectedPageId((previous) => {
           if (previous && summaries.some((page) => page._id === previous)) {
             return previous;
