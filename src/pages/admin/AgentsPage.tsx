@@ -276,7 +276,9 @@ export default function AgentsPage() {
   function updateAgentInList(updated: Agent) {
     setData((prev) => ({
       ...prev,
-      items: prev.items.map((item) => (item.id === updated.id ? updated : item)),
+      items: prev.items.map((item) =>
+        item.id === updated.id ? updated : item,
+      ),
     }));
   }
 
@@ -375,10 +377,7 @@ export default function AgentsPage() {
             <Download className="size-4" />
             JSON
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => void handleCommandExport()}
-          >
+          <Button variant="outline" onClick={() => void handleCommandExport()}>
             <Download className="size-4" />
             Commands
           </Button>
