@@ -17,23 +17,57 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 
 interface AgentDataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   filtersComponent?: React.ReactNode;
+  getRowId?: (row: TData) => string;
+  selectedIds?: Set<string>;
+  onSelectedIdsChange?: (ids: Set<string>) => void;
 }
 
 export function AgentDataTable<TData, TValue>({
   columns,
   data,
   filtersComponent,
+  getRowId,
+  selectedIds,
+  onSelectedIdsChange,
 }: AgentDataTableProps<TData, TValue>) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
-  const [rowSelection, setRowSelection] = useState({});
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!selectedIds) return;
+
+    const nextSelection = Object.fromEntries(
+      [...selectedIds].map((id) => [id, true]),
+    );
+    setRowSelection((current) => {
+      const currentKeys = Object.keys(current).filter((key) => current[key]);
+      const nextKeys = Object.keys(nextSelection);
+      if (
+        currentKeys.length === nextKeys.length &&
+        currentKeys.every((key) => nextSelection[key])
+      ) {
+        return current;
+      }
+
+      return nextSelection;
+    });
+  }, [selectedIds]);
+
+  useEffect(() => {
+    if (!onSelectedIdsChange) return;
+
+    onSelectedIdsChange(
+      new Set(Object.keys(rowSelection).filter((key) => rowSelection[key])),
+    );
+  }, [onSelectedIdsChange, rowSelection]);
 
   // Filtro global personalizado para buscar por ID y nombre
   const globalFilterFn = (
@@ -63,6 +97,7 @@ export function AgentDataTable<TData, TValue>({
     getFilteredRowModel: getFilteredRowModel(),
     onGlobalFilterChange: setGlobalFilter,
     onRowSelectionChange: setRowSelection,
+    getRowId,
     globalFilterFn,
     state: {
       columnFilters,

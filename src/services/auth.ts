@@ -22,9 +22,10 @@ export type AuthUser = {
     birthday?: string;
 };
 
-type AuthResponse = {
+export type AuthResponse = {
     user: AuthUser;
-    tokens: Tokens;
+    tokens?: Tokens;
+    twoFactorRequired?: boolean;
 };
 
 function normalizeErrorText(value: string) {
@@ -52,7 +53,15 @@ function mapFriendlyAuthError(error: { code?: string; message: string; status?: 
         case "REGISTER_FIELDS_REQUIRED":
             return "Complete username, email, and password to create the account.";
         case "PASSWORD_TOO_SHORT":
-            return "Password must be at least 6 characters long.";
+            return "Password must be at least 12 characters long.";
+        case "INVALID_TOTP_TOKEN":
+            return "Invalid authentication code.";
+        case "2FA_ALREADY_ENABLED":
+            return "Two-factor authentication is already enabled.";
+        case "2FA_NOT_SETUP":
+            return "Start two-factor setup before confirming a code.";
+        case "2FA_NOT_ENABLED":
+            return "Two-factor authentication is not enabled.";
         case "USER_ALREADY_EXISTS":
             return "That username or email is already in use.";
         case "USER_INACTIVE":
@@ -108,8 +117,12 @@ export function getAuthErrorMessage(error: unknown, fallback: string) {
 }
 
 export const authService = {
-    async login(username: string, password: string) {
-        return api.postData<AuthResponse>("/auth/login", { username, password }, { skipAuth: true });
+    async login(username: string, password: string, totpToken?: string) {
+        return api.postData<AuthResponse>(
+            "/auth/login",
+            totpToken ? { username, password, totpToken } : { username, password },
+            { skipAuth: true }
+        );
     },
     async register(payload: { username: string; email: string; password: string; name: string; surname: string; birthday: string; }) {
         return api.postData<{ user: AuthUser }>("/auth/register", payload, { skipAuth: true });
@@ -157,6 +170,78 @@ export const authService = {
             { skipAuth: true }
         );
     },
+    async verifyEmail(token: string) {
+        return api.postData<null>("/auth/verify-email", { token }, { skipAuth: true });
+    },
+    async requestPasswordReset(email: string) {
+        return api.postData<null>("/auth/forgot-password", { email }, { skipAuth: true });
+    },
+    async resetPassword(token: string, password: string) {
+        return api.postData<null>("/auth/reset-password", { token, password }, { skipAuth: true });
+    },
+
+    // --- 2FA / TOTP ---
+    async setup2FA() {
+        const data = await api.postData<{ secret: string; otpauthUri?: string; uri?: string }>("/auth/2fa/setup", {});
+        return {
+            secret: data.secret,
+            otpauthUri: data.otpauthUri || data.uri || "",
+        };
+    },
+    async confirm2FA(token: string) {
+        return api.postData<{ recoveryCodes: string[] }>("/auth/2fa/confirm", { token });
+    },
+    async disable2FA(token: string) {
+        return api.postData<null>("/auth/2fa/disable", { token });
+    },
+    async get2FAStatus() {
+        return api.getData<{ enabled: boolean; enabledAt?: string }>("/auth/2fa/status");
+    },
+
+    // --- Sessions ---
+    async listSessions() {
+        return api.getData<{ sessions: Session[] }>("/auth/sessions");
+    },
+    async revokeSession(sessionId: string) {
+        return api.deleteData<null>(`/auth/sessions/${encodeURIComponent(sessionId)}`);
+    },
+
+    // --- Login history ---
+    async getLoginHistory(params?: { page?: number; limit?: number }) {
+        const q = new URLSearchParams();
+        if (params?.page) q.set("page", String(params.page));
+        if (params?.limit) q.set("limit", String(params.limit));
+        const data = await api.getData<LoginHistoryResponse & { entries?: LoginHistoryEntry[] }>(
+            `/auth/login-history${q.toString() ? `?${q}` : ""}`
+        );
+        return {
+            ...data,
+            history: data.history || data.entries || [],
+        };
+    },
+};
+
+export type Session = {
+    _id?: string;
+    sessionId?: string;
+    createdAt: string;
+    lastUsedAt?: string | null;
+    current?: boolean;
+};
+
+export type LoginHistoryEntry = {
+    _id: string;
+    method: string;
+    success: boolean;
+    ip?: string;
+    userAgent?: string;
+    createdAt: string;
+    failureReason?: string;
+};
+
+export type LoginHistoryResponse = {
+    history: LoginHistoryEntry[];
+    pagination: { current: number; pages: number; total: number };
 };
 
 configureApi({

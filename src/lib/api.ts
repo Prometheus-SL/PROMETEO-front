@@ -47,6 +47,10 @@ export class ApiError<T = unknown> extends Error {
 
 let getAccessToken: (() => string | null) | null = null;
 let tryRefreshTokens: (() => Promise<boolean>) | null = null;
+let _refreshAttempts = 0;
+const MAX_REFRESH_ATTEMPTS = 3;
+const REFRESH_WINDOW_MS = 60_000;
+let _refreshWindowStart = 0;
 
 export function configureApi(options: {
     getAccessToken?: () => string | null;
@@ -191,9 +195,18 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
     }
 
     if (res.status === 401 && !skipAuth && retryOn401 && tryRefreshTokens) {
-        const refreshed = await tryRefreshTokens();
-        if (refreshed) {
-            return request<T>(endpoint, { ...options, retryOn401: false });
+        const now = Date.now();
+        if (now - _refreshWindowStart > REFRESH_WINDOW_MS) {
+            _refreshAttempts = 0;
+            _refreshWindowStart = now;
+        }
+
+        if (_refreshAttempts < MAX_REFRESH_ATTEMPTS) {
+            _refreshAttempts++;
+            const refreshed = await tryRefreshTokens();
+            if (refreshed) {
+                return request<T>(endpoint, { ...options, retryOn401: false });
+            }
         }
     }
 
@@ -250,3 +263,13 @@ export const api = {
     deleteData: <T>(endpoint: string, options?: Omit<RequestDataOptions, "method" | "body">) =>
         requestData<T>(endpoint, { ...options, method: "DELETE" }),
 };
+
+export function isSafeExternalUrl(url: string | null | undefined): boolean {
+    if (!url || typeof url !== "string") return false;
+    try {
+        const parsed = new URL(url);
+        return parsed.protocol === "https:" || parsed.protocol === "http:";
+    } catch {
+        return false;
+    }
+}

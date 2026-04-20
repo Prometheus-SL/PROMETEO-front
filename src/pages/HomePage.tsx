@@ -70,17 +70,31 @@ function getBirthdayInfo(birthday?: string) {
 
   const today = new Date();
   const currentYear = today.getFullYear();
-  const nextBirthday = new Date(birthDate);
-  nextBirthday.setFullYear(currentYear);
+  const birthMonth = birthDate.getMonth();
+  const birthDay = birthDate.getDate();
 
+  // Build the next birthday using month/day to avoid leap year shift
+  // (setFullYear on Feb 29 in a non-leap year silently becomes Mar 1)
+  function buildBirthdayInYear(year: number) {
+    const d = new Date(year, birthMonth, birthDay);
+    // If the month shifted (e.g. Feb 29 → Mar 1), fall back to Feb 28
+    if (d.getMonth() !== birthMonth) {
+      return new Date(year, birthMonth + 1, 0); // last day of birthMonth
+    }
+    return d;
+  }
+
+  let nextBirthday = buildBirthdayInYear(currentYear);
   if (nextBirthday < today) {
-    nextBirthday.setFullYear(currentYear + 1);
+    nextBirthday = buildBirthdayInYear(currentYear + 1);
   }
 
   const diffTime = nextBirthday.getTime() - today.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   const age =
-    currentYear - birthDate.getFullYear() - (nextBirthday > today ? 1 : 0);
+    currentYear -
+    birthDate.getFullYear() -
+    (nextBirthday.getFullYear() > currentYear ? 1 : 0);
 
   if (diffDays === 0) {
     return { nextBirthdayLabel: "Happy birthday!", age };

@@ -6,6 +6,10 @@ import {
   LayoutDashboard,
   Pencil,
   Trash2,
+  FileText,
+  History,
+  Save,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -44,6 +48,11 @@ import { useMarketplaceStore } from "@/modules/store";
 import type { Page } from "@/modules/types";
 import { GridManager } from "@/modules/ui/GridManager";
 import BadgeSelectable from "@/components/common/badgeSelect";
+import {
+  dashboardService,
+  type DashboardTemplate,
+  type DashboardVersion,
+} from "@/services/dashboards";
 
 type PageFormState = {
   name: string;
@@ -68,12 +77,12 @@ export default function DashboardsPage() {
 
   const pages = useMemo(
     () => [...state.pages].sort((a, b) => a.order - b.order),
-    [state.pages]
+    [state.pages],
   );
 
   const currentIndex = Math.max(
     0,
-    pages.findIndex((page) => page._id === state.currentPageId)
+    pages.findIndex((page) => page._id === state.currentPageId),
   );
   const currentPage = pages[currentIndex] ?? null;
 
@@ -95,6 +104,16 @@ export default function DashboardsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // Templates
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [templates, setTemplates] = useState<DashboardTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+
+  // Versions
+  const [isVersionsOpen, setIsVersionsOpen] = useState(false);
+  const [versions, setVersions] = useState<DashboardVersion[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
 
   const resetFormState = (page?: Page) => {
     if (page) {
@@ -204,6 +223,66 @@ export default function DashboardsPage() {
     }
   };
 
+  const openTemplatesDialog = async () => {
+    setIsTemplatesOpen(true);
+    setTemplatesLoading(true);
+    try {
+      const list = await dashboardService.listTemplates();
+      setTemplates(list);
+    } catch {
+      toast.error("Could not load templates");
+    } finally {
+      setTemplatesLoading(false);
+    }
+  };
+
+  const handleCreateFromTemplate = async (templateId: string) => {
+    try {
+      await dashboardService.createFromTemplate(templateId);
+      setIsTemplatesOpen(false);
+      toast.success("Dashboard created from template");
+      window.location.reload();
+    } catch (err) {
+      toast.error((err as Error).message || "Could not create from template");
+    }
+  };
+
+  const openVersionsDialog = async () => {
+    if (!currentPage) return;
+    setIsVersionsOpen(true);
+    setVersionsLoading(true);
+    try {
+      const res = await dashboardService.listVersions(currentPage._id);
+      setVersions(res.versions);
+    } catch {
+      toast.error("Could not load versions");
+    } finally {
+      setVersionsLoading(false);
+    }
+  };
+
+  const handleSaveVersion = async () => {
+    if (!currentPage) return;
+    try {
+      await dashboardService.saveVersion(currentPage._id);
+      toast.success("Version saved");
+    } catch (err) {
+      toast.error((err as Error).message || "Could not save version");
+    }
+  };
+
+  const handleRestoreVersion = async (versionId: string) => {
+    if (!currentPage) return;
+    try {
+      await dashboardService.restoreVersion(currentPage._id, versionId);
+      setIsVersionsOpen(false);
+      toast.success("Version restored");
+      window.location.reload();
+    } catch (err) {
+      toast.error((err as Error).message || "Could not restore version");
+    }
+  };
+
   if (state.loading) {
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center gap-3">
@@ -224,6 +303,10 @@ export default function DashboardsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={openTemplatesDialog}>
+            <FileText className="mr-2 size-4" />
+            Templates
+          </Button>
           <Button variant="outline" onClick={openCreateDialog}>
             <Plus className="mr-2 size-4" />
             New Page
@@ -256,7 +339,7 @@ export default function DashboardsPage() {
           <Card
             className={cn(
               "h-full justify-between",
-              isActive ? "border-primary shadow-md" : "hover:border-primary/60"
+              isActive ? "border-primary shadow-md" : "hover:border-primary/60",
             )}
             onClick={onSelect}
           >
@@ -266,7 +349,9 @@ export default function DashboardsPage() {
                 {page.name}
               </CardTitle>
               <CardDescription className="line-clamp-2">
-                {page.description ? page.description : "No description provided"}
+                {page.description
+                  ? page.description
+                  : "No description provided"}
               </CardDescription>
               <CardAction>
                 <DropdownMenu>
@@ -344,6 +429,14 @@ export default function DashboardsPage() {
               </p>
             </div>
             <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleSaveVersion}>
+                <Save className="mr-2 size-4" />
+                Save Version
+              </Button>
+              <Button variant="outline" size="sm" onClick={openVersionsDialog}>
+                <History className="mr-2 size-4" />
+                History
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => openEditDialog(currentPage)}
@@ -371,7 +464,7 @@ export default function DashboardsPage() {
                 toast.success("Layout repaired");
               } catch (error) {
                 toast.error(
-                  (error as Error)?.message || "Could not repair the layout"
+                  (error as Error)?.message || "Could not repair the layout",
                 );
               }
             }}
@@ -475,8 +568,8 @@ export default function DashboardsPage() {
               {isSaving
                 ? "Saving…"
                 : dialogMode === "create"
-                ? "Create Page"
-                : "Save Changes"}
+                  ? "Create Page"
+                  : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -535,6 +628,89 @@ export default function DashboardsPage() {
               {isDeleting ? "Deleting…" : "Delete"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Templates dialog */}
+      <Dialog open={isTemplatesOpen} onOpenChange={setIsTemplatesOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dashboard Templates</DialogTitle>
+            <DialogDescription>
+              Create a new dashboard from a pre-built template.
+            </DialogDescription>
+          </DialogHeader>
+          {templatesLoading ? (
+            <div className="flex justify-center py-6">
+              <Spinner className="size-5" />
+            </div>
+          ) : templates.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              No templates available.
+            </p>
+          ) : (
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {templates.map((tpl) => (
+                <Card
+                  key={tpl.id}
+                  className="cursor-pointer hover:border-primary/60"
+                  onClick={() => handleCreateFromTemplate(tpl.id)}
+                >
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">{tpl.name}</CardTitle>
+                    {tpl.description && (
+                      <CardDescription>{tpl.description}</CardDescription>
+                    )}
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Versions dialog */}
+      <Dialog open={isVersionsOpen} onOpenChange={setIsVersionsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Version History</DialogTitle>
+            <DialogDescription>
+              Restore a previous version of this dashboard.
+            </DialogDescription>
+          </DialogHeader>
+          {versionsLoading ? (
+            <div className="flex justify-center py-6">
+              <Spinner className="size-5" />
+            </div>
+          ) : versions.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              No versions saved yet.
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {versions.map((v) => (
+                <div
+                  key={v._id}
+                  className="flex items-center justify-between rounded-lg border px-4 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium">Version {v.version}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(v.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleRestoreVersion(v._id)}
+                  >
+                    <RotateCcw className="size-4 mr-1" />
+                    Restore
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

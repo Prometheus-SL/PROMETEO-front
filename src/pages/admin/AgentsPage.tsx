@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Download } from "lucide-react";
 import { agentsService, type Agent, type ServerStats } from "@/services/agents";
 import {
   Card,
@@ -12,6 +13,8 @@ import { toast } from "sonner";
 import { AgentDataTable } from "@/components/admin/agents/data-table";
 import { buildAgentColumns } from "@/components/admin/agents/columns";
 import { SendCommandDialog as AgentSendCommandDialog } from "@/components/admin/agents/send-command-dialog";
+import { CommandHistoryDialog } from "@/components/admin/agents/command-history-dialog";
+import { exportsService } from "@/services/exports";
 
 type PagedAgents = {
   items: Agent[];
@@ -31,6 +34,8 @@ export default function AgentsPage() {
     pageSize: 10,
   });
   const [loading, setLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchLoading, setBatchLoading] = useState(false);
 
   useEffect(() => {
     // Carga inicial
@@ -71,13 +76,13 @@ export default function AgentsPage() {
           setData((prev) => ({
             ...prev,
             items: prev.items.map((item) =>
-              item.id === updated.id ? updated : item
+              item.id === updated.id ? updated : item,
             ),
           }));
         },
         onRefreshList: refreshList,
       }),
-    [refreshList]
+    [refreshList],
   );
 
   const online = useMemo(() => {
@@ -93,8 +98,34 @@ export default function AgentsPage() {
   const pages = useMemo(
     () =>
       Math.max(1, Math.ceil((data.total || 0) / (data.pageSize || pageSize))),
-    [data.total, data.pageSize, pageSize]
+    [data.total, data.pageSize, pageSize],
   );
+
+  async function handleExport(format: "csv" | "json") {
+    try {
+      await exportsService.exportAgents(format);
+      toast.success(`Agents exported as ${format.toUpperCase()}`);
+    } catch (err) {
+      toast.error((err as Error).message || "Export failed");
+    }
+  }
+
+  async function handleBatchStatus(isActive: boolean) {
+    if (selectedIds.size === 0) return;
+    setBatchLoading(true);
+    try {
+      await agentsService.batchStatus([...selectedIds], isActive);
+      await refreshList();
+      setSelectedIds(new Set());
+      toast.success(
+        `${selectedIds.size} agent(s) ${isActive ? "activated" : "deactivated"}`,
+      );
+    } catch (err) {
+      toast.error((err as Error).message || "Batch update failed");
+    } finally {
+      setBatchLoading(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -122,12 +153,65 @@ export default function AgentsPage() {
         </Card>
       </div>
 
+      {/* Export & batch */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {selectedIds.size > 0 && (
+            <>
+              <span className="text-sm text-muted-foreground">
+                {selectedIds.size} selected
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={batchLoading}
+                onClick={() => handleBatchStatus(true)}
+              >
+                Activate
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={batchLoading}
+                onClick={() => handleBatchStatus(false)}
+              >
+                Deactivate
+              </Button>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleExport("csv")}
+          >
+            <Download className="size-4 mr-1" />
+            CSV
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleExport("json")}
+          >
+            <Download className="size-4 mr-1" />
+            JSON
+          </Button>
+        </div>
+      </div>
+
       {/* Tabla */}
       <AgentDataTable
         columns={columns}
         data={data.items || []}
+        getRowId={(agent) => agent.id}
+        selectedIds={selectedIds}
+        onSelectedIdsChange={setSelectedIds}
         filtersComponent={
           <div className="flex items-center justify-end gap-2">
+            <CommandHistoryDialog>
+              <Button variant="outline">Command History</Button>
+            </CommandHistoryDialog>
             <AgentSendCommandDialog
               agents={Array.isArray(data?.items) ? data.items : []}
               onSent={() => toast.success("Command sent")}

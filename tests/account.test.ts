@@ -170,4 +170,65 @@ describe("accountService", () => {
     expect(providers[4]?.id).toBe("creator");
     expect(providers[4]?.connectSupported).toBe(false);
   });
+
+  it("updates profile fields", async () => {
+    const { fetchMock, storage } = installTestEnvironment();
+    storage.set("auth_access_token", "token-123");
+    fetchMock.mockResolvedValue(
+      createJsonResponse({
+        success: true,
+        data: {
+          user: {
+            id: "user-1",
+            username: "miguel",
+            email: "mike@example.com",
+            role: "user",
+            name: "Miguel",
+            surname: "Perez",
+            birthday: "1998-04-11T00:00:00.000Z",
+          },
+        },
+      }),
+    );
+
+    const result = await accountService.updateProfile({
+      username: "miguel",
+      name: "Miguel",
+      surname: "Perez",
+      birthday: "1998-04-11",
+    });
+
+    expect(result.username).toBe("miguel");
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/account/profile"),
+      expect.objectContaining({
+        method: "PATCH",
+        body: expect.stringContaining("miguel"),
+      }),
+    );
+  });
+
+  it("changes the account password", async () => {
+    const { fetchMock, storage } = installTestEnvironment();
+    storage.set("auth_access_token", "token-123");
+    fetchMock.mockResolvedValue(
+      createJsonResponse({
+        success: true,
+        data: null,
+      }),
+    );
+
+    await accountService.changePassword({
+      currentPassword: "current-password-123",
+      newPassword: "new-strong-password-123",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/account/password"),
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("new-strong-password-123"),
+      }),
+    );
+  });
 });

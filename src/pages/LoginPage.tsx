@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { EyeClosedIcon, EyeIcon, QrCode } from "lucide-react";
+import { EyeClosedIcon, EyeIcon, KeyRound, QrCode } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/providers/AuthProvider";
@@ -23,25 +23,40 @@ import {
 import { BorderBeam } from "@/components/ui/border-beam";
 import QRLogin from "@/components/auth/QRLogin";
 
-function getLoginErrors(identifier: string, password: string) {
+function getLoginErrors(identifier: string, password: string, twoFactorRequired = false, twoFactorToken = "") {
   return {
-    identifier: identifier.trim()
-      ? null
-      : "Enter your email or username.",
+    identifier: identifier.trim() ? null : "Enter your email or username.",
     password: password ? null : "Enter your password.",
+    twoFactorToken:
+      twoFactorRequired && !twoFactorToken.trim()
+        ? "Enter your authentication or recovery code."
+        : null,
   };
 }
 
 export default function LoginPage() {
-  const { login, loading, error, accessToken, clearError } = useAuthContext();
+  const {
+    login,
+    loading,
+    error,
+    accessToken,
+    clearError,
+    twoFactorRequired,
+  } = useAuthContext();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [twoFactorToken, setTwoFactorToken] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showQRLogin, setShowQRLogin] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const navigate = useNavigate();
 
-  const validationErrors = getLoginErrors(identifier, password);
+  const validationErrors = getLoginErrors(
+    identifier,
+    password,
+    Boolean(twoFactorRequired),
+    twoFactorToken,
+  );
 
   useEffect(() => {
     clearError();
@@ -55,16 +70,26 @@ export default function LoginPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (loading) return;
     setAttemptedSubmit(true);
 
     const trimmedIdentifier = identifier.trim();
-    const nextErrors = getLoginErrors(trimmedIdentifier, password);
+    const nextErrors = getLoginErrors(
+      trimmedIdentifier,
+      password,
+      Boolean(twoFactorRequired),
+      twoFactorToken,
+    );
 
-    if (nextErrors.identifier || nextErrors.password) {
+    if (nextErrors.identifier || nextErrors.password || nextErrors.twoFactorToken) {
       return;
     }
 
-    await login(trimmedIdentifier, password);
+    await login(
+      trimmedIdentifier,
+      password,
+      twoFactorRequired ? twoFactorToken.trim() : undefined,
+    );
   };
 
   const logo = {
@@ -76,9 +101,9 @@ export default function LoginPage() {
 
   return (
     <Background>
-      <div className="flex h-screen w-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-6 lg:justify-start">
-          <a href={logo.url}>
+      <main className="flex min-h-screen w-screen items-center justify-center px-4 py-8">
+        <div className="flex w-full max-w-md flex-col items-center gap-5">
+          <a href={logo.url} className="rounded-md p-2">
             <img
               src={logo.src}
               alt={logo.alt}
@@ -87,14 +112,24 @@ export default function LoginPage() {
             />
           </a>
 
-          <div className="relative min-w-sm border-muted bg-background flex w-full max-w-sm flex-col items-center gap-y-4 rounded-md border px-6 py-8 shadow-md">
-            <h1 className="text-xl font-semibold">Welcome to Prometeo</h1>
+          <section className="relative flex w-full flex-col gap-6 rounded-md border border-white/10 bg-background/95 px-6 py-8 shadow-2xl backdrop-blur">
+            <div className="space-y-2 text-center">
+              <div className="mx-auto flex size-11 items-center justify-center rounded-md border bg-muted">
+                <KeyRound className="size-5 text-primary" />
+              </div>
+              <div className="space-y-1">
+                <h1 className="text-2xl font-semibold">Welcome back</h1>
+                <p className="text-sm text-muted-foreground">
+                  Sign in to continue to Prometeo.
+                </p>
+              </div>
+            </div>
 
             {!showQRLogin ? (
-              <div className="w-full max-w-md space-y-4">
+              <div className="w-full space-y-5">
                 <form onSubmit={handleSubmit} noValidate>
                   <FieldSet>
-                    <FieldGroup>
+                    <FieldGroup className="gap-5">
                       <Field>
                         <FieldLabel htmlFor="login-identifier">
                           Email or username
@@ -126,9 +161,19 @@ export default function LoginPage() {
                       </Field>
 
                       <Field>
-                        <FieldLabel htmlFor="login-password">
-                          Password
-                        </FieldLabel>
+                        <div className="flex items-center justify-between gap-3">
+                          <FieldLabel htmlFor="login-password">
+                            Password
+                          </FieldLabel>
+                          <Button
+                            asChild
+                            variant="link"
+                            size="sm"
+                            className="h-auto px-0 text-xs"
+                          >
+                            <Link to="/forgot-password">Forgot password?</Link>
+                          </Button>
+                        </div>
 
                         <InputGroup>
                           <InputGroupInput
@@ -153,6 +198,7 @@ export default function LoginPage() {
                             <InputGroupButton
                               onClick={() => setShowPassword(!showPassword)}
                               size="icon-xs"
+                              type="button"
                             >
                               {showPassword ? (
                                 <EyeIcon className="h-4 w-4" />
@@ -167,18 +213,54 @@ export default function LoginPage() {
                         )}
                       </Field>
 
+                      {twoFactorRequired && (
+                        <Field>
+                          <FieldLabel htmlFor="login-two-factor">
+                            Authentication code
+                          </FieldLabel>
+                          <Input
+                            id="login-two-factor"
+                            type="text"
+                            inputMode="text"
+                            placeholder="000000 or recovery code"
+                            className="text-center font-mono text-sm tracking-widest"
+                            value={twoFactorToken}
+                            autoComplete="one-time-code"
+                            aria-invalid={
+                              attemptedSubmit &&
+                              Boolean(validationErrors.twoFactorToken)
+                            }
+                            onChange={(e) => {
+                              if (error) {
+                                clearError();
+                              }
+                              setTwoFactorToken(
+                                e.target.value
+                                  .replace(/\s+/g, "")
+                                  .slice(0, 16),
+                              );
+                            }}
+                          />
+                          {attemptedSubmit && (
+                            <FieldError>
+                              {validationErrors.twoFactorToken}
+                            </FieldError>
+                          )}
+                        </Field>
+                      )}
+
                       <Button
                         type="submit"
-                        className="w-full"
+                        className="h-10 w-full"
                         disabled={loading}
                       >
                         {loading ? (
                           <>
                             <Spinner />
-                            Signing in...
+                            {twoFactorRequired ? "Verifying..." : "Signing in..."}
                           </>
                         ) : (
-                          "Login"
+                          twoFactorRequired ? "Verify code" : "Login"
                         )}
                       </Button>
 
@@ -193,6 +275,12 @@ export default function LoginPage() {
                     </FieldGroup>
                   </FieldSet>
                 </form>
+
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-xs text-muted-foreground">or</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
 
                 <div className="flex items-center justify-center">
                   <Button
@@ -220,7 +308,7 @@ export default function LoginPage() {
               </div>
             )}
             <BorderBeam duration={8} size={100} />
-          </div>
+          </section>
 
           {!showQRLogin && (
             <div className="text-muted-foreground flex justify-center gap-1 text-sm">
@@ -234,7 +322,7 @@ export default function LoginPage() {
             </div>
           )}
         </div>
-      </div>
+      </main>
     </Background>
   );
 }

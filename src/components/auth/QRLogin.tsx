@@ -3,7 +3,6 @@ import QRCodeModule from "react-qr-code";
 import {
   CheckCircle2,
   Clock3,
-  QrCode,
   RefreshCw,
   ShieldCheck,
   Smartphone,
@@ -273,7 +272,7 @@ export default function QRLogin({
             </Button>
           </div>
         ) : qrData ? (
-          <div className="space-y-5 px-6 py-6">
+          <div className="space-y-5 px-6 pt-6">
             <div className="flex items-start justify-between gap-4">
               <div
                 className={cn(
@@ -310,41 +309,6 @@ export default function QRLogin({
                 )}
               >
                 {getStatusMessage()}
-              </div>
-
-              <div className="grid gap-3">
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <div className="mb-1 flex items-center gap-2 text-sm font-medium text-white">
-                    <QrCode className="h-4 w-4 text-cyan-300" />
-                    1. Scan the code
-                  </div>
-                  <p className="text-sm text-slate-300">
-                    Open the mobile URL or the authorized panel and scan this
-                    QR code.
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <div className="mb-1 flex items-center gap-2 text-sm font-medium text-white">
-                    <Smartphone className="h-4 w-4 text-cyan-300" />
-                    2. Confirm access
-                  </div>
-                  <p className="text-sm text-slate-300">
-                    Finish the authentication on your phone with your
-                    credentials.
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <div className="mb-1 flex items-center gap-2 text-sm font-medium text-white">
-                    <CheckCircle2 className="h-4 w-4 text-cyan-300" />
-                    3. Automatic reload
-                  </div>
-                  <p className="text-sm text-slate-300">
-                    As soon as the session is validated, this screen will open
-                    automatically.
-                  </p>
-                </div>
               </div>
             </div>
 

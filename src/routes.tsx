@@ -22,6 +22,9 @@ const MarketplacePage = lazy(() => import("./pages/MarketplacePage"));
 const DashboardsPage = lazy(() => import("./pages/DashboardsPage"));
 const ClientDashboardsPage = lazy(() => import("./pages/ClientDashboardsPage"));
 const BotDiscordPage = lazy(() => import("./pages/BotDiscordPage"));
+const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
 
 function RouteFallback() {
   return (
@@ -57,8 +60,20 @@ export function createAppRoutes(isDev = import.meta.env.DEV) {
       element: <RegisterPage />,
     },
     {
+      path: "/forgot-password",
+      element: lazyElement(ForgotPasswordPage),
+    },
+    {
       path: "/qr-login/:code",
       element: <QRLoginPage />,
+    },
+    {
+      path: "/verify-email",
+      element: lazyElement(VerifyEmailPage),
+    },
+    {
+      path: "/reset-password",
+      element: lazyElement(ResetPasswordPage),
     },
     {
       path: "/linked-account-callback",

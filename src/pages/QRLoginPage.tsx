@@ -105,10 +105,12 @@ export default function QRLoginPage() {
         password,
       );
 
-      if (result.user) {
+      if (result.user && result.tokens) {
         setSuccess(true);
-        loginQR(result.tokens, result.user);
+        await loginQR(result.tokens, result.user);
         setQrStatus("authenticated");
+      } else if (result.twoFactorRequired) {
+        setError("Use the standard login form to complete two-factor authentication.");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication error");

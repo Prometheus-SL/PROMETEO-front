@@ -299,4 +299,9 @@ export const agentsService = {
     );
     return normalizeAgent(data.agent);
   },
+
+  // --- Batch operations ---
+  async batchStatus(agentIds: string[], isActive: boolean): Promise<void> {
+    await api.postData<null>("/api/v1/agents/batch/status", { agentIds, isActive });
+  },
 };

@@ -4,14 +4,16 @@ import {
   useMemo,
   useRef,
   useState,
+  type FormEvent,
   type ReactNode,
 } from "react";
 import {
-  CalendarDays,
   CheckCircle2,
   ExternalLink,
+  KeyRound,
   Link2,
   RefreshCw,
+  Save,
   ShieldCheck,
   Unplug,
   UserRound,
@@ -29,9 +31,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Meteors } from "@/components/ui/meteors";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { isSafeExternalUrl } from "@/lib/api";
 import { useAuthContext } from "@/providers/AuthProvider";
 import {
   accountService,
@@ -40,7 +44,11 @@ import {
   type LinkedAccountStatus,
   type LinkedDiscordAccount,
   type LinkedSpotifyAccount,
+  type UpdateProfilePayload,
 } from "@/services/account";
+import { TwoFactorSection } from "@/components/account/two-factor-section";
+import { SessionsSection } from "@/components/account/sessions-section";
+import { LoginHistorySection } from "@/components/account/login-history-section";
 
 type KnownProviderAccount = LinkedSpotifyAccount | LinkedDiscordAccount;
 
@@ -119,10 +127,6 @@ const PROVIDER_PRESENTATIONS: Record<string, ProviderPresentation> = {
         },
       ];
     },
-    getExternalUrl: (account) => {
-      const spotify = isSpotifyAccount(account) ? account : null;
-      return spotify?.externalUrl ?? null;
-    },
   },
   discord: {
     description: "Identity, profile info and automatic token refresh.",
@@ -174,9 +178,11 @@ const PROVIDER_PRESENTATIONS: Record<string, ProviderPresentation> = {
     description:
       "Calendar agenda, task planning and inbox summaries for focus-aware widgets.",
     icon: (
-      <div className="grid size-10 place-items-center rounded-xl bg-[#4285F4]/10 text-[#4285F4]">
-        <CalendarDays className="size-5" />
-      </div>
+      <img
+        src="https://www.gstatic.com/marketing-cms/assets/images/d5/dc/cfe9ce8b4425b410b49b7f2dd3f3/g.webp=s48-fcrop64=1,00000000ffffffff-rw"
+        alt="Google"
+        className="size-9 rounded-lg contain h-auto"
+      />
     ),
     cardClassName:
       "border-sky-500/15 bg-[radial-gradient(circle_at_top_right,rgba(66,133,244,0.16),transparent_38%),linear-gradient(135deg,rgba(15,23,42,0.06),transparent)]",
@@ -398,7 +404,7 @@ function getProviderPresentation(
 }
 
 export default function AccountPage() {
-  const { user } = useAuthContext();
+  const { user, updateUser } = useAuthContext();
   const [account, setAccount] = useState<AccountPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -408,6 +414,18 @@ export default function AccountPage() {
   const [disconnectingProviderId, setDisconnectingProviderId] = useState<
     string | null
   >(null);
+  const [profileForm, setProfileForm] = useState<UpdateProfilePayload>({
+    username: "",
+    name: "",
+    surname: "",
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [savingPassword, setSavingPassword] = useState(false);
   const popupRef = useRef<Window | null>(null);
   const popupTimerRef = useRef<number | null>(null);
   const activeProviderRef = useRef<string | null>(null);
@@ -494,12 +512,15 @@ export default function AccountPage() {
   }, [account]);
 
   const accountName = useMemo(() => {
-    const fullName = [user?.name, user?.surname]
+    const currentUser = account?.user ?? user;
+    const fullName = [currentUser?.name, currentUser?.surname]
       .filter(Boolean)
       .join(" ")
       .trim();
-    return fullName || user?.username || "Prometeo user";
-  }, [user?.name, user?.surname, user?.username]);
+    return fullName || currentUser?.username || "Prometeo user";
+  }, [account?.user, user]);
+
+  const accountUser = account?.user ?? user;
 
   const initials = useMemo(() => {
     const base = accountName || "PU";
@@ -513,6 +534,63 @@ export default function AccountPage() {
   const connectedProviders = providers.filter(
     (provider) => provider.status === "connected",
   ).length;
+
+  useEffect(() => {
+    if (!accountUser) return;
+    setProfileForm({
+      username: accountUser.username || "",
+      name: accountUser.name || "",
+      surname: accountUser.surname || "",
+    });
+  }, [accountUser]);
+
+  const handleProfileSubmit = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      setSavingProfile(true);
+      try {
+        const updatedUser = await accountService.updateProfile(profileForm);
+        setAccount((current) =>
+          current ? { ...current, user: updatedUser } : current,
+        );
+        updateUser?.(updatedUser);
+        toast.success("Profile updated");
+      } catch (err) {
+        toast.error((err as Error).message || "Could not update profile");
+      } finally {
+        setSavingProfile(false);
+      }
+    },
+    [profileForm, updateUser],
+  );
+
+  const handlePasswordSubmit = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+        toast.error("New passwords do not match");
+        return;
+      }
+      setSavingPassword(true);
+      try {
+        await accountService.changePassword({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        });
+        setPasswordForm({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+        toast.success("Password updated");
+      } catch (err) {
+        toast.error((err as Error).message || "Could not update password");
+      } finally {
+        setSavingPassword(false);
+      }
+    },
+    [passwordForm],
+  );
 
   const handleProviderConnect = useCallback(
     async (provider: LinkedAccountProvider) => {
@@ -630,111 +708,293 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="space-y-10">
-      <section className="relative overflow-hidden rounded-[2rem] border border-border/70 bg-gradient-to-br from-primary/10 via-background/80 to-background p-6 shadow-lg shadow-primary/5">
-        <div className="pointer-events-none absolute inset-0">
-          <Meteors number={26} className="opacity-70" />
-        </div>
-
-        <div className="relative grid gap-8 xl:grid-cols-[1.1fr,0.9fr] xl:items-center">
-          <div className="space-y-6">
-            <div className="flex items-center gap-4">
-              <Avatar className="size-16 border border-border/60 shadow-sm">
-                <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-3xl font-semibold tracking-tight">
-                    Linked Providers
-                  </h1>
-                  <Badge variant="outline" className="rounded-full">
-                    {connectedProviders}/{providers.length} connected
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Connect a provider once and PROMETEO will reuse that session
-                  across dashboard widgets, client views, and future module
-                  bundles.
-                </p>
-              </div>
+    <div className="mx-auto grid gap-6 pb-10 xl:grid-cols-[310px_minmax(0,1fr)]">
+      <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+        <section className="relative overflow-hidden rounded-xl border border-border/70 bg-card p-5 shadow-sm">
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-500 via-emerald-500 to-rose-500" />
+          <div className="flex items-center gap-4">
+            <Avatar className="size-16 border border-border/60 shadow-sm">
+              <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-semibold tracking-tight">
+                Account
+              </h1>
+              <p className="truncate text-sm text-muted-foreground">
+                {accountName}
+              </p>
             </div>
+          </div>
 
-            <div className="grid gap-3 md:grid-cols-3">
-              <DetailRow label="Account owner" value={accountName} />
-              <DetailRow
-                label="Email"
-                value={user?.email || "No email available"}
+          <div className="mt-5 space-y-3">
+            <ProfileMetric
+              label="Email"
+              value={accountUser?.email || "No email"}
+              icon={<ShieldCheck className="size-4" />}
+            />
+            <ProfileMetric
+              label="Role"
+              value={
+                accountUser?.role ? accountUser.role.toUpperCase() : "UNKNOWN"
+              }
+              icon={<UserRound className="size-4" />}
+            />
+            <ProfileMetric
+              label="Connected"
+              value={`${connectedProviders}/${providers.length} providers`}
+              icon={<CheckCircle2 className="size-4" />}
+            />
+          </div>
+        </section>
+
+        <nav className="rounded-xl border border-border/70 bg-card p-2 shadow-sm">
+          <a
+            href="#profile"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent"
+          >
+            <UserRound className="size-4" />
+            Profile
+          </a>
+          <a
+            href="#security"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent"
+          >
+            <ShieldCheck className="size-4" />
+            Security
+          </a>
+          <a
+            href="#connected-apps"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent"
+          >
+            <Link2 className="size-4" />
+            Connected Apps
+          </a>
+        </nav>
+      </aside>
+
+      <main className="space-y-8">
+        <section id="profile" className="space-y-4 scroll-mt-6">
+          <SectionHeader
+            title="Profile"
+            description="Edit account details and password."
+          />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ProfileEditor
+              form={profileForm}
+              saving={savingProfile}
+              onChange={setProfileForm}
+              onSubmit={handleProfileSubmit}
+            />
+            <PasswordEditor
+              form={passwordForm}
+              saving={savingPassword}
+              onChange={setPasswordForm}
+              onSubmit={handlePasswordSubmit}
+            />
+          </div>
+        </section>
+
+        <section id="security" className="space-y-4 scroll-mt-6">
+          <SectionHeader
+            title="Security"
+            description="2FA, sessions, and recent access."
+          />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="lg:col-span-2">
+              <TwoFactorSection />
+            </div>
+            <LoginHistorySection />
+            <SessionsSection />
+          </div>
+        </section>
+
+        <section id="connected-apps" className="space-y-4 scroll-mt-6">
+          <SectionHeader
+            title="Connected Apps"
+            description="Link, reconnect, or remove provider access."
+          />
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {providers.map((provider) => (
+              <LinkedProviderCard
+                key={provider.id}
+                provider={provider}
+                account={getLinkedAccountDetails(account, provider.id)}
+                connecting={connectingProviderId === provider.id}
+                disconnecting={disconnectingProviderId === provider.id}
+                onConnect={() => void handleProviderConnect(provider)}
+                onDisconnect={() => void handleProviderDisconnect(provider)}
               />
-              <DetailRow
-                label="Role"
-                value={user?.role ? user.role.toUpperCase() : "UNKNOWN"}
+            ))}
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+function ProfileEditor({
+  form,
+  saving,
+  onChange,
+  onSubmit,
+}: {
+  form: UpdateProfilePayload;
+  saving: boolean;
+  onChange: (form: UpdateProfilePayload) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <Card className="relative overflow-hidden rounded-xl">
+      <div className="absolute inset-x-0 top-0 h-1 bg-cyan-500" />
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <UserRound className="size-5" />
+          User Details
+        </CardTitle>
+        <CardDescription>Name and username.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form className="space-y-4" onSubmit={onSubmit}>
+          <div className="space-y-2">
+            <Label htmlFor="account-username">Username</Label>
+            <Input
+              id="account-username"
+              value={form.username}
+              onChange={(event) =>
+                onChange({ ...form, username: event.target.value })
+              }
+              minLength={3}
+              maxLength={30}
+              required
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="account-name">Name</Label>
+              <Input
+                id="account-name"
+                value={form.name || ""}
+                onChange={(event) =>
+                  onChange({ ...form, name: event.target.value })
+                }
+                maxLength={50}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="account-surname">Surname</Label>
+              <Input
+                id="account-surname"
+                value={form.surname || ""}
+                onChange={(event) =>
+                  onChange({ ...form, surname: event.target.value })
+                }
+                maxLength={50}
               />
             </div>
           </div>
 
-          <Card className="border border-border/70 bg-background/80 shadow-sm">
-            <CardHeader className="space-y-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <ShieldCheck className="size-5 text-primary" />
-                Shared Provider Registry
-              </CardTitle>
-              <CardDescription>
-                Providers publish connection state, scopes, and recovery needs
-                through one shared contract so new widgets can plug in without
-                hardcoded account logic.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3">
-                <div className="font-medium text-foreground">
-                  Platform-ready foundation
-                </div>
-                <p className="mt-2 leading-6">
-                  Spotify and Discord already run on the shared provider flow,
-                  and the same UI can now absorb Google, GitHub, creator
-                  sources, or internal agents with much less wiring.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3">
-                <div className="font-medium text-foreground">
-                  Graceful reuse
-                </div>
-                <p className="mt-2 leading-6">
-                  Widgets read the same provider state everywhere, so reconnect
-                  prompts, missing scopes, and degraded experiences stay
-                  consistent.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
+          <Button type="submit" disabled={saving} className="w-full sm:w-auto">
+            {saving ? (
+              <Spinner className="size-4" />
+            ) : (
+              <Save className="size-4" />
+            )}
+            {saving ? "Saving..." : "Save profile"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
 
-      <section className="space-y-4">
-        <div className="space-y-1">
-          <h2 className="text-xl font-semibold">Provider Sessions</h2>
-          <p className="text-sm text-muted-foreground">
-            Link, reconnect, or disconnect provider accounts from one place.
-          </p>
-        </div>
-
-        <div className="grid gap-6">
-          {providers.map((provider) => (
-            <LinkedProviderCard
-              key={provider.id}
-              provider={provider}
-              account={getLinkedAccountDetails(account, provider.id)}
-              connecting={connectingProviderId === provider.id}
-              disconnecting={disconnectingProviderId === provider.id}
-              onConnect={() => void handleProviderConnect(provider)}
-              onDisconnect={() => void handleProviderDisconnect(provider)}
+function PasswordEditor({
+  form,
+  saving,
+  onChange,
+  onSubmit,
+}: {
+  form: {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+  };
+  saving: boolean;
+  onChange: (form: {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+  }) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <Card className="relative overflow-hidden rounded-xl">
+      <div className="absolute inset-x-0 top-0 h-1 bg-emerald-500" />
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <KeyRound className="size-5" />
+          Password
+        </CardTitle>
+        <CardDescription>Use at least 12 characters.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form className="space-y-4" onSubmit={onSubmit}>
+          <div className="space-y-2">
+            <Label htmlFor="current-password">Current password</Label>
+            <Input
+              id="current-password"
+              type="password"
+              value={form.currentPassword}
+              onChange={(event) =>
+                onChange({ ...form, currentPassword: event.target.value })
+              }
+              required
             />
-          ))}
-        </div>
-      </section>
-    </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="new-password">New password</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={form.newPassword}
+                onChange={(event) =>
+                  onChange({ ...form, newPassword: event.target.value })
+                }
+                minLength={12}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirm</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                value={form.confirmPassword}
+                onChange={(event) =>
+                  onChange({ ...form, confirmPassword: event.target.value })
+                }
+                minLength={12}
+                required
+              />
+            </div>
+          </div>
+
+          <Button type="submit" disabled={saving} className="w-full sm:w-auto">
+            {saving ? (
+              <Spinner className="size-4" />
+            ) : (
+              <KeyRound className="size-4" />
+            )}
+            {saving ? "Updating..." : "Change password"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -765,31 +1025,28 @@ function LinkedProviderCard({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-[1.75rem] border p-6 shadow-sm",
-        presentation.cardClassName,
+        "overflow-hidden rounded-xl border border-border/70 bg-card p-5 shadow-sm transition-shadow hover:shadow-md",
+        presentation.cardClassName
       )}
     >
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="grid size-12 place-items-center rounded-2xl bg-background/70">
+      <div className="space-y-5">
+        <div className="flex flex-col gap-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="grid size-12 shrink-0 place-items-center rounded-lg border border-border/70 bg-background/80">
               {presentation.icon}
             </div>
-            <div>
+            <div className="min-w-0 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg font-semibold">{provider.name}</h3>
                 <Badge
                   variant="outline"
-                  className={cn("rounded-full border", statusStyle.className)}
+                  className={cn("border", statusStyle.className)}
                 >
                   {statusStyle.label}
                 </Badge>
                 {provider.available === false ? (
-                  <Badge
-                    variant="outline"
-                    className="rounded-full border-amber-500/30"
-                  >
-                    Provider unavailable
+                  <Badge variant="outline" className="border-amber-500/30">
+                    Unavailable
                   </Badge>
                 ) : null}
               </div>
@@ -799,98 +1056,117 @@ function LinkedProviderCard({
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            {details.map((detail) => (
-              <DetailRow key={`${provider.id}-${detail.label}`} {...detail} />
-            ))}
-          </div>
-
-          {provider.lastError ? (
-            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-              <div className="flex items-center gap-2 font-medium">
-                <RefreshCw className="size-4" />
-                {provider.name} needs attention
-              </div>
-              <p className="mt-2 leading-6">{provider.lastError}</p>
-            </div>
-          ) : null}
-
-          {externalUrl ? (
-            <a
-              href={externalUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80"
+          <div className="grid gap-2 sm:grid-cols-2">
+            {externalUrl && isSafeExternalUrl(externalUrl) ? (
+              <Button asChild variant="outline" size="sm">
+                <a href={externalUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink className="size-4" />
+                  Open
+                </a>
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              className={cn("justify-center", presentation.buttonClassName)}
+              onClick={onConnect}
+              disabled={
+                connecting ||
+                provider.connectSupported === false ||
+                provider.status === "connected"
+              }
             >
-              Open {provider.name} profile
-              <ExternalLink className="size-4" />
-            </a>
-          ) : null}
-        </div>
-
-        <div className="flex shrink-0 flex-col gap-3 lg:w-56">
-          <Button
-            size="lg"
-            className={cn("justify-center", presentation.buttonClassName)}
-            onClick={onConnect}
-            disabled={
-              connecting ||
-              provider.connectSupported === false ||
-              provider.status === "connected"
-            }
-          >
-            {connecting ? (
-              <Spinner className="size-4" />
-            ) : (
-              <Link2 className="size-4" />
-            )}
-            {connecting ? `Opening ${provider.name}...` : actionLabel}
-          </Button>
-
-          <Button
-            variant="outline"
-            size="lg"
-            className="justify-center"
-            onClick={onDisconnect}
-            disabled={
-              disconnecting ||
-              provider.disconnectSupported === false ||
-              provider.status === "disconnected"
-            }
-          >
-            {disconnecting ? (
-              <Spinner className="size-4" />
-            ) : (
-              <Unplug className="size-4" />
-            )}
-            {disconnecting ? "Disconnecting..." : "Disconnect"}
-          </Button>
-
-          <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2 font-medium text-foreground">
-              <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-300" />
-              Stored on your account
-            </div>
-            <p className="mt-2 leading-6">
-              Widgets and client dashboards can reuse this provider session
-              automatically.
-            </p>
+              {connecting ? (
+                <Spinner className="size-4" />
+              ) : (
+                <Link2 className="size-4" />
+              )}
+              {connecting ? "Opening..." : actionLabel}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="justify-center"
+              onClick={onDisconnect}
+              disabled={
+                disconnecting ||
+                provider.disconnectSupported === false ||
+                provider.status === "disconnected"
+              }
+            >
+              {disconnecting ? (
+                <Spinner className="size-4" />
+              ) : (
+                <Unplug className="size-4" />
+              )}
+              {disconnecting ? "Disconnecting..." : "Disconnect"}
+            </Button>
           </div>
         </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {details.map((detail) => (
+            <DetailRow key={`${provider.id}-${detail.label}`} {...detail} />
+          ))}
+        </div>
+
+        {provider.lastError ? (
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+            <div className="flex items-center gap-2 font-medium">
+              <RefreshCw className="size-4" />
+              {provider.name} needs attention
+            </div>
+            <p className="mt-2 leading-6">{provider.lastError}</p>
+          </div>
+        ) : null}
       </div>
+    </div>
+  );
+}
+
+function SectionHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="space-y-1">
+      <h2 className="text-xl font-semibold">{title}</h2>
+      <p className="text-sm text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+function ProfileMetric({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string;
+  icon: ReactNode;
+}) {
+  return (
+    <div className="min-w-0 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-sm">
+      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        {icon}
+        {label}
+      </div>
+      <p className="mt-2 truncate text-sm font-semibold text-foreground">
+        {value}
+      </p>
     </div>
   );
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-background/75 px-4 py-3">
-      <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-        {label}
-      </p>
+    <div className="min-w-0 rounded-lg border border-border/70 bg-background/75 px-4 py-3">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-foreground/90">
         {label === "Account owner" ? <UserRound className="size-4" /> : null}
-        <span>{value}</span>
+        <span className="truncate">{value}</span>
       </p>
     </div>
   );

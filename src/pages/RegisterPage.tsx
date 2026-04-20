@@ -15,6 +15,7 @@ import Background from "@/components/common/background";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { BorderBeam } from "@/components/ui/border-beam";
+import { UserPlus } from "lucide-react";
 
 type RegisterFormValues = {
   name: string;
@@ -80,8 +81,8 @@ function getRegisterErrors(values: RegisterFormValues): RegisterFormErrors {
 
   if (!values.password) {
     errors.password = "Enter a password.";
-  } else if (values.password.length < 6) {
-    errors.password = "Password must be at least 6 characters long.";
+  } else if (values.password.length < 12) {
+    errors.password = "Password must be at least 12 characters long.";
   }
 
   if (!values.passwordRepeat) {
@@ -94,10 +95,10 @@ function getRegisterErrors(values: RegisterFormValues): RegisterFormErrors {
 }
 
 export default function RegisterPage() {
-  const { accessToken, register, loading, error, clearError } = useAuthContext();
-  const [formValues, setFormValues] = useState<RegisterFormValues>(
-    INITIAL_FORM_VALUES
-  );
+  const { accessToken, register, loading, error, clearError } =
+    useAuthContext();
+  const [formValues, setFormValues] =
+    useState<RegisterFormValues>(INITIAL_FORM_VALUES);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [touched, setTouched] = useState<
     Partial<Record<keyof RegisterFormValues, boolean>>
@@ -119,6 +120,7 @@ export default function RegisterPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (loading) return;
     setAttemptedSubmit(true);
 
     const nextErrors = getRegisterErrors(formValues);
@@ -132,7 +134,7 @@ export default function RegisterPage() {
       formValues.password,
       formValues.name.trim(),
       formValues.surname.trim(),
-      formValues.birthday
+      formValues.birthday,
     );
   };
 
@@ -156,9 +158,9 @@ export default function RegisterPage() {
 
   return (
     <Background>
-      <div className="my-16 flex h-screen w-screen items-center justify-center md:my-0">
-        <div className="flex flex-col items-center gap-4 lg:justify-start">
-          <a href={logo.url}>
+      <main className="flex min-h-screen w-screen items-center justify-center px-4 py-8">
+        <div className="flex w-full max-w-4xl flex-col items-center gap-5">
+          <a href={logo.url} className="rounded-md p-2">
             <img
               src={logo.src}
               alt={logo.alt}
@@ -166,15 +168,43 @@ export default function RegisterPage() {
               className="h-10 dark:invert"
             />
           </a>
-          <div className="relative border-muted bg-background flex w-full max-w-sm flex-col items-center gap-y-4 rounded-md border px-1 py-6 shadow-md transition-all md:max-w-3xl md:px-6 md:py-8">
-            <h1 className="text-xl font-semibold md:text-3xl">
-              Create your account
-            </h1>
 
-            <div className="w-full max-w-sm px-2 md:max-w-3xl md:px-6">
+          <section className="relative grid w-full overflow-hidden rounded-md border border-white/10 bg-background/95 shadow-2xl backdrop-blur md:grid-cols-[0.85fr_1.15fr]">
+            <div className="hidden border-r bg-muted/40 p-8 md:flex md:flex-col md:justify-between">
+              <div className="space-y-4">
+                <div className="flex size-12 items-center justify-center rounded-md border bg-background">
+                  <UserPlus className="size-5 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <h1 className="text-3xl font-semibold">
+                    Create your account
+                  </h1>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    Set up your profile and access your Prometeo dashboard.
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Already registered? Sign in with your existing account.
+              </p>
+            </div>
+
+            <div className="w-full px-5 py-6 md:px-7 md:py-8">
+              <div className="mb-6 space-y-2 md:hidden">
+                <div className="flex size-11 items-center justify-center rounded-md border bg-muted">
+                  <UserPlus className="size-5 text-primary" />
+                </div>
+                <h1 className="text-2xl font-semibold">
+                  Create your account
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Set up your profile and access your Prometeo dashboard.
+                </p>
+              </div>
+
               <form onSubmit={handleSubmit} noValidate>
                 <FieldSet>
-                  <FieldGroup className="grid grid-cols-1 gap-7 md:grid-cols-2">
+                  <FieldGroup className="grid grid-cols-1 gap-5 md:grid-cols-2">
                     <Field>
                       <FieldLabel htmlFor="register-name">Name</FieldLabel>
                       <Input
@@ -185,7 +215,7 @@ export default function RegisterPage() {
                         value={formValues.name}
                         aria-invalid={Boolean(
                           (attemptedSubmit || touched.name) &&
-                            validationErrors.name
+                          validationErrors.name,
                         )}
                         onBlur={() =>
                           setTouched((current) => ({ ...current, name: true }))
@@ -209,7 +239,7 @@ export default function RegisterPage() {
                         value={formValues.surname}
                         aria-invalid={Boolean(
                           (attemptedSubmit || touched.surname) &&
-                            validationErrors.surname
+                          validationErrors.surname,
                         )}
                         onBlur={() =>
                           setTouched((current) => ({
@@ -238,7 +268,7 @@ export default function RegisterPage() {
                         value={formValues.username}
                         aria-invalid={Boolean(
                           (attemptedSubmit || touched.username) &&
-                            validationErrors.username
+                          validationErrors.username,
                         )}
                         onBlur={() =>
                           setTouched((current) => ({
@@ -246,11 +276,11 @@ export default function RegisterPage() {
                             username: true,
                           }))
                         }
-                        onChange={(e) => updateField("username", e.target.value)}
+                        onChange={(e) =>
+                          updateField("username", e.target.value)
+                        }
                       />
-                      <FieldDescription>
-                        Choose a unique username for your account.
-                      </FieldDescription>
+                      <FieldDescription>At least 3 characters.</FieldDescription>
                       {(attemptedSubmit || touched.username) && (
                         <FieldError>{validationErrors.username}</FieldError>
                       )}
@@ -267,7 +297,7 @@ export default function RegisterPage() {
                         value={formValues.email}
                         aria-invalid={Boolean(
                           (attemptedSubmit || touched.email) &&
-                            validationErrors.email
+                          validationErrors.email,
                         )}
                         onBlur={() =>
                           setTouched((current) => ({ ...current, email: true }))
@@ -291,7 +321,7 @@ export default function RegisterPage() {
                         value={formValues.birthday}
                         aria-invalid={Boolean(
                           (attemptedSubmit || touched.birthday) &&
-                            validationErrors.birthday
+                          validationErrors.birthday,
                         )}
                         onBlur={() =>
                           setTouched((current) => ({
@@ -299,20 +329,19 @@ export default function RegisterPage() {
                             birthday: true,
                           }))
                         }
-                        onChange={(e) => updateField("birthday", e.target.value)}
+                        onChange={(e) =>
+                          updateField("birthday", e.target.value)
+                        }
                       />
                       {(attemptedSubmit || touched.birthday) && (
                         <FieldError>{validationErrors.birthday}</FieldError>
                       )}
                     </Field>
 
-                    <Field className="md:col-span-2">
+                    <Field>
                       <FieldLabel htmlFor="register-password">
                         Password
                       </FieldLabel>
-                      <FieldDescription>
-                        Must be at least 6 characters long.
-                      </FieldDescription>
                       <Input
                         id="register-password"
                         type="password"
@@ -321,7 +350,7 @@ export default function RegisterPage() {
                         value={formValues.password}
                         aria-invalid={Boolean(
                           (attemptedSubmit || touched.password) &&
-                            validationErrors.password
+                          validationErrors.password,
                         )}
                         onBlur={() =>
                           setTouched((current) => ({
@@ -329,13 +358,24 @@ export default function RegisterPage() {
                             password: true,
                           }))
                         }
-                        onChange={(e) => updateField("password", e.target.value)}
+                        onChange={(e) =>
+                          updateField("password", e.target.value)
+                        }
                       />
                       {(attemptedSubmit || touched.password) && (
                         <FieldError>{validationErrors.password}</FieldError>
                       )}
+                      {!validationErrors.password && (
+                        <FieldDescription>
+                          12 characters minimum.
+                        </FieldDescription>
+                      )}
+                    </Field>
 
-                      <FieldDescription>Repeat your password</FieldDescription>
+                    <Field>
+                      <FieldLabel htmlFor="register-password-repeat">
+                        Confirm password
+                      </FieldLabel>
                       <Input
                         id="register-password-repeat"
                         type="password"
@@ -344,7 +384,7 @@ export default function RegisterPage() {
                         value={formValues.passwordRepeat}
                         aria-invalid={Boolean(
                           (attemptedSubmit || touched.passwordRepeat) &&
-                            validationErrors.passwordRepeat
+                          validationErrors.passwordRepeat,
                         )}
                         onBlur={() =>
                           setTouched((current) => ({
@@ -357,18 +397,20 @@ export default function RegisterPage() {
                         }
                       />
                       {(attemptedSubmit || touched.passwordRepeat) && (
-                        <FieldError>{validationErrors.passwordRepeat}</FieldError>
+                        <FieldError>
+                          {validationErrors.passwordRepeat}
+                        </FieldError>
                       )}
                     </Field>
 
                     <p className="text-muted-foreground text-xs md:col-span-2">
-                      By clicking "Register", you agree to our Terms of Service
+                      By clicking "Create account", you agree to our Terms of Service
                       and Privacy Policy.
                     </p>
 
                     <Button
                       type="submit"
-                      className="w-full md:col-span-2"
+                      className="h-10 w-full md:col-span-2"
                       disabled={loading}
                     >
                       {loading ? (
@@ -377,7 +419,7 @@ export default function RegisterPage() {
                           Creating account...
                         </>
                       ) : (
-                        "Register"
+                        "Create account"
                       )}
                     </Button>
 
@@ -394,15 +436,18 @@ export default function RegisterPage() {
               </form>
             </div>
             <BorderBeam duration={8} size={100} />
-          </div>
+          </section>
           <div className="text-muted-foreground flex justify-center gap-1 text-sm">
             <p>Already have an account?</p>
-            <Link to="/login" className="text-primary font-medium hover:underline">
+            <Link
+              to="/login"
+              className="text-primary font-medium hover:underline"
+            >
               Sign in
             </Link>
           </div>
         </div>
-      </div>
+      </main>
     </Background>
   );
 }

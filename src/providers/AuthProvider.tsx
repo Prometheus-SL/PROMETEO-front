@@ -6,8 +6,9 @@ export interface AuthContextValue {
   accessToken: string | null;
   refreshToken: string | null;
   user: AuthUser | null;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string, totpToken?: string) => Promise<void>;
   loginQR: (tokens: Tokens, user: AuthUser) => Promise<void>;
+  updateUser?: (user: AuthUser) => void;
   logout: () => void;
   register: (
     username: string,
@@ -19,6 +20,7 @@ export interface AuthContextValue {
   ) => Promise<void>;
   loading: boolean;
   error: string | null;
+  twoFactorRequired?: boolean;
   clearError: () => void;
 }
 
@@ -31,11 +33,18 @@ export function AuthProvider({
   children: React.ReactNode;
   value?: AuthContextValue;
 }) {
-  const auth = value ?? useAuth();
+  if (value) {
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  }
+
+  return <LiveAuthProvider>{children}</LiveAuthProvider>;
+}
+
+function LiveAuthProvider({ children }: { children: React.ReactNode }) {
+  const auth = useAuth();
   return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function useAuthContext() {
   const ctx = useContext(AuthContext);
   if (!ctx)

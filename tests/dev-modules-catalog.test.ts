@@ -46,9 +46,11 @@ describe("dev modules catalog", () => {
     const catalog = await loadModuleDevCatalog();
     const spotify = catalog.find((item) => item.entry.meta.id === "spotify-widget");
     const weather = catalog.find((item) => item.entry.meta.id === "weather-widget");
+    const spark = catalog.find((item) => item.entry.meta.id === "spark-widget");
 
     expect(spotify?.hasMockAdapter).toBe(true);
-    expect(weather?.hasMockAdapter).toBe(false);
+    expect(weather?.hasMockAdapter).toBe(true);
+    expect(spark?.hasMockAdapter).toBe(false);
   });
 
   it("loads shared mock adapters for provider-backed entries without local dev.mock.ts", async () => {

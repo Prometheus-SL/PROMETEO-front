@@ -19,15 +19,22 @@ import {
 } from "@/components/ui/table";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  onToggleAll?: () => void;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  selectedIds,
+  onToggleSelect,
+  onToggleAll,
 }: DataTableProps<TData, TValue>) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
@@ -63,6 +70,16 @@ export function DataTable<TData, TValue>({
           <TableHeader className="bg-muted">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
+                {selectedIds && onToggleAll && (
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={
+                        selectedIds.size === data.length && data.length > 0
+                      }
+                      onCheckedChange={() => onToggleAll()}
+                    />
+                  </TableHead>
+                )}
                 {headerGroup.headers.map((header) => {
                   return (
                     <TableHead key={header.id}>
@@ -70,7 +87,7 @@ export function DataTable<TData, TValue>({
                         ? null
                         : flexRender(
                             header.column.columnDef.header,
-                            header.getContext()
+                            header.getContext(),
                           )}
                     </TableHead>
                   );
@@ -85,11 +102,23 @@ export function DataTable<TData, TValue>({
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
                 >
+                  {selectedIds && onToggleSelect && (
+                    <TableCell className="w-10">
+                      <Checkbox
+                        checked={selectedIds.has(
+                          (row.original as { _id: string })._id,
+                        )}
+                        onCheckedChange={() =>
+                          onToggleSelect((row.original as { _id: string })._id)
+                        }
+                      />
+                    </TableCell>
+                  )}
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(
                         cell.column.columnDef.cell,
-                        cell.getContext()
+                        cell.getContext(),
                       )}
                     </TableCell>
                   ))}
@@ -98,7 +127,7 @@ export function DataTable<TData, TValue>({
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length}
+                  colSpan={columns.length + (selectedIds ? 1 : 0)}
                   className="h-24 text-center"
                 >
                   No results.

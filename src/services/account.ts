@@ -59,9 +59,33 @@ export type AccountPayload = {
   providers?: LinkedAccountProvider[];
 };
 
+export type UpdateProfilePayload = {
+  username: string;
+  name?: string;
+  surname?: string;
+};
+
+export type ChangePasswordPayload = {
+  currentPassword: string;
+  newPassword: string;
+};
+
 export const accountService = {
   async getAccount(): Promise<AccountPayload> {
     return api.getData<AccountPayload>("/api/v1/account");
+  },
+
+  async updateProfile(payload: UpdateProfilePayload): Promise<AuthUser> {
+    const data = await api.patchData<{ user: AuthUser }>(
+      "/api/v1/account/profile",
+      payload,
+    );
+
+    return data.user;
+  },
+
+  async changePassword(payload: ChangePasswordPayload): Promise<void> {
+    await api.postData<null>("/api/v1/account/password", payload);
   },
 
   async listProviders(): Promise<LinkedAccountProvider[]> {

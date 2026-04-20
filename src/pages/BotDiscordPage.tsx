@@ -166,7 +166,7 @@ function useGameSearch() {
             try {
                 const hits = await discordService.searchGames(trimmed);
                 setResults(hits);
-            } catch (_err) {
+            } catch {
                 setResults([]);
             } finally {
                 setLoading(false);
@@ -366,7 +366,7 @@ export default function BotDiscordPage() {
             const next = buildDraftFromServer(result.configs);
             setSavedDraft(next);
             setDraft(next);
-            let epicWarning = result.warning ?? null;
+            const epicWarning = result.warning ?? null;
 
             const guResult = await discordService.setGameUpdates({ configs: guConfigs });
             const nextGU = buildGameUpdatesDraftFromServer(guResult.configs);

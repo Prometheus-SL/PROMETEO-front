@@ -72,4 +72,50 @@ export const dashboardService = {
         const data = await api.getData<{ items: DashboardFeedItem[] }>(`/api/v1/dashboard/feed?${query.toString()}`)
         return data.items ?? []
     },
+
+    // --- Templates ---
+    async listTemplates(): Promise<DashboardTemplate[]> {
+        const data = await api.getData<{ templates: DashboardTemplate[] }>("/api/v1/dashboard/templates");
+        return data.templates ?? [];
+    },
+    async createFromTemplate(templateId: string): Promise<Page> {
+        const data = await api.postData<{ page: Page }>("/api/v1/dashboard/pages/from-template", { templateId });
+        return data.page;
+    },
+
+    // --- Version history ---
+    async listVersions(pageId: string, params?: { page?: number; limit?: number }): Promise<DashboardVersionsResponse> {
+        const q = new URLSearchParams();
+        if (params?.page) q.set("page", String(params.page));
+        if (params?.limit) q.set("limit", String(params.limit));
+        return api.getData<DashboardVersionsResponse>(`/api/v1/dashboard/pages/${pageId}/versions${q.toString() ? `?${q}` : ""}`);
+    },
+    async saveVersion(pageId: string): Promise<DashboardVersion> {
+        const data = await api.postData<{ version: DashboardVersion }>(`/api/v1/dashboard/pages/${pageId}/versions`, {});
+        return data.version;
+    },
+    async restoreVersion(pageId: string, versionId: string): Promise<Page> {
+        const data = await api.postData<{ page: Page }>(`/api/v1/dashboard/pages/${pageId}/versions/${versionId}/restore`, {});
+        return data.page;
+    },
+};
+
+export type DashboardTemplate = {
+    id: string;
+    name: string;
+    description: string;
+    modules: number;
+};
+
+export type DashboardVersion = {
+    _id: string;
+    pageId: string;
+    version: number;
+    changedBy?: string;
+    createdAt: string;
+};
+
+export type DashboardVersionsResponse = {
+    versions: DashboardVersion[];
+    pagination: { current: number; pages: number; total: number };
 };

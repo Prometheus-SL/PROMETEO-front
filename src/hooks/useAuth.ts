@@ -20,6 +20,7 @@ export function useAuth() {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [twoFactorRequired, setTwoFactorRequired] = useState(false);
 
     const persistSession = (tokens: Tokens, userData: AuthUser) => {
         localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
@@ -34,16 +35,22 @@ export function useAuth() {
         setError(null);
     }, []);
 
-    const performLogin = async (username: string, password: string) => {
-        const data = await authService.login(username, password);
+    const performLogin = async (username: string, password: string, totpToken?: string) => {
+        const data = await authService.login(username, password, totpToken);
+        if (data.twoFactorRequired || !data.tokens) {
+            setTwoFactorRequired(true);
+            return;
+        }
+
+        setTwoFactorRequired(false);
         persistSession(data.tokens, data.user);
     };
 
-    const login = async (username: string, password: string) => {
+    const login = async (username: string, password: string, totpToken?: string) => {
         setLoading(true);
         setError(null);
         try {
-            await performLogin(username, password);
+            await performLogin(username, password, totpToken);
         } catch (e: unknown) {
             setError(getAuthErrorMessage(e, "Could not sign in."));
         } finally {
@@ -56,11 +63,17 @@ export function useAuth() {
         setError(null);
         try {
             persistSession(tokens, user);
+            setTwoFactorRequired(false);
         } catch (e: unknown) {
             setError(getAuthErrorMessage(e, "Could not sign in."));
         } finally {
             setLoading(false);
         }
+    };
+
+    const updateUser = (userData: AuthUser) => {
+        localStorage.setItem(USER_KEY, JSON.stringify(userData));
+        setUser(userData);
     };
 
     const register = async (username: string, email: string, password: string, name: string, surname: string, birthday: string) => {
@@ -92,8 +105,9 @@ export function useAuth() {
         setAccessToken(null);
         setRefreshToken(null);
         setUser(null);
+        setTwoFactorRequired(false);
         window.location.replace("/login");
     };
 
-    return { accessToken, refreshToken, user, login, logout, loading, error, register, loginQR, clearError };
+    return { accessToken, refreshToken, user, login, logout, loading, error, register, loginQR, updateUser, clearError, twoFactorRequired };
 }

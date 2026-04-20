@@ -39,5 +39,13 @@ export const usersService = {
     },
     async resetPassword(userId: string, password: string): Promise<void> {
         await api.postData<null>(`/api/v1/users/${userId}/reset-password`, { password });
-    }
+    },
+
+    // --- Batch operations ---
+    async batchStatus(userIds: string[], isActive: boolean): Promise<void> {
+        await api.postData<null>("/api/v1/users/batch/status", { userIds, isActive });
+    },
+    async batchRole(userIds: string[], role: UserRole): Promise<void> {
+        await api.postData<null>("/api/v1/users/batch/role", { userIds, role });
+    },
 };
