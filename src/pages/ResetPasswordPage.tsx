@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
+import { KeyRound } from "lucide-react";
 
-import Background from "@/components/common/background";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -57,78 +58,70 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <Background>
-      <div className="flex min-h-screen w-screen items-center justify-center px-4">
-        <div className="flex w-full max-w-sm flex-col gap-5 rounded-md border bg-background px-6 py-8 shadow-md">
-          <div className="space-y-2 text-center">
-            <h1 className="text-xl font-semibold">Reset password</h1>
-            <p className="text-sm text-muted-foreground">
-              Choose a new password for your Prometeo account.
-            </p>
-          </div>
+    <AuthShell
+      title="Reset password"
+      description="Choose a new password."
+      eyebrow="Credential update"
+      icon={KeyRound}
+      backLink={{ to: "/login", label: "Back to login" }}
+      maxWidth="sm"
+    >
+      <form onSubmit={handleSubmit} noValidate>
+        <FieldSet>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="reset-password">New password</FieldLabel>
+              <Input
+                id="reset-password"
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                aria-invalid={submitted && Boolean(passwordError)}
+              />
+              {submitted && <FieldError>{passwordError}</FieldError>}
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="reset-password-confirm">
+                Confirm password
+              </FieldLabel>
+              <Input
+                id="reset-password-confirm"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                aria-invalid={submitted && Boolean(confirmError)}
+              />
+              {submitted && <FieldError>{confirmError}</FieldError>}
+            </Field>
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? (
+                <>
+                  <Spinner />
+                  Saving...
+                </>
+              ) : (
+                "Save new password"
+              )}
+            </Button>
+          </FieldGroup>
+        </FieldSet>
+      </form>
 
-          <form onSubmit={handleSubmit} noValidate>
-            <FieldSet>
-              <FieldGroup>
-                <Field>
-                  <FieldLabel htmlFor="reset-password">New password</FieldLabel>
-                  <Input
-                    id="reset-password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    aria-invalid={submitted && Boolean(passwordError)}
-                  />
-                  {submitted && <FieldError>{passwordError}</FieldError>}
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="reset-password-confirm">
-                    Confirm password
-                  </FieldLabel>
-                  <Input
-                    id="reset-password-confirm"
-                    type="password"
-                    autoComplete="new-password"
-                    value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                    aria-invalid={submitted && Boolean(confirmError)}
-                  />
-                  {submitted && <FieldError>{confirmError}</FieldError>}
-                </Field>
-                <Button type="submit" disabled={loading} className="w-full">
-                  {loading ? (
-                    <>
-                      <Spinner />
-                      Saving...
-                    </>
-                  ) : (
-                    "Save new password"
-                  )}
-                </Button>
-              </FieldGroup>
-            </FieldSet>
-          </form>
-
-          {message && (
-            <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-700">
-              {message}
-            </div>
-          )}
-          {error && (
-            <div
-              role="alert"
-              className="rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-600"
-            >
-              {error}
-            </div>
-          )}
-
-          <Button asChild variant="outline" className="w-full">
-            <Link to="/login">Back to login</Link>
-          </Button>
+      {message && (
+        <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-700">
+          {message}
         </div>
-      </div>
-    </Background>
+      )}
+      {error && (
+        <div
+          role="alert"
+          className="rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-600"
+        >
+          {error}
+        </div>
+      )}
+    </AuthShell>
   );
 }

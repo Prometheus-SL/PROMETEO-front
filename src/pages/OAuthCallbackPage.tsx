@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, XCircle } from "lucide-react";
 
-import Background from "@/components/common/background";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuthContext } from "@/providers/AuthProvider";
 import { authService, type Tokens } from "@/services/auth";
@@ -152,51 +152,28 @@ export default function OAuthCallbackPage() {
   const isSuccess = callbackSucceeded && !localError;
 
   return (
-    <Background>
-      <main className="flex min-h-screen items-center justify-center px-4">
-        <div className="flex flex-col items-center gap-6 text-center">
-          <img
-            src="/logo.svg"
-            alt="Prometeo"
-            className="h-8 opacity-60 dark:invert"
-          />
-
-          <div
-            className={`flex size-16 items-center justify-center rounded-full ${
-              isSuccess
-                ? "bg-emerald-500/10 text-emerald-400"
-                : "bg-red-500/10 text-red-400"
-            } transition-all duration-500`}
-          >
-            {isSuccess ? (
-              <CheckCircle2 className="size-8" />
-            ) : (
-              <XCircle className="size-8" />
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <h1 className="text-lg font-semibold text-foreground">
-              {isSuccess ? "Signed in" : "Sign in failed"}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {isSuccess
-                ? closing
-                  ? "Closing..."
-                  : "Returning to Prometeo..."
-                : localError ||
-                  payload.error ||
-                  "Something went wrong. Please close this window and try again."}
-            </p>
-          </div>
-
-          {isSuccess && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Spinner className="size-3.5" />
-            </div>
-          )}
+    <AuthShell
+      title={isSuccess ? "Signed in" : "Sign in failed"}
+      description={
+        isSuccess
+          ? closing
+            ? "Closing..."
+            : "Returning to Prometeo..."
+          : localError ||
+            payload.error ||
+            "Something went wrong. Please close this window and try again."
+      }
+      eyebrow="OAuth callback"
+      icon={isSuccess ? CheckCircle2 : XCircle}
+      maxWidth="sm"
+      showShowcase={false}
+    >
+      {isSuccess ? (
+        <div className="flex items-center gap-2 rounded-md border border-white/10 bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+          <Spinner className="size-3.5" />
+          Completing session
         </div>
-      </main>
-    </Background>
+      ) : null}
+    </AuthShell>
   );
 }

@@ -177,9 +177,11 @@ export default function OAuthButtons() {
             type="button"
             variant="outline"
             size="sm"
-            className="w-full"
+            className="h-10 w-full border-white/10 bg-background/60 backdrop-blur hover:bg-muted/70"
             disabled={loadingProvider !== null}
             onClick={() => handleOAuth(id)}
+            aria-label={`Sign in with ${label}`}
+            title={`Sign in with ${label}`}
           >
             {loadingProvider === id ? (
               <Spinner className="size-4" />

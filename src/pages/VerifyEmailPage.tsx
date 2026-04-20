@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, MailCheck, XCircle } from "lucide-react";
 
-import Background from "@/components/common/background";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { authService, getAuthErrorMessage } from "@/services/auth";
@@ -45,27 +45,32 @@ export default function VerifyEmailPage() {
   }, [token]);
 
   return (
-    <Background>
-      <div className="flex min-h-screen w-screen items-center justify-center px-4">
-        <div className="flex w-full max-w-sm flex-col items-center gap-5 rounded-md border bg-background px-6 py-8 text-center shadow-md">
-          {status === "loading" ? (
-            <Spinner className="size-8" />
-          ) : status === "success" ? (
-            <CheckCircle2 className="size-10 text-emerald-600" />
-          ) : (
-            <XCircle className="size-10 text-red-600" />
-          )}
-          <div className="space-y-2">
-            <h1 className="text-xl font-semibold">
-              {status === "success" ? "Email verified" : "Email verification"}
-            </h1>
-            <p className="text-sm text-muted-foreground">{message}</p>
-          </div>
-          <Button asChild className="w-full">
-            <Link to="/login">Go to login</Link>
-          </Button>
-        </div>
+    <AuthShell
+      title={status === "success" ? "Email verified" : "Email verification"}
+      description={message}
+      eyebrow="Account activation"
+      icon={status === "error" ? XCircle : status === "success" ? CheckCircle2 : MailCheck}
+      maxWidth="sm"
+    >
+      <div className="flex items-center gap-3 rounded-md border border-white/10 bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+        {status === "loading" ? (
+          <Spinner className="size-5" />
+        ) : status === "success" ? (
+          <CheckCircle2 className="size-5 text-emerald-600" />
+        ) : (
+          <XCircle className="size-5 text-red-600" />
+        )}
+        <span>
+          {status === "loading"
+            ? "Checking token"
+            : status === "success"
+              ? "Account ready"
+              : "Verification failed"}
+        </span>
       </div>
-    </Background>
+      <Button asChild className="w-full">
+        <Link to="/login">Go to login</Link>
+      </Button>
+    </AuthShell>
   );
 }

@@ -232,7 +232,7 @@ export default function QRLogin({
         </div>
       ) : null}
 
-      <Card className="relative overflow-hidden border-white/10 bg-white/5 py-0 shadow-[0_24px_80px_rgba(2,6,23,0.45)] backdrop-blur-xl">
+      <Card className="relative overflow-hidden rounded-md border-white/10 bg-background/70 py-0 shadow-[0_24px_80px_rgba(2,6,23,0.35)] backdrop-blur-xl">
         <BorderBeam
           size={180}
           duration={8}
@@ -247,10 +247,10 @@ export default function QRLogin({
               <Spinner />
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-medium text-white">
+              <p className="text-sm font-medium text-foreground">
                 Generating QR code
               </p>
-              <p className="text-sm text-slate-300">
+              <p className="text-sm text-muted-foreground">
                 Preparing a secure session for this client.
               </p>
             </div>
@@ -261,7 +261,7 @@ export default function QRLogin({
               <RefreshCw className="h-5 w-5 text-rose-300" />
             </div>
             <div className="space-y-2">
-              <p className="text-base font-medium text-white">
+              <p className="text-base font-medium text-foreground">
                 Could not generate the code
               </p>
               <p className="text-sm text-rose-200">{error}</p>
@@ -276,7 +276,7 @@ export default function QRLogin({
             <div className="flex items-start justify-between gap-4">
               <div
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium",
+                  "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium",
                   getStatusClasses(),
                 )}
               >
@@ -285,15 +285,15 @@ export default function QRLogin({
               </div>
 
               {status !== "expired" && status !== "authenticated" ? (
-                <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200">
+                <div className="rounded-md border border-white/10 bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">
                   {formatTime(timeLeft)}
                 </div>
               ) : null}
             </div>
 
             <div className="grid gap-5">
-              <div className="rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(125,211,252,0.18),_transparent_55%),rgba(255,255,255,0.04)] p-4 shadow-inner">
-                <div className="mx-auto flex max-w-[280px] items-center justify-center rounded-[1.5rem] bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.25)]">
+              <div className="rounded-md border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(125,211,252,0.18),_transparent_55%),rgba(255,255,255,0.04)] p-4 shadow-inner">
+                <div className="mx-auto flex max-w-[280px] items-center justify-center rounded-md bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.25)]">
                   <QRCode
                     size={220}
                     value={`https://prometeo.miguelprez.es/qr-login/${qrData.code}`}
@@ -304,7 +304,7 @@ export default function QRLogin({
 
               <div
                 className={cn(
-                  "rounded-2xl border px-4 py-3 text-sm leading-relaxed",
+                  "rounded-md border px-4 py-3 text-sm leading-relaxed",
                   getStatusClasses(),
                 )}
               >
@@ -317,7 +317,7 @@ export default function QRLogin({
                 <Button
                   onClick={generateQR}
                   variant="outline"
-                  className="min-w-40 border-white/15 bg-white/5 text-white hover:bg-white/10"
+                  className="min-w-40 border-white/15 bg-background/60 text-foreground hover:bg-muted/60"
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Generate a new QR
