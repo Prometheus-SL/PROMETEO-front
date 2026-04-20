@@ -15,7 +15,15 @@ import Background from "@/components/common/background";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { BorderBeam } from "@/components/ui/border-beam";
-import { UserPlus } from "lucide-react";
+import { CalendarIcon, UserPlus } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 type RegisterFormValues = {
   name: string;
@@ -104,7 +112,6 @@ export default function RegisterPage() {
     Partial<Record<keyof RegisterFormValues, boolean>>
   >({});
   const navigate = useNavigate();
-  const maxBirthday = getTodayDateValue();
 
   const validationErrors = getRegisterErrors(formValues);
 
@@ -194,9 +201,7 @@ export default function RegisterPage() {
                 <div className="flex size-11 items-center justify-center rounded-md border bg-muted">
                   <UserPlus className="size-5 text-primary" />
                 </div>
-                <h1 className="text-2xl font-semibold">
-                  Create your account
-                </h1>
+                <h1 className="text-2xl font-semibold">Create your account</h1>
                 <p className="text-sm text-muted-foreground">
                   Set up your profile and access your Prometeo dashboard.
                 </p>
@@ -280,7 +285,9 @@ export default function RegisterPage() {
                           updateField("username", e.target.value)
                         }
                       />
-                      <FieldDescription>At least 3 characters.</FieldDescription>
+                      <FieldDescription>
+                        At least 3 characters.
+                      </FieldDescription>
                       {(attemptedSubmit || touched.username) && (
                         <FieldError>{validationErrors.username}</FieldError>
                       )}
@@ -313,26 +320,56 @@ export default function RegisterPage() {
                       <FieldLabel htmlFor="register-birthday">
                         Birthday
                       </FieldLabel>
-                      <Input
-                        id="register-birthday"
-                        type="date"
-                        max={maxBirthday}
-                        autoComplete="bday"
-                        value={formValues.birthday}
-                        aria-invalid={Boolean(
-                          (attemptedSubmit || touched.birthday) &&
-                          validationErrors.birthday,
-                        )}
-                        onBlur={() =>
-                          setTouched((current) => ({
-                            ...current,
-                            birthday: true,
-                          }))
-                        }
-                        onChange={(e) =>
-                          updateField("birthday", e.target.value)
-                        }
-                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            id="register-birthday"
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !formValues.birthday && "text-muted-foreground",
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 size-4 opacity-50" />
+                            {formValues.birthday
+                              ? format(
+                                  new Date(formValues.birthday + "T00:00:00"),
+                                  "PPP",
+                                )
+                              : "Pick a date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            captionLayout="dropdown"
+                            startMonth={new Date(1900, 0)}
+                            endMonth={new Date()}
+                            defaultMonth={
+                              formValues.birthday
+                                ? new Date(formValues.birthday + "T00:00:00")
+                                : undefined
+                            }
+                            selected={
+                              formValues.birthday
+                                ? new Date(formValues.birthday + "T00:00:00")
+                                : undefined
+                            }
+                            onSelect={(date) =>
+                              updateField(
+                                "birthday",
+                                date
+                                  ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+                                  : "",
+                              )
+                            }
+                            disabled={(date) =>
+                              date > new Date() || date < new Date("1900-01-01")
+                            }
+                            ISOWeek={true}
+                          />
+                        </PopoverContent>
+                      </Popover>
                       {(attemptedSubmit || touched.birthday) && (
                         <FieldError>{validationErrors.birthday}</FieldError>
                       )}
@@ -404,8 +441,8 @@ export default function RegisterPage() {
                     </Field>
 
                     <p className="text-muted-foreground text-xs md:col-span-2">
-                      By clicking "Create account", you agree to our Terms of Service
-                      and Privacy Policy.
+                      By clicking "Create account", you agree to our Terms of
+                      Service and Privacy Policy.
                     </p>
 
                     <Button

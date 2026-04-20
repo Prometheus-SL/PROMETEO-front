@@ -69,7 +69,7 @@ function ElegantShape({
             "backdrop-blur-[2px] border-2 border-white/[0.15]",
             "shadow-[0_8px_32px_0_rgba(255,255,255,0.1)]",
             "after:absolute after:inset-0 after:rounded-full",
-            "after:bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.2),transparent_70%)]"
+            "after:bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.2),transparent_70%)]",
           )}
         />
       </motion.div>
@@ -83,7 +83,7 @@ export function Background({ className, children }: HeroGeometricProps) {
       <div
         className={cn(
           "fixed inset-0 -z-10 min-h-screen w-full justify-center overflow-hidden bg-[#030303]",
-          className
+          className,
         )}
       >
         <div className="absolute inset-0 overflow-hidden">
@@ -134,7 +134,7 @@ export function Background({ className, children }: HeroGeometricProps) {
           />
         </div>
       </div>
-      <div className="w-full z-100 absolute">{children}</div>
+      <div className="w-full z-10 absolute">{children}</div>
     </>
   );
 }
