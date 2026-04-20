@@ -9,6 +9,7 @@ import HomePage from "@/pages/HomePage";
 import LinkedAccountCallbackPage from "@/pages/LinkedAccountCallbackPage";
 import LoginPage from "@/pages/LoginPage";
 import NotFoundPage from "@/pages/404Page";
+import OAuthCallbackPage from "@/pages/OAuthCallbackPage";
 import QRLoginPage from "@/pages/QRLoginPage";
 import AppLayout from "./layouts/AppLayout";
 import RegisterPage from "./pages/RegisterPage";
@@ -33,9 +34,7 @@ function RouteFallback() {
         <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted-foreground">
           PROMETEO
         </p>
-        <p className="mt-3 text-sm text-muted-foreground">
-          Loading...
-        </p>
+        <p className="mt-3 text-sm text-muted-foreground">Loading...</p>
       </div>
     </div>
   );
@@ -78,6 +77,10 @@ export function createAppRoutes(isDev = import.meta.env.DEV) {
     {
       path: "/linked-account-callback",
       element: <LinkedAccountCallbackPage />,
+    },
+    {
+      path: "/oauth/callback",
+      element: <OAuthCallbackPage />,
     },
     {
       path: "/",

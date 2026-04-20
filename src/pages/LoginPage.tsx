@@ -22,8 +22,14 @@ import {
 } from "@/components/ui/input-group";
 import { BorderBeam } from "@/components/ui/border-beam";
 import QRLogin from "@/components/auth/QRLogin";
+import OAuthButtons from "@/components/auth/OAuthButtons";
 
-function getLoginErrors(identifier: string, password: string, twoFactorRequired = false, twoFactorToken = "") {
+function getLoginErrors(
+  identifier: string,
+  password: string,
+  twoFactorRequired = false,
+  twoFactorToken = "",
+) {
   return {
     identifier: identifier.trim() ? null : "Enter your email or username.",
     password: password ? null : "Enter your password.",
@@ -35,14 +41,8 @@ function getLoginErrors(identifier: string, password: string, twoFactorRequired 
 }
 
 export default function LoginPage() {
-  const {
-    login,
-    loading,
-    error,
-    accessToken,
-    clearError,
-    twoFactorRequired,
-  } = useAuthContext();
+  const { login, loading, error, accessToken, clearError, twoFactorRequired } =
+    useAuthContext();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [twoFactorToken, setTwoFactorToken] = useState("");
@@ -81,7 +81,11 @@ export default function LoginPage() {
       twoFactorToken,
     );
 
-    if (nextErrors.identifier || nextErrors.password || nextErrors.twoFactorToken) {
+    if (
+      nextErrors.identifier ||
+      nextErrors.password ||
+      nextErrors.twoFactorToken
+    ) {
       return;
     }
 
@@ -235,9 +239,7 @@ export default function LoginPage() {
                                 clearError();
                               }
                               setTwoFactorToken(
-                                e.target.value
-                                  .replace(/\s+/g, "")
-                                  .slice(0, 16),
+                                e.target.value.replace(/\s+/g, "").slice(0, 16),
                               );
                             }}
                           />
@@ -257,10 +259,14 @@ export default function LoginPage() {
                         {loading ? (
                           <>
                             <Spinner />
-                            {twoFactorRequired ? "Verifying..." : "Signing in..."}
+                            {twoFactorRequired
+                              ? "Verifying..."
+                              : "Signing in..."}
                           </>
+                        ) : twoFactorRequired ? (
+                          "Verify code"
                         ) : (
-                          twoFactorRequired ? "Verify code" : "Login"
+                          "Login"
                         )}
                       </Button>
 
@@ -281,6 +287,8 @@ export default function LoginPage() {
                   <span className="text-xs text-muted-foreground">or</span>
                   <div className="h-px flex-1 bg-border" />
                 </div>
+
+                <OAuthButtons />
 
                 <div className="flex items-center justify-center">
                   <Button

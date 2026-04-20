@@ -24,6 +24,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import OAuthButtons from "@/components/auth/OAuthButtons";
 
 type RegisterFormValues = {
   name: string;
@@ -471,6 +472,18 @@ export default function RegisterPage() {
                   </FieldGroup>
                 </FieldSet>
               </form>
+
+              <div className="mt-5 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-xs text-muted-foreground">
+                    or sign up with
+                  </span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+
+                <OAuthButtons />
+              </div>
             </div>
             <BorderBeam duration={8} size={100} />
           </section>

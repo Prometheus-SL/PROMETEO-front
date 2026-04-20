@@ -198,6 +198,22 @@ export const authService = {
         return api.getData<{ enabled: boolean; enabledAt?: string }>("/auth/2fa/status");
     },
 
+    // --- OAuth Login ---
+    async getOAuthUrl(provider: "google" | "github" | "discord") {
+        return api.postData<{ authorizeUrl: string }>(
+            `/auth/oauth/${provider}/authorize`,
+            {},
+            { skipAuth: true }
+        );
+    },
+
+    async getMe(accessToken: string) {
+        return api.getData<{ user: AuthUser; session: { sessionId: string | null } }>(
+            "/auth/me",
+            { headers: { Authorization: `Bearer ${accessToken}` }, skipAuth: true }
+        );
+    },
+
     // --- Sessions ---
     async listSessions() {
         return api.getData<{ sessions: Session[] }>("/auth/sessions");
