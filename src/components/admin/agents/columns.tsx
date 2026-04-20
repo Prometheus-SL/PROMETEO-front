@@ -1,7 +1,4 @@
-"use client";
-
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,51 +11,76 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { AgentDataDialog } from "./agent-data-dialog";
+import { AgentDeleteDialog } from "./agent-delete-dialog";
 import { AgentPatchDialog } from "./agent-patch-dialog";
 import { SendCommandDialog } from "./send-command-dialog";
 
 type ColumnActions = {
   onAgentUpdated?: (agent: Agent) => void;
+  onAgentDeleted?: (id: string) => void;
   onRefreshList?: () => void;
 };
+
+function formatDate(value?: string) {
+  if (!value) return "Never";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Never";
+  return date.toLocaleString();
+}
+
+function statusBadgeClass(status: string) {
+  if (status === "online")
+    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700";
+  if (status === "maintenance")
+    return "border-amber-500/30 bg-amber-500/10 text-amber-700";
+  if (status === "error" || status === "locked")
+    return "border-red-500/30 bg-red-500/10 text-red-700";
+  return "border-muted bg-muted text-muted-foreground";
+}
+
+async function copyAgentId(agentId: string) {
+  await navigator.clipboard?.writeText(agentId);
+  toast.success("Agent ID copied");
+}
 
 export const buildAgentColumns = (
   actions: ColumnActions = {}
 ): ColumnDef<Agent>[] => [
   {
-    id: "select",
-    header: ({ table }) => (
-      <Checkbox
-        checked={
-          table.getIsAllPageRowsSelected() ||
-          (table.getIsSomePageRowsSelected() && "indeterminate")
-        }
-        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label="Select all"
-      />
-    ),
-    cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
-      />
-    ),
-  },
-  {
-    accessorKey: "id",
-    header: "ID",
+    id: "agent",
+    header: "Agent",
     cell: ({ row }) => {
       const agent = row.original;
-      return <span className="font-mono text-xs">{agent.id}</span>;
+      return (
+        <div className="min-w-0">
+          <p className="truncate font-medium">{agent.name || agent.id}</p>
+          <p className="truncate font-mono text-xs text-muted-foreground">
+            {agent.id}
+          </p>
+          {agent.description ? (
+            <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+              {agent.description}
+            </p>
+          ) : null}
+        </div>
+      );
     },
   },
   {
-    accessorKey: "name",
-    header: "Name",
+    id: "machine",
+    header: "Machine",
     cell: ({ row }) => {
       const agent = row.original;
-      return agent.name || "-";
+      const hostname = agent.computerInfo?.hostname || agent.location || "-";
+      const os = agent.computerInfo?.os?.platform;
+      return (
+        <div>
+          <p className="text-sm">{hostname}</p>
+          <p className="text-xs text-muted-foreground">
+            {[os, agent.ip].filter(Boolean).join(" / ") || "No system data"}
+          </p>
+        </div>
+      );
     },
   },
   {
@@ -67,18 +89,12 @@ export const buildAgentColumns = (
     cell: ({ row }) => {
       const agent = row.original;
       return (
-        <Badge
-          className={
-            agent.status === "online"
-              ? "rounded-full border-none bg-green-600/10 text-green-600 focus-visible:ring-green-600/20 focus-visible:outline-none dark:bg-green-400/10 dark:text-green-400 dark:focus-visible:ring-green-400/40 [a&]:hover:bg-green-600/5 dark:[a&]:hover:bg-green-400/5"
-              : "bg-destructive/10 [a&]:hover:bg-destructive/5 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 text-destructive rounded-full border-none focus-visible:outline-none"
-          }
-        >
+        <Badge variant="outline" className={statusBadgeClass(agent.status)}>
           <span
             className={
               agent.status === "online"
-                ? "size-1.5 rounded-full bg-green-600 dark:bg-green-400"
-                : "bg-destructive size-1.5 rounded-full"
+                ? "size-1.5 rounded-full bg-emerald-600"
+                : "size-1.5 rounded-full bg-current"
             }
             aria-hidden="true"
           />
@@ -88,45 +104,29 @@ export const buildAgentColumns = (
     },
   },
   {
-    accessorKey: "ip",
-    header: "IP",
+    id: "owner",
+    header: "Owner",
     cell: ({ row }) => {
       const agent = row.original;
-      return agent.ip || "-";
+      return (
+        <div>
+          <p className="text-sm">{agent.user?.username || "Unassigned"}</p>
+          <p className="text-xs text-muted-foreground">
+            {agent.user?.email || agent.user?.name || "No owner"}
+          </p>
+        </div>
+      );
     },
   },
   {
     accessorKey: "lastSeen",
-    header: "Last Seen",
+    header: "Last seen",
     cell: ({ row }) => {
       const agent = row.original;
-      return agent.lastSeen ? new Date(agent.lastSeen).toLocaleString() : "-";
-    },
-  },
-  {
-    accessorKey: "tags",
-    header: "Tags",
-    cell: ({ row }) => {
-      const agent = row.original;
-      if (!agent.tags || agent.tags.length === 0) {
-        return "-";
-      }
       return (
-        <div className="flex flex-wrap gap-1">
-          {agent.tags.slice(0, 3).map((tag, idx) => (
-            <span
-              key={idx}
-              className="rounded bg-gray-100 px-1 py-0.5 text-xs dark:bg-gray-800"
-            >
-              {tag}
-            </span>
-          ))}
-          {agent.tags.length > 3 && (
-            <span className="text-xs text-muted-foreground">
-              +{agent.tags.length - 3}
-            </span>
-          )}
-        </div>
+        <span className="text-sm text-muted-foreground">
+          {formatDate(agent.lastSeen)}
+        </span>
       );
     },
   },
@@ -149,6 +149,9 @@ export const buildAgentColumns = (
                 View Data
               </DropdownMenuItem>
             </AgentDataDialog>
+            <DropdownMenuItem onClick={() => void copyAgentId(agent.id)}>
+              Copy ID
+            </DropdownMenuItem>
             <AgentPatchDialog
               agent={agent}
               onSaved={(updated: Agent) => {
@@ -172,6 +175,20 @@ export const buildAgentColumns = (
                 Send Command
               </DropdownMenuItem>
             </SendCommandDialog>
+            <AgentDeleteDialog
+              agent={agent}
+              onDeleted={(id) => {
+                actions.onAgentDeleted?.(id);
+                actions.onRefreshList?.();
+              }}
+            >
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={(e) => e.preventDefault()}
+              >
+                Delete Agent
+              </DropdownMenuItem>
+            </AgentDeleteDialog>
           </DropdownMenuContent>
         </DropdownMenu>
       );

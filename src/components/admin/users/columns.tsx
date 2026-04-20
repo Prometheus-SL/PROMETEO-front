@@ -1,13 +1,12 @@
-"use client";
-
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
 import { usersService, type User } from "@/services/users";
 import type { ColumnDef } from "@tanstack/react-table";
 import { MoreHorizontal } from "lucide-react";
@@ -24,48 +23,61 @@ type ColumnActions = {
   onUserDeleted?: (id: string) => void;
 };
 
+function formatDate(value?: string) {
+  if (!value) return "Never";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Never";
+  return date.toLocaleString();
+}
+
+function roleBadgeClass(role: User["role"]) {
+  if (role === "admin") return "border-red-500/30 bg-red-500/10 text-red-700";
+  if (role === "operator")
+    return "border-amber-500/30 bg-amber-500/10 text-amber-700";
+  if (role === "viewer")
+    return "border-sky-500/30 bg-sky-500/10 text-sky-700";
+  return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700";
+}
+
 export const buildColumns = (
   actions: ColumnActions = {}
 ): ColumnDef<User>[] => [
   {
-    id: "select",
-    header: ({ table }) => (
-      <Checkbox
-        checked={
-          table.getIsAllPageRowsSelected() ||
-          (table.getIsSomePageRowsSelected() && "indeterminate")
-        }
-        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label="Select all"
-      />
-    ),
-    cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
-      />
-    ),
-  },
-  {
-    accessorKey: "email",
-    header: "Email",
-  },
-  {
-    header: "Username",
+    id: "identity",
+    header: "User",
     cell: ({ row }) => {
       const user = row.original;
       return (
-        <p className="flex items-center gap-2">
-          {user.username}
-          {user.role === "admin" && <AdminBadge />}
-        </p>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="truncate font-medium">{user.username}</p>
+            {user.role === "admin" && <AdminBadge />}
+          </div>
+          <p className="truncate text-xs text-muted-foreground">
+            {[user.name, user.surname].filter(Boolean).join(" ") || user.email}
+          </p>
+        </div>
       );
     },
   },
   {
-    accessorKey: "lastLogin",
-    header: "Last Login",
+    accessorKey: "email",
+    header: "Email",
+    cell: ({ row }) => (
+      <span className="break-all text-sm">{row.original.email}</span>
+    ),
+  },
+  {
+    accessorKey: "role",
+    header: "Role",
+    cell: ({ row }) => {
+      const role = row.original.role;
+      return (
+        <Badge variant="outline" className={roleBadgeClass(role)}>
+          {role}
+        </Badge>
+      );
+    },
   },
   {
     header: "Active",
@@ -83,7 +95,7 @@ export const buildColumns = (
         }
       };
       return (
-        <Checkbox
+        <Switch
           checked={user.isActive}
           onCheckedChange={handleToggle}
           aria-label="Active"
@@ -92,12 +104,13 @@ export const buildColumns = (
     },
   },
   {
-    accessorKey: "name",
-    header: "Name",
-  },
-  {
-    accessorKey: "surname",
-    header: "Surname",
+    accessorKey: "lastLogin",
+    header: "Last login",
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground">
+        {formatDate(row.original.lastLogin)}
+      </span>
+    ),
   },
   {
     id: "actions",

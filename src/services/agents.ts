@@ -3,10 +3,13 @@ import { api } from "@/lib/api";
 type BackendAgent = {
   _id: string;
   agentId?: string;
+  apiKey?: string;
   name?: string;
   description?: string;
   status: "online" | "offline" | "idle" | string;
   isOnline?: boolean;
+  isActive?: boolean;
+  location?: string;
   createdAt?: string;
   updatedAt?: string;
   lastSeen?: string;
@@ -178,7 +181,8 @@ type OwnAgentsResponse = {
 export type RegisterAgentPayload = {
   id: string;
   name?: string;
-  tags?: string[];
+  description?: string;
+  location?: string;
 };
 
 export type CommandPayload = {
@@ -273,6 +277,8 @@ export const agentsService = {
     const data = await api.postData<{ agent: BackendAgent }>("/api/v1/agents", {
       agentId: payload.id,
       name: payload.name || payload.id,
+      description: payload.description,
+      location: payload.location,
     });
 
     return normalizeAgent(data.agent);
@@ -298,6 +304,10 @@ export const agentsService = {
       patch
     );
     return normalizeAgent(data.agent);
+  },
+
+  async delete(agentId: string): Promise<void> {
+    await api.deleteData<null>(`/api/v1/agents/${encodeURIComponent(agentId)}`);
   },
 
   // --- Batch operations ---

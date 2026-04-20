@@ -1,11 +1,7 @@
-"use client";
-
 import {
   type ColumnDef,
-  type ColumnFiltersState,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
   useReactTable,
 } from "@tanstack/react-table";
 
@@ -17,8 +13,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 
 interface DataTableProps<TData, TValue> {
@@ -27,6 +21,13 @@ interface DataTableProps<TData, TValue> {
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
   onToggleAll?: () => void;
+  getRowId?: (row: TData) => string;
+  emptyMessage?: string;
+  mobileCardRenderer?: (args: {
+    row: TData;
+    selected: boolean;
+    onToggleSelected?: () => void;
+  }) => React.ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -35,48 +36,63 @@ export function DataTable<TData, TValue>({
   selectedIds,
   onToggleSelect,
   onToggleAll,
+  getRowId,
+  emptyMessage = "No results.",
+  mobileCardRenderer,
 }: DataTableProps<TData, TValue>) {
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-
-  const [rowSelection, setRowSelection] = useState({});
-
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    onColumnFiltersChange: setColumnFilters,
-    getFilteredRowModel: getFilteredRowModel(),
-    onRowSelectionChange: setRowSelection,
-    state: {
-      columnFilters,
-      rowSelection,
-    },
   });
+
+  const ids = getRowId ? data.map(getRowId) : [];
+  const selectedOnPage = ids.filter((id) => selectedIds?.has(id)).length;
+  const allSelected = ids.length > 0 && selectedOnPage === ids.length;
+  const partiallySelected = selectedOnPage > 0 && !allSelected;
 
   return (
     <div>
-      <div className="flex items-center py-4">
-        <Input
-          placeholder="Filter emails..."
-          value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("email")?.setFilterValue(event.target.value)
-          }
-          className="max-w-sm"
-        />
-      </div>
-      <div className="overflow-hidden rounded-md border">
+      {mobileCardRenderer ? (
+        <div className="grid gap-3 md:hidden">
+          {data.length > 0 ? (
+            data.map((row) => {
+              const rowId = getRowId?.(row);
+              return (
+                <div key={rowId ?? JSON.stringify(row)}>
+                  {mobileCardRenderer({
+                    row,
+                    selected: Boolean(rowId && selectedIds?.has(rowId)),
+                    onToggleSelected:
+                      rowId && onToggleSelect
+                        ? () => onToggleSelect(rowId)
+                        : undefined,
+                  })}
+                </div>
+              );
+            })
+          ) : (
+            <div className="rounded-md border bg-background p-8 text-center text-sm text-muted-foreground">
+              {emptyMessage}
+            </div>
+          )}
+        </div>
+      ) : null}
+      <div
+        className={`${mobileCardRenderer ? "hidden md:block" : ""} overflow-hidden rounded-md border bg-background`}
+      >
         <Table>
           <TableHeader className="bg-muted">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {selectedIds && onToggleAll && (
+                {selectedIds && onToggleAll && getRowId && (
                   <TableHead className="w-10">
                     <Checkbox
                       checked={
-                        selectedIds.size === data.length && data.length > 0
+                        allSelected || (partiallySelected && "indeterminate")
                       }
                       onCheckedChange={() => onToggleAll()}
+                      aria-label="Select all users"
                     />
                   </TableHead>
                 )}
@@ -97,40 +113,42 @@ export function DataTable<TData, TValue>({
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {selectedIds && onToggleSelect && (
-                    <TableCell className="w-10">
-                      <Checkbox
-                        checked={selectedIds.has(
-                          (row.original as { _id: string })._id,
+              table.getRowModel().rows.map((row) => {
+                const rowId = getRowId?.(row.original);
+                return (
+                  <TableRow
+                    key={row.id}
+                    data-state={
+                      rowId && selectedIds?.has(rowId) ? "selected" : undefined
+                    }
+                  >
+                    {selectedIds && onToggleSelect && rowId && (
+                      <TableCell className="w-10">
+                        <Checkbox
+                          checked={selectedIds.has(rowId)}
+                          onCheckedChange={() => onToggleSelect(rowId)}
+                          aria-label="Select user"
+                        />
+                      </TableCell>
+                    )}
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
                         )}
-                        onCheckedChange={() =>
-                          onToggleSelect((row.original as { _id: string })._id)
-                        }
-                      />
-                    </TableCell>
-                  )}
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell
                   colSpan={columns.length + (selectedIds ? 1 : 0)}
                   className="h-24 text-center"
                 >
-                  No results.
+                  {emptyMessage}
                 </TableCell>
               </TableRow>
             )}
