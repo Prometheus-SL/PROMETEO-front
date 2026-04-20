@@ -18,7 +18,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+  InputOTPSeparator,
+} from "@/components/ui/input-otp";
 import { Badge } from "@/components/ui/badge";
 import { authService } from "@/services/auth";
 
@@ -213,15 +218,24 @@ export function TwoFactorSection() {
             </div>
             <div className="space-y-2">
               <p className="text-sm font-medium">Verification code</p>
-              <Input
-                value={token}
-                onChange={(e) =>
-                  setToken(e.target.value.replace(/\D/g, "").slice(0, 6))
-                }
-                placeholder="000000"
+              <InputOTP
                 maxLength={6}
-                className="text-center font-mono text-lg tracking-widest"
-              />
+                value={token}
+                onChange={(value) => setToken(value)}
+                className="autofill:bg-transparent autofill:text-foreground data-[has-value=true]:bg-transparent data-[has-value=true]:text-foreground"
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                </InputOTPGroup>
+                <InputOTPSeparator />
+                <InputOTPGroup>
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
             </div>
           </div>
           <DialogFooter>
@@ -247,15 +261,24 @@ export function TwoFactorSection() {
               Enter a valid 6-digit code from your authenticator app to confirm.
             </DialogDescription>
           </DialogHeader>
-          <Input
-            value={token}
-            onChange={(e) =>
-              setToken(e.target.value.replace(/\D/g, "").slice(0, 6))
-            }
-            placeholder="000000"
+          <InputOTP
             maxLength={6}
-            className="text-center font-mono text-lg tracking-widest"
-          />
+            value={token}
+            onChange={(value) => setToken(value)}
+            className="autofill:bg-transparent autofill:text-foreground data-[has-value=true]:bg-transparent data-[has-value=true]:text-foreground"
+          >
+            <InputOTPGroup>
+              <InputOTPSlot index={0} />
+              <InputOTPSlot index={1} />
+              <InputOTPSlot index={2} />
+            </InputOTPGroup>
+            <InputOTPSeparator />
+            <InputOTPGroup>
+              <InputOTPSlot index={3} />
+              <InputOTPSlot index={4} />
+              <InputOTPSlot index={5} />
+            </InputOTPGroup>
+          </InputOTP>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDisableOpen(false)}>
               Cancel

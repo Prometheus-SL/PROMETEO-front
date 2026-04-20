@@ -50,7 +50,7 @@ let pollingTimeoutId: ReturnType<typeof setTimeout> | null = null;
 let pollingFetcher: (() => Promise<void>) | null = null;
 let activeInstances = 0;
 
-const SPOTIFY_ACTIVE_POLL_INTERVAL_MS = 3000;
+const SPOTIFY_ACTIVE_POLL_INTERVAL_MS = 1500;
 const SPOTIFY_IDLE_POLL_INTERVAL_MS = 10000;
 
 function notifySubscribers() {
