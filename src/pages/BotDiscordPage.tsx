@@ -233,6 +233,12 @@ export default function BotDiscordPage() {
                 setInviteUrl(invite);
                 setLoadError(null);
 
+                if (myGuilds.rateLimited) {
+                    toast.warning(
+                        "Discord is rate-limiting this account. Showing the latest data we have.",
+                    );
+                }
+
                 const presentIds = new Set(
                     myGuilds.guilds.filter((g) => g.botPresent).map((g) => g.id),
                 );

@@ -67,6 +67,7 @@ export type DiscordMyGuildsResponse = {
     needsLink: boolean;
     needsReauth: boolean;
     guilds: DiscordManagedGuild[];
+    rateLimited?: boolean;
 };
 
 export type DiscordEpicNotificationConfig = {
