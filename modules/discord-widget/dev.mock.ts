@@ -15,9 +15,36 @@ import type {
   DiscordVoiceMember,
   DiscordSpotifyArtist,
   DiscordArtistReleaseType,
-  DiscordArtistSubscription,
   DiscordArtistReleasesConfig,
 } from "@/services/discord";
+
+const MOCK_ARTISTS: DiscordSpotifyArtist[] = [
+  {
+    id: "06HL4z0CvFAxyc27GXpf94",
+    name: "Taylor Swift",
+    imageUrl: "https://i.scdn.co/image/ab6761610000e5eb8e3f5fd1a66f8d8a48b32e3a",
+  },
+  {
+    id: "04gDigrS5kc9YWfZbgWsB8",
+    name: "The Weeknd",
+    imageUrl: "https://i.scdn.co/image/ab6761610000e5eb87f7bbf0e36e3e76fa4b6e42",
+  },
+  {
+    id: "1vCWHaC5f2uS3yhpwWbq5a",
+    name: "Ariana Grande",
+    imageUrl: "https://i.scdn.co/image/ab6761610000e5eb1ea4fd858e4de59c3c570b0c",
+  },
+  {
+    id: "74ASZWbe4lXaubB0YVgXjB",
+    name: "Post Malone",
+    imageUrl: "https://i.scdn.co/image/ab6761610000e5ebd0e1e25fa85d70e6c3b1a0f4",
+  },
+  {
+    id: "1HY2Jd0NmPuamShAr6KMms",
+    name: "Drake",
+    imageUrl: "https://i.scdn.co/image/ab6761610000e5ebe65207802f4a41ed7f96e901",
+  },
+];
 
 const voiceMemberSchema = z.object({
   id: z.string(),
@@ -359,35 +386,7 @@ function buildHandlers(state: DiscordMockState) {
         });
       }
 
-      const mockArtists: DiscordSpotifyArtist[] = [
-        {
-          id: "06HL4z0CvFAxyc27GXpf94",
-          name: "Taylor Swift",
-          imageUrl: "https://i.scdn.co/image/ab6761610000e5eb8e3f5fd1a66f8d8a48b32e3a",
-        },
-        {
-          id: "04gDigrS5kc9YWfZbgWsB8",
-          name: "The Weeknd",
-          imageUrl: "https://i.scdn.co/image/ab6761610000e5eb87f7bbf0e36e3e76fa4b6e42",
-        },
-        {
-          id: "1vCWHaC5f2uS3yhpwWbq5a",
-          name: "Ariana Grande",
-          imageUrl: "https://i.scdn.co/image/ab6761610000e5eb1ea4fd858e4de59c3c570b0c",
-        },
-        {
-          id: "74ASZWbe4lXaubB0YVgXjB",
-          name: "Post Malone",
-          imageUrl: "https://i.scdn.co/image/ab6761610000e5ebd0e1e25fa85d70e6c3b1a0f4",
-        },
-        {
-          id: "1HY2Jd0NmPuamShAr6KMms",
-          name: "Drake",
-          imageUrl: "https://i.scdn.co/image/ab6761610000e5ebe65207802f4a41ed7f96e901",
-        },
-      ];
-
-      const filtered = mockArtists.filter((a) =>
+      const filtered = MOCK_ARTISTS.filter((a) =>
         a.name.toLowerCase().includes(q.toLowerCase()),
       );
 
@@ -420,7 +419,16 @@ function buildHandlers(state: DiscordMockState) {
           channelId: c.channelId ?? null,
           enabled: Boolean(c.enabled),
           includeTypes: c.includeTypes || ["album", "single"],
-          subscriptions: c.subscriptions || [],
+          subscriptions: (c.subscriptions || []).map((s) => {
+            const known = MOCK_ARTISTS.find((a) => a.id === s.artistId);
+            return {
+              artistId: s.artistId,
+              name: known?.name ?? s.artistId,
+              imageUrl: known?.imageUrl ?? null,
+              lastNotifiedAt: null,
+              lastError: null,
+            };
+          }),
         }));
 
         return createModuleDevSuccessResponse({
