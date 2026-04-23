@@ -1,6 +1,7 @@
 "use client";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { API_URL } from "@/lib/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +35,10 @@ export function NavUser() {
 
   const initials =
     `${(user.name || user.username).charAt(0)}${(user.surname || user.username).charAt(0)}`.toUpperCase();
+
+  const avatarSrc = user.avatarUrl
+    ? `${API_URL}${user.avatarUrl}?v=${encodeURIComponent(user.avatarUpdatedAt ?? "0")}`
+    : undefined;
 
   return (
     <SidebarMenu>
@@ -74,6 +79,9 @@ export function NavUser() {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg grayscale">
+                {avatarSrc ? (
+                  <AvatarImage src={avatarSrc} alt={user.username} />
+                ) : null}
                 <AvatarFallback className="rounded-lg">
                   {initials}
                 </AvatarFallback>
@@ -98,6 +106,9 @@ export function NavUser() {
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
+                  {avatarSrc ? (
+                    <AvatarImage src={avatarSrc} alt={user.username} />
+                  ) : null}
                   <AvatarFallback className="rounded-lg">
                     {initials}
                   </AvatarFallback>

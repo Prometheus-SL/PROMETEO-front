@@ -231,4 +231,67 @@ describe("accountService", () => {
       }),
     );
   });
+
+  it("uploads an avatar and returns the updated user", async () => {
+    const { fetchMock, storage } = installTestEnvironment();
+    storage.set("auth_access_token", "token-123");
+    fetchMock.mockResolvedValue(
+      createJsonResponse({
+        success: true,
+        data: {
+          user: {
+            id: "user-1",
+            username: "mike",
+            email: "mike@example.com",
+            role: "user",
+            avatarUrl: "/uploads/avatars/user-1.webp",
+            avatarUpdatedAt: "2026-04-23T10:00:00.000Z",
+          },
+        },
+      }),
+    );
+
+    const file = new File([new Uint8Array([0xff, 0xd8, 0xff])], "me.jpg", {
+      type: "image/jpeg",
+    });
+    const user = await accountService.uploadAvatar(file);
+
+    expect(user.avatarUrl).toBe("/uploads/avatars/user-1.webp");
+    expect(user.avatarUpdatedAt).toBe("2026-04-23T10:00:00.000Z");
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/api/v1/account/avatar");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeInstanceOf(FormData);
+    const sent = init.body as FormData;
+    expect(sent.get("file")).toBeInstanceOf(File);
+  });
+
+  it("removes the avatar and returns the updated user", async () => {
+    const { fetchMock, storage } = installTestEnvironment();
+    storage.set("auth_access_token", "token-123");
+    fetchMock.mockResolvedValue(
+      createJsonResponse({
+        success: true,
+        data: {
+          user: {
+            id: "user-1",
+            username: "mike",
+            email: "mike@example.com",
+            role: "user",
+            avatarUrl: null,
+            avatarUpdatedAt: null,
+          },
+        },
+      }),
+    );
+
+    const user = await accountService.removeAvatar();
+
+    expect(user.avatarUrl).toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/account/avatar"),
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
 });

@@ -129,4 +129,24 @@ export const accountService = {
   async disconnectDiscord(): Promise<void> {
     await this.disconnectProvider("discord");
   },
+
+  async uploadAvatar(file: File): Promise<AuthUser> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const data = await api.postData<{ user: AuthUser }>(
+      "/api/v1/account/avatar",
+      undefined,
+      { formData },
+    );
+
+    return data.user;
+  },
+
+  async removeAvatar(): Promise<AuthUser> {
+    const data = await api.deleteData<{ user: AuthUser }>(
+      "/api/v1/account/avatar",
+    );
+
+    return data.user;
+  },
 };

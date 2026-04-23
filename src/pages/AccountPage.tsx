@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +48,7 @@ import {
 import { TwoFactorSection } from "@/components/account/two-factor-section";
 import { SessionsSection } from "@/components/account/sessions-section";
 import { LoginHistorySection } from "@/components/account/login-history-section";
+import { AvatarUploader } from "@/components/account/avatar-uploader";
 
 type KnownProviderAccount = LinkedSpotifyAccount | LinkedDiscordAccount;
 
@@ -713,11 +713,23 @@ export default function AccountPage() {
         <section className="relative overflow-hidden rounded-xl border border-border/70 bg-card p-5 shadow-sm">
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-500 via-emerald-500 to-rose-500" />
           <div className="flex items-center gap-4">
-            <Avatar className="size-16 border border-border/60 shadow-sm">
-              <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
+            <AvatarUploader
+              avatarUrl={accountUser?.avatarUrl}
+              avatarUpdatedAt={accountUser?.avatarUpdatedAt}
+              initials={initials}
+              onUploaded={(updatedUser) => {
+                setAccount((current) =>
+                  current ? { ...current, user: updatedUser } : current,
+                );
+                updateUser?.(updatedUser);
+              }}
+              onRemoved={(updatedUser) => {
+                setAccount((current) =>
+                  current ? { ...current, user: updatedUser } : current,
+                );
+                updateUser?.(updatedUser);
+              }}
+            />
             <div className="min-w-0">
               <h1 className="truncate text-2xl font-semibold tracking-tight">
                 Account

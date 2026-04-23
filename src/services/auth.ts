@@ -20,6 +20,8 @@ export type AuthUser = {
     surname?: string;
     lastLogin?: string;
     birthday?: string;
+    avatarUrl?: string | null;
+    avatarUpdatedAt?: string | null;
 };
 
 export type AuthResponse = {
