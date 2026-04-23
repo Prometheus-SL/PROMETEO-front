@@ -26,6 +26,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
     Collapsible,
     CollapsibleContent,
@@ -64,6 +65,10 @@ import {
     type DiscordGameUpdatesConfig,
     type DiscordManagedGuild,
     type DiscordSteamGame,
+    type DiscordArtistReleaseType,
+    type DiscordArtistSubscription,
+    type DiscordArtistReleasesConfig,
+    type DiscordSpotifyArtist,
 } from "@/services/discord";
 import { toast } from "sonner";
 
@@ -180,6 +185,95 @@ function useGameSearch() {
     return { query, setQuery, results, loading };
 }
 
+function useArtistSearch() {
+    const [query, setQuery] = useState("");
+    const [results, setResults] = useState<DiscordSpotifyArtist[]>([]);
+    const [loading, setLoading] = useState(false);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        if (timerRef.current) clearTimeout(timerRef.current);
+        const trimmed = query.trim();
+        if (trimmed.length < 2) {
+            setResults([]);
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        timerRef.current = setTimeout(async () => {
+            try {
+                const hits = await discordService.searchArtists(trimmed);
+                setResults(hits);
+            } catch {
+                setResults([]);
+            } finally {
+                setLoading(false);
+            }
+        }, 300);
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+        };
+    }, [query]);
+
+    return { query, setQuery, results, loading };
+}
+
+type ArtistReleasesDraftEntry = {
+    enabled: boolean;
+    channelId: string;
+    includeTypes: DiscordArtistReleaseType[];
+    artistIds: string[];
+    subscriptions: DiscordArtistSubscription[];
+};
+
+type ArtistReleasesDraftMap = Record<string, ArtistReleasesDraftEntry>;
+
+function emptyArtistReleasesEntry(): ArtistReleasesDraftEntry {
+    return { enabled: false, channelId: "", includeTypes: ['album', 'single'], artistIds: [], subscriptions: [] };
+}
+
+function artistReleasesEntryEqual(a: ArtistReleasesDraftEntry, b: ArtistReleasesDraftEntry) {
+    if (a.enabled !== b.enabled) return false;
+    if (a.channelId !== b.channelId) return false;
+    if (a.artistIds.length !== b.artistIds.length) return false;
+    if (a.includeTypes.length !== b.includeTypes.length) return false;
+    const aTypeSet = new Set(a.includeTypes);
+    for (const t of b.includeTypes) {
+        if (!aTypeSet.has(t)) return false;
+    }
+    const aIdSet = new Set(a.artistIds);
+    for (const id of b.artistIds) {
+        if (!aIdSet.has(id)) return false;
+    }
+    return true;
+}
+
+function artistReleasesDraftsEqual(a: ArtistReleasesDraftMap, b: ArtistReleasesDraftMap) {
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+    for (const k of keys) {
+        const av = a[k] ?? emptyArtistReleasesEntry();
+        const bv = b[k] ?? emptyArtistReleasesEntry();
+        if (!artistReleasesEntryEqual(av, bv)) return false;
+    }
+    return true;
+}
+
+function buildArtistReleasesDraftFromServer(
+    configs: DiscordArtistReleasesConfig[],
+): ArtistReleasesDraftMap {
+    const out: ArtistReleasesDraftMap = {};
+    for (const c of configs) {
+        out[c.guildId] = {
+            enabled: Boolean(c.enabled),
+            channelId: c.channelId ?? "",
+            includeTypes: c.includeTypes ?? ['album', 'single'],
+            artistIds: c.subscriptions.map((s) => s.artistId),
+            subscriptions: c.subscriptions,
+        };
+    }
+    return out;
+}
+
 export default function BotDiscordPage() {
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -193,6 +287,8 @@ export default function BotDiscordPage() {
     const [draft, setDraft] = useState<GuildDraftMap>({});
     const [gameUpdatesServer, setGameUpdatesServer] = useState<GameUpdatesDraftMap>({});
     const [gameUpdatesDraft, setGameUpdatesDraft] = useState<GameUpdatesDraftMap>({});
+    const [artistReleasesServer, setArtistReleasesServer] = useState<ArtistReleasesDraftMap>({});
+    const [artistReleasesDraft, setArtistReleasesDraft] = useState<ArtistReleasesDraftMap>({});
     const [showLeaveDialog, setShowLeaveDialog] = useState(false);
 
     const [channelsByGuild, setChannelsByGuild] = useState<
@@ -202,8 +298,9 @@ export default function BotDiscordPage() {
     const isDirty = useMemo(
         () =>
             !draftsEqual(draft, savedDraft) ||
-            !gameUpdatesDraftsEqual(gameUpdatesDraft, gameUpdatesServer),
-        [draft, savedDraft, gameUpdatesDraft, gameUpdatesServer],
+            !gameUpdatesDraftsEqual(gameUpdatesDraft, gameUpdatesServer) ||
+            !artistReleasesDraftsEqual(artistReleasesDraft, artistReleasesServer),
+        [draft, savedDraft, gameUpdatesDraft, gameUpdatesServer, artistReleasesDraft, artistReleasesServer],
     );
     const isDirtyRef = useRef(isDirty);
     useEffect(() => {
@@ -214,11 +311,12 @@ export default function BotDiscordPage() {
         let cancelled = false;
         (async () => {
             try {
-                const [state, myGuilds, invite, gameUpdatesState] = await Promise.all([
+                const [state, myGuilds, invite, gameUpdatesState, artistReleasesState] = await Promise.all([
                     discordService.getEpicNotifications(),
                     discordService.getMyGuilds(),
                     discordService.getInviteUrl().catch(() => null),
                     discordService.getGameUpdates(),
+                    discordService.getArtistReleases(),
                 ]);
                 if (cancelled) return;
                 const initial = buildDraftFromServer(state.configs);
@@ -227,6 +325,9 @@ export default function BotDiscordPage() {
                 const initialGU = buildGameUpdatesDraftFromServer(gameUpdatesState.configs);
                 setGameUpdatesServer(initialGU);
                 setGameUpdatesDraft(initialGU);
+                const initialAR = buildArtistReleasesDraftFromServer(artistReleasesState.configs);
+                setArtistReleasesServer(initialAR);
+                setArtistReleasesDraft(initialAR);
                 setGuilds(myGuilds.guilds);
                 setNeedsLink(myGuilds.needsLink);
                 setNeedsReauth(myGuilds.needsReauth);
@@ -247,6 +348,9 @@ export default function BotDiscordPage() {
                     if (entry.enabled) enabledGuildIds.add(guildId);
                 }
                 for (const [guildId, entry] of Object.entries(initialGU)) {
+                    if (entry.enabled) enabledGuildIds.add(guildId);
+                }
+                for (const [guildId, entry] of Object.entries(initialAR)) {
                     if (entry.enabled) enabledGuildIds.add(guildId);
                 }
                 for (const guildId of enabledGuildIds) {
@@ -366,6 +470,24 @@ export default function BotDiscordPage() {
             return;
         }
 
+        const arConfigs = Object.entries(artistReleasesDraft).map(([guildId, entry]) => ({
+            guildId,
+            channelId: entry.channelId ? entry.channelId : null,
+            enabled: Boolean(entry.enabled),
+            includeTypes: entry.includeTypes,
+            subscriptions: entry.artistIds.map((artistId) => ({ artistId })),
+        }));
+        const arMissingChannel = arConfigs.find((c) => c.enabled && !c.channelId);
+        if (arMissingChannel) {
+            toast.error("Select a channel for artist releases in each enabled server");
+            return;
+        }
+        const arMissingTypes = arConfigs.find((c) => c.enabled && c.includeTypes.length === 0);
+        if (arMissingTypes) {
+            toast.error("Select at least one release type for artist releases");
+            return;
+        }
+
         setSaving(true);
         try {
             const result = await discordService.setEpicNotifications({ configs });
@@ -379,9 +501,15 @@ export default function BotDiscordPage() {
             setGameUpdatesServer(nextGU);
             setGameUpdatesDraft(nextGU);
 
+            const arResult = await discordService.setArtistReleases({ configs: arConfigs });
+            const nextAR = buildArtistReleasesDraftFromServer(arResult.configs);
+            setArtistReleasesServer(nextAR);
+            setArtistReleasesDraft(nextAR);
+
             if (epicWarning) toast.warning(epicWarning);
             if (guResult.warning) toast.warning(guResult.warning);
-            if (!epicWarning && !guResult.warning) toast.success("Configuration saved");
+            if (arResult.warning) toast.warning(arResult.warning);
+            if (!epicWarning && !guResult.warning && !arResult.warning) toast.success("Configuration saved");
         } catch (err) {
             toast.error(
                 err instanceof Error
@@ -391,7 +519,7 @@ export default function BotDiscordPage() {
         } finally {
             setSaving(false);
         }
-    }, [draft, gameUpdatesDraft]);
+    }, [draft, gameUpdatesDraft, artistReleasesDraft]);
 
     const handleConfirmLeave = useCallback(() => {
         setShowLeaveDialog(false);
@@ -520,8 +648,45 @@ export default function BotDiscordPage() {
                             <NotificationSection
                                 title="Music"
                                 icon={Music2}
-                                description="Bot music playback in your voice channels."
+                                description="Alert when a followed artist publishes a new release on Spotify."
                             >
+                                <Card>
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="text-base">
+                                            Artist releases · Spotify
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Alert when a followed artist publishes a new release on Spotify.
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="flex flex-col gap-3">
+                                        {guilds.map((g) => (
+                                            <SpotifyArtistsGuildRow
+                                                key={g.id}
+                                                guild={g}
+                                                channels={
+                                                    (channelsByGuild[g.id]?.channels ?? []).filter(
+                                                        (c) => c.type === "text",
+                                                    )
+                                                }
+                                                entry={artistReleasesDraft[g.id] ?? emptyArtistReleasesEntry()}
+                                                inviteUrl={inviteUrl}
+                                                onChange={(next) => {
+                                                    const newDraft = { ...artistReleasesDraft, [g.id]: next };
+                                                    setArtistReleasesDraft(newDraft);
+                                                    if (
+                                                        next.enabled &&
+                                                        !channelsByGuild[g.id]?.channels &&
+                                                        !channelsByGuild[g.id]?.loading
+                                                    ) {
+                                                        void loadChannelsForGuild(g.id);
+                                                    }
+                                                }}
+                                                disabled={!g.botPresent || saving}
+                                            />
+                                        ))}
+                                    </CardContent>
+                                </Card>
                                 <Card>
                                     <CardContent className="p-6 text-sm text-muted-foreground">
                                         Coming soon: the bot will play Spotify music in your voice channels.
@@ -846,6 +1011,234 @@ function SteamGuildRow({ guild, channels, entry, inviteUrl, onChange, disabled }
                                             type="button"
                                             aria-label={`Remove ${s.name}`}
                                             onClick={() => removeGame(s.appId)}
+                                            disabled={disabled}
+                                            className="mt-0.5 shrink-0 rounded-full outline-none hover:bg-muted-foreground/20"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            ) : null}
+        </div>
+    );
+}
+
+type SpotifyArtistsGuildRowProps = {
+    guild: DiscordManagedGuild;
+    channels: DiscordChannel[];
+    entry: ArtistReleasesDraftEntry;
+    inviteUrl: string | null;
+    onChange: (next: ArtistReleasesDraftEntry) => void;
+    disabled: boolean;
+};
+
+function SpotifyArtistsGuildRow({
+    guild,
+    channels,
+    entry,
+    inviteUrl,
+    onChange,
+    disabled,
+}: SpotifyArtistsGuildRowProps) {
+    const { query, setQuery, results, loading } = useArtistSearch();
+    const [open, setOpen] = useState(false);
+    const maxReached = entry.artistIds.length >= 25;
+    const subscribedSet = new Set(entry.artistIds);
+
+    function addArtist(artist: DiscordSpotifyArtist) {
+        if (subscribedSet.has(artist.id) || maxReached) return;
+        onChange({
+            ...entry,
+            artistIds: [...entry.artistIds, artist.id],
+            subscriptions: [
+                ...entry.subscriptions,
+                {
+                    artistId: artist.id,
+                    name: artist.name,
+                    imageUrl: artist.imageUrl,
+                    lastNotifiedAt: null,
+                    lastError: null,
+                },
+            ],
+        });
+        setQuery("");
+        setOpen(false);
+    }
+
+    function removeArtist(artistId: string) {
+        onChange({
+            ...entry,
+            artistIds: entry.artistIds.filter((id) => id !== artistId),
+            subscriptions: entry.subscriptions.filter((s) => s.artistId !== artistId),
+        });
+    }
+
+    const textChannels = channels.filter((c) => c.type === "text");
+
+    return (
+        <div className="flex flex-col gap-3 rounded-md border bg-card/40 p-3">
+            <div className="flex items-center justify-between gap-3">
+                <GuildIdentity guild={guild} />
+                <div className="flex items-center gap-2 shrink-0">
+                    {!guild.botPresent && inviteUrl ? <InviteBotButton url={inviteUrl} /> : null}
+                    <Switch
+                        id={`ar-enabled-${guild.id}`}
+                        checked={entry.enabled}
+                        onCheckedChange={(v) => onChange({ ...entry, enabled: Boolean(v) })}
+                        disabled={disabled}
+                        aria-label={`Enable artist releases in ${guild.name}`}
+                    />
+                </div>
+            </div>
+
+            {entry.enabled ? (
+                <div className="flex flex-col gap-3 pl-11">
+                    <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+                        <Label
+                            htmlFor={`ar-channel-${guild.id}`}
+                            className="text-xs text-muted-foreground sm:shrink-0"
+                        >
+                            Channel
+                        </Label>
+                        <Select
+                            value={entry.channelId || undefined}
+                            onValueChange={(v) => onChange({ ...entry, channelId: v })}
+                            disabled={disabled}
+                        >
+                            <SelectTrigger id={`ar-channel-${guild.id}`} className="w-full sm:max-w-xs">
+                                <SelectValue placeholder="Select a channel" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {textChannels.map((c) => (
+                                    <SelectItem key={c.id} value={c.id}>
+                                        #{c.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <Label className="text-xs text-muted-foreground">Release types</Label>
+                        <div className="flex flex-wrap gap-3">
+                            {(['album', 'single', 'compilation', 'appears_on'] as const).map((type) => (
+                                <label
+                                    key={type}
+                                    className="flex items-center gap-2 cursor-pointer text-sm"
+                                >
+                                    <Checkbox
+                                        checked={entry.includeTypes.includes(type)}
+                                        onCheckedChange={(checked) => {
+                                            if (checked) {
+                                                onChange({
+                                                    ...entry,
+                                                    includeTypes: [...entry.includeTypes, type],
+                                                });
+                                            } else {
+                                                onChange({
+                                                    ...entry,
+                                                    includeTypes: entry.includeTypes.filter((t) => t !== type),
+                                                });
+                                            }
+                                        }}
+                                        disabled={disabled}
+                                    />
+                                    <span>
+                                        {type === 'album' && 'Albums'}
+                                        {type === 'single' && 'Singles'}
+                                        {type === 'compilation' && 'Compilations'}
+                                        {type === 'appears_on' && 'Featured on'}
+                                    </span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <Label className="text-xs text-muted-foreground">
+                            Followed artists ({entry.artistIds.length}/25)
+                        </Label>
+                        <Popover open={open} onOpenChange={setOpen} modal={false}>
+                            <PopoverAnchor asChild>
+                                <div className="relative">
+                                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        placeholder={maxReached ? "Reached max of 25 artists" : "Search artists on Spotify..."}
+                                        value={query}
+                                        onChange={(e) => {
+                                            setQuery(e.target.value);
+                                            setOpen(true);
+                                        }}
+                                        onFocus={() => {
+                                            if (query.trim().length > 0) setOpen(true);
+                                        }}
+                                        disabled={disabled || maxReached}
+                                        className="pl-8"
+                                    />
+                                </div>
+                            </PopoverAnchor>
+                            <PopoverContent
+                                className="w-[320px] p-1"
+                                align="start"
+                                onOpenAutoFocus={(e) => e.preventDefault()}
+                                onCloseAutoFocus={(e) => e.preventDefault()}
+                                onInteractOutside={(e) => {
+                                    if ((e.target as HTMLElement)?.tagName === "INPUT") e.preventDefault();
+                                }}
+                            >
+                                {loading && (
+                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">Searching…</div>
+                                )}
+                                {!loading && query.trim().length < 2 && (
+                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                        Type at least 2 characters
+                                    </div>
+                                )}
+                                {!loading && query.trim().length >= 2 && results.length === 0 && (
+                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No results</div>
+                                )}
+                                {!loading &&
+                                    results.map((a) => {
+                                        const already = subscribedSet.has(a.id);
+                                        return (
+                                            <button
+                                                key={a.id}
+                                                type="button"
+                                                className="w-full text-left rounded px-2 py-1.5 text-sm hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                                                disabled={already || maxReached}
+                                                onClick={() => addArtist(a)}
+                                            >
+                                                {a.name}
+                                                {already && " (already added)"}
+                                            </button>
+                                        );
+                                    })}
+                            </PopoverContent>
+                        </Popover>
+                        {entry.subscriptions.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 pt-2">
+                                {entry.subscriptions.map((s) => (
+                                    <Badge
+                                        key={s.artistId}
+                                        variant="secondary"
+                                        className="gap-1 max-w-full items-center whitespace-normal break-words text-left"
+                                    >
+                                        {s.imageUrl && (
+                                            <img
+                                                src={s.imageUrl}
+                                                alt={s.name}
+                                                className="w-4 h-4 rounded-full shrink-0"
+                                            />
+                                        )}
+                                        <span className="min-w-0 break-words">{s.name}</span>
+                                        <button
+                                            type="button"
+                                            aria-label={`Remove ${s.name}`}
+                                            onClick={() => removeArtist(s.artistId)}
                                             disabled={disabled}
                                             className="mt-0.5 shrink-0 rounded-full outline-none hover:bg-muted-foreground/20"
                                         >

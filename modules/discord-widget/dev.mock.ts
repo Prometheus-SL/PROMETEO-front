@@ -13,6 +13,10 @@ import type {
   DiscordGuildInfo,
   DiscordMember,
   DiscordVoiceMember,
+  DiscordSpotifyArtist,
+  DiscordArtistReleaseType,
+  DiscordArtistSubscription,
+  DiscordArtistReleasesConfig,
 } from "@/services/discord";
 
 const voiceMemberSchema = z.object({
@@ -46,6 +50,20 @@ const epicNotificationConfigSchema = z.object({
   enabled: z.boolean(),
   lastNotifiedAt: z.string().nullable(),
   lastError: z.string().nullable(),
+});
+
+const artistSubscriptionSchema = z.object({
+  artistId: z.string(),
+  name: z.string(),
+  imageUrl: z.string().nullable(),
+});
+
+const artistReleasesConfigSchema = z.object({
+  guildId: z.string(),
+  channelId: z.string().nullable(),
+  enabled: z.boolean(),
+  includeTypes: z.array(z.enum(['album', 'single', 'compilation', 'appears_on'])),
+  subscriptions: z.array(artistSubscriptionSchema),
 });
 
 const discordMockStateSchema = z.object({
@@ -169,6 +187,7 @@ const discordMockStateSchema = z.object({
     },
   ]),
   epicNotifications: z.array(epicNotificationConfigSchema).default([]),
+  artistReleases: z.array(artistReleasesConfigSchema).default([]),
   permissions: z
     .object({
       isAdmin: z.boolean(),
@@ -193,6 +212,7 @@ function buildHandlers(state: DiscordMockState) {
     channels: state.channels as DiscordChannel[],
     members: state.members as DiscordMember[],
     epicNotifications: state.epicNotifications as DiscordEpicNotificationConfig[],
+    artistReleases: state.artistReleases as DiscordArtistReleasesConfig[],
     permissions: state.permissions,
     inviteUrl: state.inviteUrl,
   };
@@ -325,6 +345,89 @@ function buildHandlers(state: DiscordMockState) {
         return createModuleDevSuccessResponse({
           configs: live.epicNotifications,
           warning: null,
+        });
+      },
+    ),
+    http.get(createModuleDevBackendUrl("/api/v1/discord/artists/search"), ({ request }) => {
+      const url = new URL(request.url);
+      const q = url.searchParams.get("q") || "";
+      const limit = Math.min(Number(url.searchParams.get("limit")) || 10, 10);
+
+      if (q.length < 2) {
+        return createModuleDevSuccessResponse<{ results: DiscordSpotifyArtist[] }>({
+          results: [],
+        });
+      }
+
+      const mockArtists: DiscordSpotifyArtist[] = [
+        {
+          id: "06HL4z0CvFAxyc27GXpf94",
+          name: "Taylor Swift",
+          imageUrl: "https://i.scdn.co/image/ab6761610000e5eb8e3f5fd1a66f8d8a48b32e3a",
+        },
+        {
+          id: "04gDigrS5kc9YWfZbgWsB8",
+          name: "The Weeknd",
+          imageUrl: "https://i.scdn.co/image/ab6761610000e5eb87f7bbf0e36e3e76fa4b6e42",
+        },
+        {
+          id: "1vCWHaC5f2uS3yhpwWbq5a",
+          name: "Ariana Grande",
+          imageUrl: "https://i.scdn.co/image/ab6761610000e5eb1ea4fd858e4de59c3c570b0c",
+        },
+        {
+          id: "74ASZWbe4lXaubB0YVgXjB",
+          name: "Post Malone",
+          imageUrl: "https://i.scdn.co/image/ab6761610000e5ebd0e1e25fa85d70e6c3b1a0f4",
+        },
+        {
+          id: "1HY2Jd0NmPuamShAr6KMms",
+          name: "Drake",
+          imageUrl: "https://i.scdn.co/image/ab6761610000e5ebe65207802f4a41ed7f96e901",
+        },
+      ];
+
+      const filtered = mockArtists.filter((a) =>
+        a.name.toLowerCase().includes(q.toLowerCase()),
+      );
+
+      return createModuleDevSuccessResponse<{ results: DiscordSpotifyArtist[] }>({
+        results: filtered.slice(0, limit),
+      });
+    }),
+    http.get(createModuleDevBackendUrl("/api/v1/discord/notifications/artist-releases"), () =>
+      createModuleDevSuccessResponse({
+        configs: live.artistReleases,
+        needsLink: false,
+        needsReauth: false,
+      }),
+    ),
+    http.post(
+      createModuleDevBackendUrl("/api/v1/discord/notifications/artist-releases"),
+      async ({ request }) => {
+        const payload = (await request.json()) as {
+          configs?: Array<{
+            guildId: string;
+            channelId: string | null;
+            enabled: boolean;
+            includeTypes: DiscordArtistReleaseType[];
+            subscriptions: Array<{ artistId: string }>;
+          }>;
+        };
+        const incoming = Array.isArray(payload.configs) ? payload.configs : [];
+        live.artistReleases = incoming.map((c) => ({
+          guildId: c.guildId,
+          channelId: c.channelId ?? null,
+          enabled: Boolean(c.enabled),
+          includeTypes: c.includeTypes || ["album", "single"],
+          subscriptions: c.subscriptions || [],
+        }));
+
+        return createModuleDevSuccessResponse({
+          configs: live.artistReleases,
+          warning: null,
+          needsLink: false,
+          needsReauth: false,
         });
       },
     ),

@@ -133,6 +133,51 @@ export type DiscordGameUpdatesUpdateResult = {
     warning: string | null;
 };
 
+export type DiscordSpotifyArtist = { id: string; name: string; imageUrl: string | null };
+
+export type DiscordArtistReleaseType = 'album' | 'single' | 'compilation' | 'appears_on';
+
+export type DiscordArtistSubscription = {
+    artistId: string;
+    name: string;
+    imageUrl: string | null;
+    lastNotifiedAt: string | null;
+    lastError: string | null;
+};
+
+export type DiscordArtistReleasesConfig = {
+    guildId: string;
+    channelId: string | null;
+    enabled: boolean;
+    includeTypes: DiscordArtistReleaseType[];
+    subscriptions: DiscordArtistSubscription[];
+    updatedBy?: string | null;
+    updatedAt?: string | null;
+};
+
+export type DiscordArtistReleasesState = {
+    configs: DiscordArtistReleasesConfig[];
+    needsLink?: boolean;
+    needsReauth?: boolean;
+};
+
+export type DiscordArtistReleasesUpdatePayload = {
+    configs: Array<{
+        guildId: string;
+        channelId: string | null;
+        enabled: boolean;
+        includeTypes: DiscordArtistReleaseType[];
+        subscriptions: Array<{ artistId: string }>;
+    }>;
+};
+
+export type DiscordArtistReleasesUpdateResult = {
+    configs: DiscordArtistReleasesConfig[];
+    warning: string | null;
+    needsLink?: boolean;
+    needsReauth?: boolean;
+};
+
 export const discordService = {
     async getStatus(): Promise<DiscordBotStatus> {
         return api.getData<DiscordBotStatus>("/api/v1/discord/status");
@@ -192,6 +237,26 @@ export const discordService = {
     ): Promise<DiscordGameUpdatesUpdateResult> {
         return api.postData<DiscordGameUpdatesUpdateResult>(
             "/api/v1/discord/notifications/game-updates",
+            payload,
+        );
+    },
+    async searchArtists(query: string, limit = 10): Promise<DiscordSpotifyArtist[]> {
+        const trimmed = query.trim();
+        if (trimmed.length < 2) return [];
+        const params = new URLSearchParams({ q: trimmed, limit: String(limit) });
+        const data = await api.getData<{ results: DiscordSpotifyArtist[] }>(
+            `/api/v1/discord/artists/search?${params.toString()}`,
+        );
+        return Array.isArray(data.results) ? data.results : [];
+    },
+    async getArtistReleases(): Promise<DiscordArtistReleasesState> {
+        return api.getData<DiscordArtistReleasesState>("/api/v1/discord/notifications/artist-releases");
+    },
+    async setArtistReleases(
+        payload: DiscordArtistReleasesUpdatePayload,
+    ): Promise<DiscordArtistReleasesUpdateResult> {
+        return api.postData<DiscordArtistReleasesUpdateResult>(
+            "/api/v1/discord/notifications/artist-releases",
             payload,
         );
     },
