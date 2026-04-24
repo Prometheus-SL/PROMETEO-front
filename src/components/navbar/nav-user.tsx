@@ -18,13 +18,13 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Link } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuthContext } from "@/providers/AuthProvider";
 import { AdminBadge } from "../admin/admin-badge";
 import { ConfettiButton } from "../ui/confetti";
 
 export function NavUser() {
   const { isMobile } = useSidebar();
-  const { logout, user } = useAuth();
+  const { logout, user } = useAuthContext();
 
   const isDev =
     typeof window !== "undefined" &&

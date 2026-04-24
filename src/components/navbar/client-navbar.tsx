@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuthContext } from "@/providers/AuthProvider";
+import { API_URL } from "@/lib/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { FullscreenIcon, RefreshCw } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const dateFormatter = new Intl.DateTimeFormat("es-ES", {
   weekday: "long",
@@ -29,7 +30,11 @@ type ClientNavbarProps = {
 
 export function ClientNavbar({ className }: ClientNavbarProps) {
   const [now, setNow] = useState(() => new Date());
-  const { user } = useAuth();
+  const { user } = useAuthContext();
+
+  const avatarSrc = user?.avatarUrl
+    ? `${API_URL}${user.avatarUrl}?v=${encodeURIComponent(user.avatarUpdatedAt ?? "0")}`
+    : undefined;
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -103,6 +108,9 @@ export function ClientNavbar({ className }: ClientNavbarProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Avatar className="h-9 w-9 rounded-lg grayscale touch-none select-none cursor-pointer hover:border hover:border ">
+                  {avatarSrc ? (
+                    <AvatarImage src={avatarSrc} alt={user?.username ?? ""} />
+                  ) : null}
                   <AvatarFallback className="rounded-lg">
                     {(user?.name?.charAt(0) ?? "") +
                       (user?.surname?.charAt(0) ?? "")}
