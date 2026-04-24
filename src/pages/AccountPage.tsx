@@ -813,7 +813,7 @@ export default function AccountPage() {
             title="Security"
             description="2FA, sessions, and recent access."
           />
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-2 [&>*]:min-w-0">
             <div className="lg:col-span-2">
               <TwoFactorSection />
             </div>

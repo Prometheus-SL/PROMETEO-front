@@ -244,12 +244,16 @@ export type Session = {
     sessionId?: string;
     createdAt: string;
     lastUsedAt?: string | null;
+    userAgent?: string | null;
+    ip?: string | null;
     current?: boolean;
 };
 
 export type LoginHistoryEntry = {
     _id: string;
     method: string;
+    provider?: string | null;
+    identifier?: string | null;
     success: boolean;
     ip?: string;
     userAgent?: string;
@@ -260,6 +264,7 @@ export type LoginHistoryEntry = {
 export type LoginHistoryResponse = {
     history: LoginHistoryEntry[];
     pagination: { current: number; pages: number; total: number };
+    retentionDays?: number;
 };
 
 configureApi({
