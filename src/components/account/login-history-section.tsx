@@ -65,7 +65,7 @@ export function LoginHistorySection() {
   }, [load]);
 
   return (
-    <Card className="min-w-0 max-w-full overflow-hidden rounded-xl">
+    <Card className="flex min-w-0 max-w-full flex-col overflow-hidden rounded-xl lg:h-[40rem]">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <History className="size-5" />
@@ -75,7 +75,7 @@ export function LoginHistorySection() {
           Sign-in activity across password, QR, agent, and provider flows.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex min-w-0 flex-col gap-4">
+      <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
         <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 bg-muted/30 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-col gap-1">
             <p className="text-sm font-medium">Recent account access activity</p>
@@ -102,7 +102,7 @@ export function LoginHistorySection() {
           </p>
         ) : (
           <>
-            <ScrollArea className="h-[26rem] w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-border/60 bg-muted/10">
+            <ScrollArea className="h-[26rem] w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-border/60 bg-muted/10 lg:h-auto lg:min-h-0 lg:flex-1 lg:basis-0">
               <div className="flex w-full max-w-full min-w-0 flex-col gap-3 overflow-x-hidden p-3 pr-3">
                 {entries.map((entry) => {
                   const presentation = getLoginHistoryPresentation(entry);

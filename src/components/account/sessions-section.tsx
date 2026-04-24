@@ -22,6 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { authService, type Session } from "@/services/auth";
 
@@ -88,7 +89,7 @@ export function SessionsSection() {
   }
 
   return (
-    <Card className="min-w-0 rounded-xl">
+    <Card className="flex min-w-0 max-w-full flex-col overflow-hidden rounded-xl lg:h-[40rem]">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Monitor className="size-5" />
@@ -99,9 +100,9 @@ export function SessionsSection() {
           do not recognize.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex min-w-0 flex-col gap-4">
+      <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
         {loading ? (
-          <div className="flex justify-center py-4">
+          <div className="flex flex-1 justify-center py-4">
             <Spinner className="size-5" />
           </div>
         ) : sessions.length === 0 ? (
@@ -109,100 +110,102 @@ export function SessionsSection() {
             No active sessions found.
           </p>
         ) : (
-          <div className="flex min-w-0 flex-col gap-3">
-            {sessions.map((session) => {
-              const id = session._id || session.sessionId;
-              if (!id) return null;
+          <ScrollArea className="h-[26rem] w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-border/60 bg-muted/10 lg:h-auto lg:min-h-0 lg:flex-1 lg:basis-0">
+            <div className="flex min-w-0 flex-col gap-3 p-3">
+              {sessions.map((session) => {
+                const id = session._id || session.sessionId;
+                if (!id) return null;
 
-              const presentation = getSessionPresentation(session);
-              const SessionIcon = getSessionIcon(presentation.deviceType);
+                const presentation = getSessionPresentation(session);
+                const SessionIcon = getSessionIcon(presentation.deviceType);
 
-              return (
-                <div
-                  key={id}
-                  className="flex min-w-0 flex-col gap-4 rounded-lg border px-4 py-4 sm:flex-row sm:items-start sm:justify-between"
-                >
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className="rounded-lg border border-border/60 bg-muted/30 p-2">
-                      <SessionIcon className="size-4 text-muted-foreground" />
-                    </div>
+                return (
+                  <div
+                    key={id}
+                    className="flex min-w-0 flex-col gap-4 rounded-lg border bg-background px-4 py-4 sm:flex-row sm:items-start sm:justify-between"
+                  >
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="rounded-lg border border-border/60 bg-muted/30 p-2">
+                        <SessionIcon className="size-4 text-muted-foreground" />
+                      </div>
 
-                    <div className="flex min-w-0 flex-1 flex-col gap-2">
-                      <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <span
-                          className="truncate text-sm font-medium"
-                          title={presentation.primaryLabel}
-                        >
-                          {presentation.primaryLabel}
-                        </span>
-                        {session.current ? (
-                          <Badge
-                            variant="outline"
-                            className="border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                      <div className="flex min-w-0 flex-1 flex-col gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <span
+                            className="truncate text-sm font-medium"
+                            title={presentation.primaryLabel}
                           >
-                            Current
-                          </Badge>
-                        ) : null}
-                      </div>
+                            {presentation.primaryLabel}
+                          </span>
+                          {session.current ? (
+                            <Badge
+                              variant="outline"
+                              className="border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                            >
+                              Current
+                            </Badge>
+                          ) : null}
+                        </div>
 
-                      <p
-                        className="truncate text-xs text-muted-foreground"
-                        title={presentation.secondaryLabel}
-                      >
-                        {presentation.secondaryLabel}
-                      </p>
-
-                      <div className="flex min-w-0 flex-wrap gap-1.5">
-                        <Badge variant="secondary" className="max-w-full truncate">
-                          {presentation.deviceLabel}
-                        </Badge>
-                        <Badge variant="secondary" className="max-w-full truncate">
-                          {presentation.networkLabel}
-                        </Badge>
-                        <Badge variant="secondary" className="max-w-full truncate">
-                          {presentation.sessionLabel}
-                        </Badge>
-                      </div>
-
-                      <div className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
-                        <p className="truncate" title={`Signed in ${formatDate(session.createdAt)}`}>
-                          Signed in {formatDate(session.createdAt)}
-                        </p>
                         <p
-                          className="truncate"
-                          title={`Last active ${formatDate(session.lastUsedAt || session.createdAt)}`}
+                          className="truncate text-xs text-muted-foreground"
+                          title={presentation.secondaryLabel}
                         >
-                          Last active {formatDate(session.lastUsedAt || session.createdAt)}
+                          {presentation.secondaryLabel}
                         </p>
+
+                        <div className="flex min-w-0 flex-wrap gap-1.5">
+                          <Badge variant="secondary" className="max-w-full truncate">
+                            {presentation.deviceLabel}
+                          </Badge>
+                          <Badge variant="secondary" className="max-w-full truncate">
+                            {presentation.networkLabel}
+                          </Badge>
+                          <Badge variant="secondary" className="max-w-full truncate">
+                            {presentation.sessionLabel}
+                          </Badge>
+                        </div>
+
+                        <div className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
+                          <p className="truncate" title={`Signed in ${formatDate(session.createdAt)}`}>
+                            Signed in {formatDate(session.createdAt)}
+                          </p>
+                          <p
+                            className="truncate"
+                            title={`Last active ${formatDate(session.lastUsedAt || session.createdAt)}`}
+                          >
+                            Last active {formatDate(session.lastUsedAt || session.createdAt)}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {!session.current ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRevoke(id)}
-                      disabled={revoking === id}
-                      className="shrink-0 self-start"
-                    >
-                      {revoking === id ? (
-                        <Spinner className="size-4" />
-                      ) : (
-                        <X className="size-4" />
-                      )}
-                      Revoke
-                    </Button>
-                  ) : (
-                    <div className="flex shrink-0 items-center gap-2 self-start rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                      <Clock3 className="size-3.5" />
-                      Active now
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                    {!session.current ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRevoke(id)}
+                        disabled={revoking === id}
+                        className="shrink-0 self-start"
+                      >
+                        {revoking === id ? (
+                          <Spinner className="size-4" />
+                        ) : (
+                          <X className="size-4" />
+                        )}
+                        Revoke
+                      </Button>
+                    ) : (
+                      <div className="flex shrink-0 items-center gap-2 self-start rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                        <Clock3 className="size-3.5" />
+                        Active now
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
         )}
       </CardContent>
     </Card>
