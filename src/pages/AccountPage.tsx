@@ -455,6 +455,9 @@ export default function AccountPage() {
         ...payload,
         providers,
       });
+      if (payload.user) {
+        updateUser?.(payload.user);
+      }
       setError(null);
     } catch (err) {
       setError((err as Error)?.message ?? "Could not load account data.");
