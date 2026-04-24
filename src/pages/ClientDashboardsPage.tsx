@@ -9,6 +9,7 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import { Spinner } from "@/components/ui/spinner";
+import { persistClientLockScreenStyle } from "@/layouts/lock-screen-config";
 import { cn } from "@/lib/utils";
 import {
   getClientDashboardPages,
@@ -217,6 +218,13 @@ export default function ClientDashboardsPage() {
     if (pageCache[selectedPageId]) return;
     void loadPage(selectedPageId);
   }, [loadPage, pageCache, selectedPageId]);
+
+  useEffect(() => {
+    if (!selectedPageId) return;
+    const page = pageCache[selectedPageId];
+    if (!page) return;
+    persistClientLockScreenStyle(page.style);
+  }, [pageCache, selectedPageId]);
 
   const selectedIndex = useMemo(() => {
     if (!pageSummaries.length) return 0;

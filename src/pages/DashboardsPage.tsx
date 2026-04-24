@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
+  Clock3,
   Plus,
   MoreVertical,
   Eye,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { LockScreenSettingsDialog } from "@/components/dashboard/lock-screen-settings-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +51,7 @@ import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { writeLockScreenConfig } from "@/layouts/lock-screen-config";
 import {
   getDashboardEditorStats,
   reorderDashboardPageIds,
@@ -167,6 +170,7 @@ export default function DashboardsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [draggedPageId, setDraggedPageId] = useState<string | null>(null);
   const [dragOverPageId, setDragOverPageId] = useState<string | null>(null);
+  const [isLockScreenDialogOpen, setIsLockScreenDialogOpen] = useState(false);
 
   // Templates
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
@@ -488,9 +492,18 @@ export default function DashboardsPage() {
               />
               Refresh
             </Button>
-            <Button variant="outline" onClick={openTemplatesDialog}>
+            {/* TODO TEMPLATES */}
+            <Button variant="outline" onClick={openTemplatesDialog} disabled>
               <FileText className="mr-2 size-4" />
               Templates
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsLockScreenDialogOpen(true)}
+            >
+              <Clock3 className="mr-2 size-4" />
+              Lock Screen
             </Button>
             <Button onClick={openCreateDialog}>
               <Plus className="mr-2 size-4" />
@@ -501,12 +514,8 @@ export default function DashboardsPage() {
 
         <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
           <Badge variant="outline">{pages.length} pages</Badge>
-          <Badge variant="outline">
-            Visible: {visiblePageCount}
-          </Badge>
-          <Badge variant="outline">
-            Main: {principalPage?.name ?? "None"}
-          </Badge>
+          <Badge variant="outline">Visible: {visiblePageCount}</Badge>
+          <Badge variant="outline">Main: {principalPage?.name ?? "None"}</Badge>
           <Badge variant="outline">{dashboardStats.moduleCount} modules</Badge>
           <div className="flex min-w-48 items-center gap-2 rounded-md border bg-background/70 px-3 py-1.5">
             <span className="whitespace-nowrap text-muted-foreground">
@@ -611,7 +620,11 @@ export default function DashboardsPage() {
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="size-8">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8"
+                          >
                             <MoreVertical className="size-4" />
                             <span className="sr-only">Actions</span>
                           </Button>
@@ -668,7 +681,9 @@ export default function DashboardsPage() {
                             ) : (
                               <Eye className="size-4" />
                             )}
-                            {page.active ? "Hide from Client" : "Show in Client"}
+                            {page.active
+                              ? "Hide from Client"
+                              : "Show in Client"}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -703,96 +718,100 @@ export default function DashboardsPage() {
 
         {currentPage ? (
           <section className="flex min-h-0 min-w-0 flex-col rounded-xl border bg-card p-4 shadow-sm">
-          <div className="flex flex-col gap-4 pb-5 xl:flex-row xl:items-center xl:justify-between">
-            <div className="min-w-0 space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-xl font-semibold">
-                  {currentPage.name}
-                </h2>
-                <Badge variant="outline">/{currentPage.slug}</Badge>
-                {currentPage.principal ? (
-                  <Badge variant="secondary">
-                    <Star className="mr-1 size-3" />
-                    Principal
-                  </Badge>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                <span>
-                  {dashboardStats.moduleCount} widget
-                  {dashboardStats.moduleCount === 1 ? "" : "s"}
-                </span>
-                <span>
-                  {dashboardStats.occupiedCells}/{dashboardStats.totalCells}{" "}
-                  cells
-                </span>
-                {currentPage.updatedAt ? (
+            <div className="flex flex-col gap-4 pb-5 xl:flex-row xl:items-center xl:justify-between">
+              <div className="min-w-0 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="truncate text-xl font-semibold">
+                    {currentPage.name}
+                  </h2>
+                  <Badge variant="outline">/{currentPage.slug}</Badge>
+                  {currentPage.principal ? (
+                    <Badge variant="secondary">
+                      <Star className="mr-1 size-3" />
+                      Principal
+                    </Badge>
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                   <span>
-                    Updated {new Date(currentPage.updatedAt).toLocaleString()}
+                    {dashboardStats.moduleCount} widget
+                    {dashboardStats.moduleCount === 1 ? "" : "s"}
                   </span>
-                ) : null}
+                  <span>
+                    {dashboardStats.occupiedCells}/{dashboardStats.totalCells}{" "}
+                    cells
+                  </span>
+                  {currentPage.updatedAt ? (
+                    <span>
+                      Updated {new Date(currentPage.updatedAt).toLocaleString()}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSaveVersion}
+                  disabled={isSavingVersion}
+                >
+                  <Save className="mr-2 size-4" />
+                  {isSavingVersion ? "Saving..." : "Save Version"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={openVersionsDialog}
+                >
+                  <History className="mr-2 size-4" />
+                  History
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => openEditDialog(currentPage)}
+                >
+                  <Pencil className="mr-2 size-4" />
+                  Edit Page
+                </Button>
+                <Button
+                  variant={currentPage.principal ? "secondary" : "outline"}
+                  onClick={() => handleSetPrincipal(currentPage)}
+                  disabled={currentPage.principal}
+                >
+                  <Star className="mr-2 size-4" />
+                  {currentPage.principal ? "Principal" : "Make Principal"}
+                </Button>
+                <Button
+                  variant={currentPage.active ? "secondary" : "default"}
+                  onClick={() =>
+                    handleSetVisibility(currentPage, !currentPage.active)
+                  }
+                >
+                  {currentPage.active ? (
+                    <EyeOff className="mr-2 size-4" />
+                  ) : (
+                    <Eye className="mr-2 size-4" />
+                  )}
+                  {currentPage.active ? "Hide Client" : "Show Client"}
+                </Button>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSaveVersion}
-                disabled={isSavingVersion}
-              >
-                <Save className="mr-2 size-4" />
-                {isSavingVersion ? "Saving..." : "Save Version"}
-              </Button>
-              <Button variant="outline" size="sm" onClick={openVersionsDialog}>
-                <History className="mr-2 size-4" />
-                History
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => openEditDialog(currentPage)}
-              >
-                <Pencil className="mr-2 size-4" />
-                Edit Page
-              </Button>
-              <Button
-                variant={currentPage.principal ? "secondary" : "outline"}
-                onClick={() => handleSetPrincipal(currentPage)}
-                disabled={currentPage.principal}
-              >
-                <Star className="mr-2 size-4" />
-                {currentPage.principal ? "Principal" : "Make Principal"}
-              </Button>
-              <Button
-                variant={currentPage.active ? "secondary" : "default"}
-                onClick={() =>
-                  handleSetVisibility(currentPage, !currentPage.active)
+            <GridManager
+              installed={state.installed}
+              onRemove={removeModule}
+              onMove={(id, pos) => setModulePosition(id, pos)}
+              onUpdateConfig={(id, config) => setModuleConfig(id, config)}
+              onRepairLayout={async () => {
+                try {
+                  await repairDashboardLayout(currentPage._id);
+                  toast.success("Layout repaired");
+                } catch (error) {
+                  toast.error(
+                    (error as Error)?.message || "Could not repair the layout",
+                  );
                 }
-              >
-                {currentPage.active ? (
-                  <EyeOff className="mr-2 size-4" />
-                ) : (
-                  <Eye className="mr-2 size-4" />
-                )}
-                {currentPage.active ? "Hide Client" : "Show Client"}
-              </Button>
-            </div>
-          </div>
-          <GridManager
-            installed={state.installed}
-            onRemove={removeModule}
-            onMove={(id, pos) => setModulePosition(id, pos)}
-            onUpdateConfig={(id, config) => setModuleConfig(id, config)}
-            onRepairLayout={async () => {
-              try {
-                await repairDashboardLayout(currentPage._id);
-                toast.success("Layout repaired");
-              } catch (error) {
-                toast.error(
-                  (error as Error)?.message || "Could not repair the layout",
-                );
-              }
-            }}
-          />
+              }}
+            />
           </section>
         ) : (
           <div className="rounded-lg border border-dashed px-8 py-16 text-center text-sm text-muted-foreground">
@@ -893,10 +912,7 @@ export default function DashboardsPage() {
                 }
               />
               <div className="space-y-1">
-                <Label
-                  htmlFor="page-principal"
-                  className="text-sm font-medium"
-                >
+                <Label htmlFor="page-principal" className="text-sm font-medium">
                   Principal Page
                 </Label>
                 <p className="text-muted-foreground text-xs">
@@ -1075,6 +1091,20 @@ export default function DashboardsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {currentPage ? (
+        <LockScreenSettingsDialog
+          page={currentPage}
+          open={isLockScreenDialogOpen}
+          onOpenChange={setIsLockScreenDialogOpen}
+          onSave={async (config) => {
+            await updateDashboard(currentPage._id, {
+              style: writeLockScreenConfig(currentPage.style, config),
+            });
+            toast.success("Lock screen updated");
+          }}
+        />
+      ) : null}
     </div>
   );
 }

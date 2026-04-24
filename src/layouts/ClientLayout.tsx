@@ -20,7 +20,7 @@ import LockLayout from "./LockLayout";
 
 export default function ClientLayout() {
   const { accessToken } = useAuthContext();
-  const isIdle = useIdle(1000 * 60 * 5);
+  const isIdle = useIdle(5);
 
   return (
     <SharedContextProvider>
