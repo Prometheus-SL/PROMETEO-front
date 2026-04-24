@@ -28,6 +28,7 @@ const INACTIVE_MOOD_CYCLE: Mood[] = ["sleepy", "angry", "surprised"];
 const SPARK_SILENCE_RMS_THRESHOLD = 0.02;
 const SPARK_SILENCE_STOP_MS = 1200;
 const SPARK_NO_SPEECH_TIMEOUT_MS = 4000;
+const SPARK_AUDIO_MONITOR_INTERVAL_MS = 80;
 
 export default function SparkChispaCard({
   config,
@@ -103,6 +104,7 @@ export default function SparkChispaCard({
   const [assistantMessage, setAssistantMessage] = useState<string>("");
   const [showModal, setShowModal] = useState(false);
   const [lastTranscript, setLastTranscript] = useState<string>("");
+  const [isHovered, setIsHovered] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -110,10 +112,23 @@ export default function SparkChispaCard({
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const audioFrameRef = useRef<number | null>(null);
+  const audioMonitorRef = useRef<number | null>(null);
   const silenceTimeoutRef = useRef<number | null>(null);
   const noSpeechTimeoutRef = useRef<number | null>(null);
   const hasDetectedSpeechRef = useRef(false);
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const sparkMotionActive =
+    !prefersReducedMotion && (isListening || isHovered || showModal);
+  const sparkWrapperStyle = useMemo<CSSProperties>(
+    () =>
+      sparkMotionActive
+        ? {
+            animation: "spark-widget-float 7s ease-in-out infinite",
+            willChange: "transform",
+          }
+        : {},
+    [sparkMotionActive],
+  );
 
   const markActive = useCallback(() => {
     lastActiveRef.current = Date.now();
@@ -392,9 +407,9 @@ export default function SparkChispaCard({
   }, []);
 
   const stopAudioMonitoring = useCallback(() => {
-    if (audioFrameRef.current !== null) {
-      window.cancelAnimationFrame(audioFrameRef.current);
-      audioFrameRef.current = null;
+    if (audioMonitorRef.current !== null) {
+      window.clearInterval(audioMonitorRef.current);
+      audioMonitorRef.current = null;
     }
 
     if (silenceTimeoutRef.current !== null) {
@@ -439,10 +454,10 @@ export default function SparkChispaCard({
       const audioContext = new AudioContext();
       const analyser = audioContext.createAnalyser();
       const sourceNode = audioContext.createMediaStreamSource(stream);
-      const samples = new Uint8Array(analyser.fftSize);
 
-      analyser.fftSize = 2048;
+      analyser.fftSize = 1024;
       analyser.smoothingTimeConstant = 0.18;
+      const samples = new Uint8Array(analyser.fftSize);
       sourceNode.connect(analyser);
 
       audioContextRef.current = audioContext;
@@ -491,7 +506,6 @@ export default function SparkChispaCard({
           }, SPARK_SILENCE_STOP_MS);
         }
 
-        audioFrameRef.current = window.requestAnimationFrame(monitor);
       };
 
       noSpeechTimeoutRef.current = window.setTimeout(() => {
@@ -503,7 +517,11 @@ export default function SparkChispaCard({
         }
       }, SPARK_NO_SPEECH_TIMEOUT_MS);
 
-      audioFrameRef.current = window.requestAnimationFrame(monitor);
+      monitor();
+      audioMonitorRef.current = window.setInterval(
+        monitor,
+        SPARK_AUDIO_MONITOR_INTERVAL_MS,
+      );
     },
     [stopAudioMonitoring, stopCurrentRecording],
   );
@@ -705,6 +723,10 @@ export default function SparkChispaCard({
               isListening ? "Detener grabacion de Spark" : "Hablar con Spark"
             }
             onClick={handleSparkPress}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            onFocus={() => setIsHovered(true)}
+            onBlur={() => setIsHovered(false)}
             disabled={isTranscribing}
             className="group/spark relative rounded-full bg-transparent p-0 transition-transform duration-300 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/75 disabled:cursor-wait disabled:opacity-80"
           >
@@ -717,7 +739,14 @@ export default function SparkChispaCard({
                 }}
               />
             ) : null}
-            <SparkSvg color={color} mood={mood} accessory={accessory} />
+            <div className="relative" style={sparkWrapperStyle}>
+              <SparkSvg
+                color={color}
+                mood={mood}
+                accessory={accessory}
+                motionActive={sparkMotionActive}
+              />
+            </div>
           </button>
 
           <div className="min-h-5 text-center text-xs font-medium text-foreground/80">
@@ -730,14 +759,20 @@ export default function SparkChispaCard({
         </div>
       </div>
 
-      <Particles
-        className="absolute inset-0 overflow-hidden"
-        quantity={28}
-        ease={85}
-        staticity={60}
-        color={accentColor}
-        size={0.45}
-      />
+      {!prefersReducedMotion ? (
+        <Particles
+          className="absolute inset-0 overflow-hidden"
+          quantity={16}
+          ease={90}
+          staticity={70}
+          color={accentColor}
+          size={0.4}
+          active={sparkMotionActive}
+          interactive={false}
+          maxFps={24}
+          pixelRatioCap={1.25}
+        />
+      ) : null}
 
       <div className="pointer-events-none absolute inset-0 ">
         {poops.map((poop) => (
@@ -808,12 +843,14 @@ type SparkSvgProps = {
   color: string;
   mood: Mood;
   accessory: Accessory;
+  motionActive: boolean;
 };
 
 const SparkSvg = memo(function SparkSvg({
   color,
   mood,
   accessory,
+  motionActive,
 }: SparkSvgProps) {
   const eyeY = 94;
   const eyeXOffset = 26;
@@ -825,7 +862,6 @@ const SparkSvg = memo(function SparkSvg({
 
   const [gazeDir, setGazeDir] = useState<-1 | 0 | 1>(0);
   const gazeTimeoutRef = useRef<number | null>(null);
-  const [shouldAnimate, setShouldAnimate] = useState(true);
 
   const gradId = useMemo(
     () => `spark-body-${Math.random().toString(36).slice(2)}`,
@@ -902,39 +938,17 @@ const SparkSvg = memo(function SparkSvg({
     };
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const handleChange = () => setShouldAnimate(!query.matches);
-    handleChange();
-
-    if (typeof query.addEventListener === "function") {
-      query.addEventListener("change", handleChange);
-      return () => query.removeEventListener("change", handleChange);
-    }
-
-    query.addListener(handleChange);
-    return () => query.removeListener(handleChange);
-  }, []);
-
   const strokeColor = useMemo(() => darken(color, 0.55), [color]);
   const lightColor = useMemo(() => lighten(color, 0.22), [color]);
-  const svgAnimationStyle = useMemo<CSSProperties>(
-    () =>
-      shouldAnimate
-        ? { animation: "spark-widget-float 7s ease-in-out infinite" }
-        : {},
-    [shouldAnimate],
-  );
   const sheenStyle = useMemo<CSSProperties>(
     () =>
-      shouldAnimate
+      motionActive
         ? {
             animation: "spark-widget-halo 8s ease-in-out infinite",
             opacity: 0.16,
           }
         : { opacity: 0.12 },
-    [shouldAnimate],
+    [motionActive],
   );
 
   const mouth = useMemo(() => {
@@ -1004,8 +1018,7 @@ const SparkSvg = memo(function SparkSvg({
       viewBox="0 0 184 184"
       role="img"
       aria-label="Spark preview"
-      className="spark relative z-10 h-auto w-full max-w-[200px] drop-shadow-[0_10px_35px_rgba(0,0,0,0.5)]"
-      style={svgAnimationStyle}
+      className="relative z-10 h-auto w-full max-w-[200px] drop-shadow-[0_10px_35px_rgba(0,0,0,0.5)]"
     >
       <defs>
         <filter id={glowFilterId} x="-50%" y="-50%" width="200%" height="200%">
@@ -1146,4 +1159,28 @@ function darken(hex: string, p: number) {
 function toRgba(hex: string, alpha: number) {
   const { r, g, b } = hexToRgb(hex);
   return `rgba(${r}, ${g}, ${b}, ${clamp(alpha, 0, 1)})`;
+}
+
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => setPrefersReducedMotion(query.matches);
+    updatePreference();
+
+    if (typeof query.addEventListener === "function") {
+      query.addEventListener("change", updatePreference);
+      return () => query.removeEventListener("change", updatePreference);
+    }
+
+    query.addListener(updatePreference);
+    return () => query.removeListener(updatePreference);
+  }, []);
+
+  return prefersReducedMotion;
 }

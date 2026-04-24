@@ -200,20 +200,6 @@
 }
 
 
-@keyframes sparkPulse {
-
-  0%,
-  100% {
-    transform: scale(1);
-    filter: drop-shadow(0 0 2px #ffd54f);
-  }
-
-  50% {
-    transform: scale(1.01);
-    filter: drop-shadow(0 0 3px #ffb300);
-  }
-}
-
 @keyframes spark-widget-float {
   0% {
     transform: translateY(0px) scale(1);
@@ -230,23 +216,16 @@
 
 @keyframes spark-widget-halo {
   0% {
-    opacity: 0.18;
-    filter: blur(0px);
+    opacity: 0.14;
   }
 
   50% {
-    opacity: 0.46;
-    filter: blur(1.5px);
+    opacity: 0.28;
   }
 
   100% {
-    opacity: 0.2;
-    filter: blur(0.2px);
+    opacity: 0.16;
   }
-}
-
-.spark {
-  animation: sparkPulse 2s ease-in-out infinite;
 }
 
 @layer utilities {
