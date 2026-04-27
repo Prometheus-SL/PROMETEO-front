@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
-  Clock3,
   Plus,
   MoreVertical,
   Eye,
@@ -19,7 +18,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { LockScreenSettingsDialog } from "@/components/dashboard/lock-screen-settings-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,7 +49,6 @@ import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { writeLockScreenConfig } from "@/layouts/lock-screen-config";
 import {
   getDashboardEditorStats,
   reorderDashboardPageIds,
@@ -170,7 +167,6 @@ export default function DashboardsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [draggedPageId, setDraggedPageId] = useState<string | null>(null);
   const [dragOverPageId, setDragOverPageId] = useState<string | null>(null);
-  const [isLockScreenDialogOpen, setIsLockScreenDialogOpen] = useState(false);
 
   // Templates
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
@@ -496,14 +492,6 @@ export default function DashboardsPage() {
             <Button variant="outline" onClick={openTemplatesDialog} disabled>
               <FileText className="mr-2 size-4" />
               Templates
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsLockScreenDialogOpen(true)}
-            >
-              <Clock3 className="mr-2 size-4" />
-              Lock Screen
             </Button>
             <Button onClick={openCreateDialog}>
               <Plus className="mr-2 size-4" />
@@ -1091,20 +1079,6 @@ export default function DashboardsPage() {
           )}
         </DialogContent>
       </Dialog>
-
-      {currentPage ? (
-        <LockScreenSettingsDialog
-          page={currentPage}
-          open={isLockScreenDialogOpen}
-          onOpenChange={setIsLockScreenDialogOpen}
-          onSave={async (config) => {
-            await updateDashboard(currentPage._id, {
-              style: writeLockScreenConfig(currentPage.style, config),
-            });
-            toast.success("Lock screen updated");
-          }}
-        />
-      ) : null}
     </div>
   );
 }

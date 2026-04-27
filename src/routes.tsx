@@ -4,6 +4,7 @@ import {
   type ComponentType,
   type LazyExoticComponent,
 } from "react";
+import { Navigate } from "react-router-dom";
 
 import HomePage from "@/pages/HomePage";
 import LinkedAccountCallbackPage from "@/pages/LinkedAccountCallbackPage";
@@ -23,6 +24,8 @@ const MarketplacePage = lazy(() => import("./pages/MarketplacePage"));
 const DashboardsPage = lazy(() => import("./pages/DashboardsPage"));
 const ClientDashboardsPage = lazy(() => import("./pages/ClientDashboardsPage"));
 const BotDiscordPage = lazy(() => import("./pages/BotDiscordPage"));
+const DiscordInfoPage = lazy(() => import("./pages/DiscordInfoPage"));
+const LockScreenPage = lazy(() => import("./pages/LockScreenPage"));
 const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
@@ -91,12 +94,18 @@ export function createAppRoutes(isDev = import.meta.env.DEV) {
       ),
       handle: [
         {
-          routes: [
-            { title: "Home", url: "/" },
-            { title: "Dashboards", url: "/dashboard" },
-          ],
+          routes: [{ title: "Home", url: "/" }],
           adminOnly: false,
           title: "Principal",
+        },
+        {
+          title: "Dashboards",
+          routes: [
+            { title: "Dashboards", url: "/dashboard" },
+            { title: "Lock Screen", url: "/lockscreen" },
+            { title: "Marketplace", url: "/marketplace" },
+          ],
+          adminOnly: false,
         },
         {
           title: "Administracion",
@@ -107,13 +116,11 @@ export function createAppRoutes(isDev = import.meta.env.DEV) {
           adminOnly: true,
         },
         {
-          title: "Marketplace",
-          routes: [{ title: "Marketplace", url: "/marketplace" }],
-          adminOnly: false,
-        },
-        {
           title: "Discord",
-          routes: [{ title: "Notifications", url: "/discord/bot" }],
+          routes: [
+            { title: "Integration", url: "/discord/info" },
+            { title: "Notifications", url: "/discord/notifications" },
+          ],
           adminOnly: false,
         },
       ],
@@ -127,6 +134,16 @@ export function createAppRoutes(isDev = import.meta.env.DEV) {
           path: "/dashboard",
           element: lazyElement(DashboardsPage),
           handle: { title: "Edit Dashboards" },
+        },
+        {
+          path: "/lockscreen",
+          element: lazyElement(LockScreenPage),
+          handle: { title: "Lock Screen" },
+        },
+        {
+          path: "/dashboard/lock-screen",
+          element: <Navigate to="/lockscreen" replace />,
+          handle: { title: "Lock Screen" },
         },
         {
           path: "/marketplace",
@@ -149,8 +166,18 @@ export function createAppRoutes(isDev = import.meta.env.DEV) {
           handle: { title: "Agents" },
         },
         {
-          path: "/discord/bot",
+          path: "/discord/info",
+          element: lazyElement(DiscordInfoPage),
+          handle: { title: "Discord Integration" },
+        },
+        {
+          path: "/discord/notifications",
           element: lazyElement(BotDiscordPage),
+          handle: { title: "Notifications" },
+        },
+        {
+          path: "/discord/bot",
+          element: <Navigate to="/discord/notifications" replace />,
           handle: { title: "Notifications" },
         },
       ],

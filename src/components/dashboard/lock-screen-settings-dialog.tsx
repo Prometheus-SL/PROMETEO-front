@@ -1,19 +1,10 @@
-import { Clock3 } from "lucide-react";
+import { AlertTriangle, Clock3, Loader2, RotateCcw, Save } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -27,13 +18,15 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   buildLockScreenOverlayBackground,
   type LockScreenConfig,
+  normalizeLockScreenConfig,
   parseLockScreenPlaylist,
-  readLockScreenConfig,
   resolveLockScreenCanvasBackground,
+  resolveNasaApodImageUrl,
   resolvePlaylistImageUrl,
 } from "@/layouts/lock-screen-config";
 import { cn } from "@/lib/utils";
-import type { Page } from "@/modules/types";
+
+const NASA_APOD_CACHE_KEY = "prometeo.client.nasa-apod";
 
 const BACKGROUND_OPTIONS: Array<{
   value: LockScreenConfig["backgroundMode"];
@@ -94,38 +87,40 @@ const CLOCK_POSITION_OPTIONS: Array<{
   { value: "bottom-right", label: "Bottom right" },
 ];
 
-export function LockScreenSettingsDialog({
-  page,
-  open,
-  onOpenChange,
+export function LockScreenSettingsPanel({
+  initialConfig,
   onSave,
+  saveLabel = "Save lock screen",
 }: {
-  page: Page;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  initialConfig?: LockScreenConfig;
   onSave: (config: LockScreenConfig) => Promise<void>;
+  saveLabel?: string;
 }) {
-  const [draft, setDraft] = useState<LockScreenConfig>(() =>
-    readLockScreenConfig(page.style),
+  const normalizedInitialConfig = useMemo(
+    () => normalizeLockScreenConfig(initialConfig),
+    [initialConfig],
   );
-  const [playlistText, setPlaylistText] = useState("");
+
+  const [draft, setDraft] = useState<LockScreenConfig>(() =>
+    normalizedInitialConfig,
+  );
+  const [playlistText, setPlaylistText] = useState<string>(() =>
+    normalizedInitialConfig.playlist.join("\n"),
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    if (!open) return;
-    const config = readLockScreenConfig(page.style);
-    setDraft(config);
-    setPlaylistText(config.playlist.join("\n"));
+    setDraft(normalizedInitialConfig);
+    setPlaylistText(normalizedInitialConfig.playlist.join("\n"));
     setError(null);
-  }, [open, page]);
+  }, [normalizedInitialConfig]);
 
   useEffect(() => {
-    if (!open) return;
     const id = window.setInterval(() => setNow(new Date()), 1_000);
     return () => window.clearInterval(id);
-  }, [open]);
+  }, []);
 
   const parsedPlaylist = useMemo(
     () => parseLockScreenPlaylist(playlistText),
@@ -138,6 +133,18 @@ export function LockScreenSettingsDialog({
       playlist: parsedPlaylist,
     }),
     [draft, parsedPlaylist],
+  );
+
+  const normalizedCurrentConfig = useMemo(
+    () => normalizeLockScreenConfig(previewConfig),
+    [previewConfig],
+  );
+
+  const hasChanges = useMemo(
+    () =>
+      JSON.stringify(normalizedCurrentConfig) !==
+      JSON.stringify(normalizedInitialConfig),
+    [normalizedCurrentConfig, normalizedInitialConfig],
   );
 
   const backgroundHint = useMemo(
@@ -160,7 +167,6 @@ export function LockScreenSettingsDialog({
         ...draft,
         playlist: parsedPlaylist,
       });
-      onOpenChange(false);
     } catch (saveError) {
       setError(
         (saveError as Error)?.message ||
@@ -171,470 +177,486 @@ export function LockScreenSettingsDialog({
     }
   }
 
+  function handleReset() {
+    setDraft(normalizedInitialConfig);
+    setPlaylistText(normalizedInitialConfig.playlist.join("\n"));
+    setError(null);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[95vh] overflow-hidden p-0 sm:max-w-8xl">
-        <div className="border-b px-6 py-5">
-          <DialogHeader className="text-left">
-            <DialogTitle className="flex items-center gap-2">
+    <div className="space-y-4">
+      <div className="rounded-xl border bg-card/60 px-5 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <h2 className="flex items-center gap-2 text-xl font-semibold">
               <Clock3 className="size-5" />
               Lock screen
-            </DialogTitle>
-            <DialogDescription>
-              Configure the background and clock treatment for{" "}
-              <strong>{page.name}</strong> without changing the dashboard
-              layout.
-            </DialogDescription>
-          </DialogHeader>
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Configure global lock-screen background and clock treatment.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant={hasChanges ? "default" : "secondary"}>
+              {hasChanges ? "Unsaved changes" : "All changes saved"}
+            </Badge>
+            <Badge variant="outline">
+              {
+                BACKGROUND_OPTIONS.find(
+                  (option) => option.value === draft.backgroundMode,
+                )?.label
+              }
+            </Badge>
+          </div>
         </div>
+      </div>
 
-        <ScrollArea className="max-h-[calc(90vh-9rem)]">
-          <div className="grid gap-6 px-4 xl:grid-cols-2">
-            <div className="space-y-6">
-              <section className="space-y-4 rounded-xl border bg-card/70 p-4">
-                <div className="space-y-1">
-                  <h3 className="text-sm font-semibold">Background</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {backgroundHint}
-                  </p>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(470px,0.95fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(560px,1fr)]">
+        <div className="space-y-5">
+          <section className="space-y-4 rounded-xl border bg-card/60 p-5">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold">Background</h3>
+              <p className="text-sm text-muted-foreground">{backgroundHint}</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lock-background-mode">Source</Label>
+              <Select
+                value={draft.backgroundMode}
+                onValueChange={(value) =>
+                  setDraft((current) => ({
+                    ...current,
+                    backgroundMode: value as LockScreenConfig["backgroundMode"],
+                  }))
+                }
+              >
+                <SelectTrigger id="lock-background-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BACKGROUND_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {draft.backgroundMode === "single-image" ? (
+              <div className="space-y-2">
+                <Label htmlFor="lock-image-url">Image URL</Label>
+                <Input
+                  id="lock-image-url"
+                  value={draft.imageUrl}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      imageUrl: event.target.value,
+                    }))
+                  }
+                  placeholder="https://images.example.com/background.jpg"
+                />
+              </div>
+            ) : null}
+
+            {draft.backgroundMode === "playlist" ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="lock-playlist">Album image URLs</Label>
+                    <p className="text-xs text-muted-foreground">
+                      One image URL per line.
+                    </p>
+                  </div>
+                  <Badge variant="outline">{playlistSummary}</Badge>
                 </div>
-
+                <Textarea
+                  id="lock-playlist"
+                  value={playlistText}
+                  onChange={(event) => setPlaylistText(event.target.value)}
+                  rows={7}
+                  placeholder={[
+                    "https://images.example.com/one.jpg",
+                    "https://images.example.com/two.jpg",
+                    "https://images.example.com/three.jpg",
+                  ].join("\n")}
+                />
                 <div className="space-y-2">
-                  <Label htmlFor="lock-background-mode">Source</Label>
-                  <Select
-                    value={draft.backgroundMode}
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <Label htmlFor="lock-playlist-interval">
+                      Rotation interval
+                    </Label>
+                    <span className="text-muted-foreground">
+                      {draft.playlistIntervalSeconds}s
+                    </span>
+                  </div>
+                  <Slider
+                    id="lock-playlist-interval"
+                    min={15}
+                    max={180}
+                    step={5}
+                    value={[draft.playlistIntervalSeconds]}
                     onValueChange={(value) =>
                       setDraft((current) => ({
                         ...current,
-                        backgroundMode:
-                          value as LockScreenConfig["backgroundMode"],
+                        playlistIntervalSeconds: Math.max(15, value[0] ?? 15),
                       }))
                     }
-                  >
-                    <SelectTrigger id="lock-background-mode">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {BACKGROUND_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
+              </div>
+            ) : null}
 
-                {draft.backgroundMode === "single-image" ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="lock-image-url">Image URL</Label>
-                    <Input
-                      id="lock-image-url"
-                      value={draft.imageUrl}
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          imageUrl: event.target.value,
-                        }))
-                      }
-                      placeholder="https://images.example.com/background.jpg"
-                    />
-                  </div>
-                ) : null}
+            {draft.backgroundMode === "solid-color" ? (
+              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_9rem]">
+                <div className="space-y-2">
+                  <Label htmlFor="lock-solid-color">Solid color</Label>
+                  <Input
+                    id="lock-solid-color"
+                    value={draft.solidColor}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        solidColor: event.target.value,
+                      }))
+                    }
+                    placeholder="#050505"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lock-solid-color-picker">Picker</Label>
+                  <Input
+                    id="lock-solid-color-picker"
+                    type="color"
+                    value={normalizeColorInput(draft.solidColor)}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        solidColor: event.target.value,
+                      }))
+                    }
+                    className="h-10 p-1"
+                  />
+                </div>
+              </div>
+            ) : null}
 
-                {draft.backgroundMode === "playlist" ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="space-y-1">
-                        <Label htmlFor="lock-playlist">Album image URLs</Label>
-                        <p className="text-xs text-muted-foreground">
-                          One image URL per line.
-                        </p>
-                      </div>
-                      <Badge variant="outline">{playlistSummary}</Badge>
-                    </div>
-                    <Textarea
-                      id="lock-playlist"
-                      value={playlistText}
-                      onChange={(event) => setPlaylistText(event.target.value)}
-                      rows={7}
-                      placeholder={[
-                        "https://images.example.com/one.jpg",
-                        "https://images.example.com/two.jpg",
-                        "https://images.example.com/three.jpg",
-                      ].join("\n")}
-                    />
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-3 text-sm">
-                        <Label htmlFor="lock-playlist-interval">
-                          Rotation interval
-                        </Label>
-                        <span className="text-muted-foreground">
-                          {draft.playlistIntervalSeconds}s
-                        </span>
-                      </div>
-                      <Slider
-                        id="lock-playlist-interval"
-                        min={15}
-                        max={180}
-                        step={5}
-                        value={[draft.playlistIntervalSeconds]}
-                        onValueChange={(value) =>
-                          setDraft((current) => ({
-                            ...current,
-                            playlistIntervalSeconds:
-                              Math.max(15, value[0] ?? 15),
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-                ) : null}
-
-                {draft.backgroundMode === "solid-color" ? (
-                  <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_9rem]">
-                    <div className="space-y-2">
-                      <Label htmlFor="lock-solid-color">Solid color</Label>
-                      <Input
-                        id="lock-solid-color"
-                        value={draft.solidColor}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            solidColor: event.target.value,
-                          }))
-                        }
-                        placeholder="#050505"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lock-solid-color-picker">Picker</Label>
-                      <Input
-                        id="lock-solid-color-picker"
-                        type="color"
-                        value={normalizeColorInput(draft.solidColor)}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            solidColor: event.target.value,
-                          }))
-                        }
-                        className="h-10 p-1"
-                      />
-                    </div>
-                  </div>
-                ) : null}
-
-                {draft.backgroundMode === "gradient" ? (
-                  <div className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="lock-gradient-from">Gradient from</Label>
-                        <Input
-                          id="lock-gradient-from"
-                          value={draft.gradientFrom}
-                          onChange={(event) =>
-                            setDraft((current) => ({
-                              ...current,
-                              gradientFrom: event.target.value,
-                            }))
-                          }
-                          placeholder="#050505"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="lock-gradient-to">Gradient to</Label>
-                        <Input
-                          id="lock-gradient-to"
-                          value={draft.gradientTo}
-                          onChange={(event) =>
-                            setDraft((current) => ({
-                              ...current,
-                              gradientTo: event.target.value,
-                            }))
-                          }
-                          placeholder="#202020"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_8rem]">
-                      <Input
-                        type="color"
-                        value={normalizeColorInput(draft.gradientFrom)}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            gradientFrom: event.target.value,
-                          }))
-                        }
-                        className="h-10 p-1"
-                        aria-label="Gradient from picker"
-                      />
-                      <Input
-                        type="color"
-                        value={normalizeColorInput(draft.gradientTo)}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            gradientTo: event.target.value,
-                          }))
-                        }
-                        className="h-10 p-1"
-                        aria-label="Gradient to picker"
-                      />
-                      <div className="flex items-center justify-center rounded-md border text-sm text-muted-foreground">
-                        {draft.gradientAngle}deg
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-3 text-sm">
-                        <Label htmlFor="lock-gradient-angle">
-                          Gradient angle
-                        </Label>
-                        <span className="text-muted-foreground">
-                          {draft.gradientAngle}deg
-                        </span>
-                      </div>
-                      <Slider
-                        id="lock-gradient-angle"
-                        min={0}
-                        max={360}
-                        step={5}
-                        value={[draft.gradientAngle]}
-                        onValueChange={(value) =>
-                          setDraft((current) => ({
-                            ...current,
-                            gradientAngle: Math.max(0, value[0] ?? 0),
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-                ) : null}
-
+            {draft.backgroundMode === "gradient" ? (
+              <div className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <Label htmlFor="lock-overlay-opacity">Darkening</Label>
-                      <span className="text-muted-foreground">
-                        {draft.overlayOpacity}%
-                      </span>
-                    </div>
-                    <Slider
-                      id="lock-overlay-opacity"
-                      min={0}
-                      max={90}
-                      step={5}
-                      value={[draft.overlayOpacity]}
-                      onValueChange={(value) =>
-                        setDraft((current) => ({
-                          ...current,
-                          overlayOpacity: Math.max(0, value[0] ?? 0),
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <Label htmlFor="lock-blur">Blur</Label>
-                      <span className="text-muted-foreground">
-                        {draft.blurPx}px
-                      </span>
-                    </div>
-                    <Slider
-                      id="lock-blur"
-                      min={0}
-                      max={24}
-                      step={1}
-                      value={[draft.blurPx]}
-                      onValueChange={(value) =>
-                        setDraft((current) => ({
-                          ...current,
-                          blurPx: Math.max(0, value[0] ?? 0),
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-              </section>
-
-              <section className="space-y-4 rounded-xl border bg-card/70 p-4">
-                <div className="space-y-1">
-                  <h3 className="text-sm font-semibold">Clock</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Tune the lock-screen clock without affecting widget layout.
-                  </p>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="lock-clock-style">Style</Label>
-                    <Select
-                      value={draft.clockStyle}
-                      onValueChange={(value) =>
-                        setDraft((current) => ({
-                          ...current,
-                          clockStyle: value as LockScreenConfig["clockStyle"],
-                        }))
-                      }
-                    >
-                      <SelectTrigger id="lock-clock-style">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CLOCK_STYLE_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="lock-clock-position">Position</Label>
-                    <Select
-                      value={draft.clockPosition}
-                      onValueChange={(value) =>
-                        setDraft((current) => ({
-                          ...current,
-                          clockPosition:
-                            value as LockScreenConfig["clockPosition"],
-                        }))
-                      }
-                    >
-                      <SelectTrigger id="lock-clock-position">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CLOCK_POSITION_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_9rem]">
-                  <div className="space-y-2">
-                    <Label htmlFor="lock-accent-color">Accent color</Label>
+                    <Label htmlFor="lock-gradient-from">Gradient from</Label>
                     <Input
-                      id="lock-accent-color"
-                      value={draft.accentColor}
+                      id="lock-gradient-from"
+                      value={draft.gradientFrom}
                       onChange={(event) =>
                         setDraft((current) => ({
                           ...current,
-                          accentColor: event.target.value,
+                          gradientFrom: event.target.value,
                         }))
                       }
-                      placeholder="#f8fafc"
+                      placeholder="#050505"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="lock-accent-color-picker">Picker</Label>
+                    <Label htmlFor="lock-gradient-to">Gradient to</Label>
                     <Input
-                      id="lock-accent-color-picker"
-                      type="color"
-                      value={normalizeColorInput(draft.accentColor)}
+                      id="lock-gradient-to"
+                      value={draft.gradientTo}
                       onChange={(event) =>
                         setDraft((current) => ({
                           ...current,
-                          accentColor: event.target.value,
+                          gradientTo: event.target.value,
                         }))
                       }
-                      className="h-10 p-1"
+                      placeholder="#202020"
                     />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_8rem]">
+                  <Input
+                    type="color"
+                    value={normalizeColorInput(draft.gradientFrom)}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        gradientFrom: event.target.value,
+                      }))
+                    }
+                    className="h-10 p-1"
+                    aria-label="Gradient from picker"
+                  />
+                  <Input
+                    type="color"
+                    value={normalizeColorInput(draft.gradientTo)}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        gradientTo: event.target.value,
+                      }))
+                    }
+                    className="h-10 p-1"
+                    aria-label="Gradient to picker"
+                  />
+                  <div className="flex items-center justify-center rounded-md border text-sm text-muted-foreground">
+                    {draft.gradientAngle}deg
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-3 text-sm">
-                    <Label htmlFor="lock-clock-scale">Clock scale</Label>
+                    <Label htmlFor="lock-gradient-angle">Gradient angle</Label>
                     <span className="text-muted-foreground">
-                      {draft.clockScale}%
+                      {draft.gradientAngle}deg
                     </span>
                   </div>
                   <Slider
-                    id="lock-clock-scale"
-                    min={80}
-                    max={140}
+                    id="lock-gradient-angle"
+                    min={0}
+                    max={360}
                     step={5}
-                    value={[draft.clockScale]}
+                    value={[draft.gradientAngle]}
                     onValueChange={(value) =>
                       setDraft((current) => ({
                         ...current,
-                        clockScale: Math.max(80, value[0] ?? 80),
+                        gradientAngle: Math.max(0, value[0] ?? 0),
                       }))
                     }
                   />
                 </div>
+              </div>
+            ) : null}
 
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <ToggleCard
-                    title="Show seconds"
-                    description="Adds a more live, technical feel."
-                    checked={draft.showSeconds}
-                    onCheckedChange={(checked) =>
-                      setDraft((current) => ({
-                        ...current,
-                        showSeconds: Boolean(checked),
-                      }))
-                    }
-                  />
-                  <ToggleCard
-                    title="24-hour time"
-                    description="Turn this off if you prefer AM / PM."
-                    checked={draft.use24Hour}
-                    onCheckedChange={(checked) =>
-                      setDraft((current) => ({
-                        ...current,
-                        use24Hour: Boolean(checked),
-                      }))
-                    }
-                  />
-                  <ToggleCard
-                    title="Show date"
-                    description="Hide the date for a cleaner composition."
-                    checked={draft.showDate}
-                    onCheckedChange={(checked) =>
-                      setDraft((current) => ({
-                        ...current,
-                        showDate: Boolean(checked),
-                      }))
-                    }
-                  />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <Label htmlFor="lock-overlay-opacity">Darkening</Label>
+                  <span className="text-muted-foreground">
+                    {draft.overlayOpacity}%
+                  </span>
                 </div>
-              </section>
+                <Slider
+                  id="lock-overlay-opacity"
+                  min={0}
+                  max={90}
+                  step={5}
+                  value={[draft.overlayOpacity]}
+                  onValueChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      overlayOpacity: Math.max(0, value[0] ?? 0),
+                    }))
+                  }
+                />
+              </div>
 
-              {error ? (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                  {error}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <Label htmlFor="lock-blur">Blur</Label>
+                  <span className="text-muted-foreground">{draft.blurPx}px</span>
                 </div>
-              ) : null}
+                <Slider
+                  id="lock-blur"
+                  min={0}
+                  max={24}
+                  step={1}
+                  value={[draft.blurPx]}
+                  onValueChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      blurPx: Math.max(0, value[0] ?? 0),
+                    }))
+                  }
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-4 rounded-xl border bg-card/60 p-5">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold">Clock</h3>
+              <p className="text-sm text-muted-foreground">
+                Tune the lock-screen clock without affecting widget layout.
+              </p>
             </div>
 
-            <LockScreenPreview config={previewConfig} now={now} />
-          </div>
-        </ScrollArea>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="lock-clock-style">Style</Label>
+                <Select
+                  value={draft.clockStyle}
+                  onValueChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      clockStyle: value as LockScreenConfig["clockStyle"],
+                    }))
+                  }
+                >
+                  <SelectTrigger id="lock-clock-style">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CLOCK_STYLE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-        <DialogFooter className="border-t px-6 py-4">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isSaving}
-          >
-            Cancel
-          </Button>
-          <Button onClick={() => void handleSubmit()} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save lock screen"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+              <div className="space-y-2">
+                <Label htmlFor="lock-clock-position">Position</Label>
+                <Select
+                  value={draft.clockPosition}
+                  onValueChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      clockPosition: value as LockScreenConfig["clockPosition"],
+                    }))
+                  }
+                >
+                  <SelectTrigger id="lock-clock-position">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CLOCK_POSITION_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_9rem]">
+              <div className="space-y-2">
+                <Label htmlFor="lock-accent-color">Accent color</Label>
+                <Input
+                  id="lock-accent-color"
+                  value={draft.accentColor}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      accentColor: event.target.value,
+                    }))
+                  }
+                  placeholder="#f8fafc"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lock-accent-color-picker">Picker</Label>
+                <Input
+                  id="lock-accent-color-picker"
+                  type="color"
+                  value={normalizeColorInput(draft.accentColor)}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      accentColor: event.target.value,
+                    }))
+                  }
+                  className="h-10 p-1"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <Label htmlFor="lock-clock-scale">Clock scale</Label>
+                <span className="text-muted-foreground">{draft.clockScale}%</span>
+              </div>
+              <Slider
+                id="lock-clock-scale"
+                min={80}
+                max={140}
+                step={5}
+                value={[draft.clockScale]}
+                onValueChange={(value) =>
+                  setDraft((current) => ({
+                    ...current,
+                    clockScale: Math.max(80, value[0] ?? 80),
+                  }))
+                }
+              />
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <ToggleCard
+                title="Show seconds"
+                description="Adds a more live, technical feel."
+                checked={draft.showSeconds}
+                onCheckedChange={(checked) =>
+                  setDraft((current) => ({
+                    ...current,
+                    showSeconds: Boolean(checked),
+                  }))
+                }
+              />
+              <ToggleCard
+                title="24-hour time"
+                description="Turn this off if you prefer AM / PM."
+                checked={draft.use24Hour}
+                onCheckedChange={(checked) =>
+                  setDraft((current) => ({
+                    ...current,
+                    use24Hour: Boolean(checked),
+                  }))
+                }
+              />
+              <ToggleCard
+                title="Show date"
+                description="Hide the date for a cleaner composition."
+                checked={draft.showDate}
+                onCheckedChange={(checked) =>
+                  setDraft((current) => ({
+                    ...current,
+                    showDate: Boolean(checked),
+                  }))
+                }
+              />
+            </div>
+          </section>
+        </div>
+
+        <div className="space-y-4 xl:sticky xl:top-4 xl:self-start">
+          <LockScreenPreview config={previewConfig} now={now} />
+
+          <div className="rounded-xl border bg-card/70 p-3">
+            {error ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Changes apply globally after saving.
+              </p>
+            )}
+
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={handleReset}
+                disabled={isSaving || !hasChanges}
+              >
+                <RotateCcw className="mr-2 size-4" />
+                Reset
+              </Button>
+              <Button
+                onClick={() => void handleSubmit()}
+                disabled={isSaving || !hasChanges}
+              >
+                <Save className="mr-2 size-4" />
+                {isSaving ? "Saving..." : saveLabel}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -667,7 +689,86 @@ function LockScreenPreview({
   config: LockScreenConfig;
   now: Date;
 }) {
+  const [nasaApodImageUrl, setNasaApodImageUrl] = useState<string | null>(null);
+  const [isNasaApodLoading, setIsNasaApodLoading] = useState(false);
+  const [nasaApodError, setNasaApodError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (config.backgroundMode !== "nasa-apod") {
+      setNasaApodImageUrl(null);
+      setIsNasaApodLoading(false);
+      setNasaApodError(null);
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const hydrateNasaApod = async () => {
+      setIsNasaApodLoading(true);
+      setNasaApodError(null);
+
+      const today = new Date().toISOString().slice(0, 10);
+      const cached = readNasaApodCache();
+
+      if (cached?.date === today && cached.imageUrl) {
+        if (!cancelled) {
+          setNasaApodImageUrl(cached.imageUrl);
+          setIsNasaApodLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const apiKey = String(import.meta.env.VITE_NASA_APOD_API_KEY || "").trim();
+        const response = await fetch(
+          `https://api.nasa.gov/planetary/apod?api_key=${encodeURIComponent(
+            apiKey || "DEMO_KEY",
+          )}`,
+          { signal: controller.signal },
+        );
+
+        if (!response.ok) {
+          throw new Error(`NASA APOD returned ${response.status}`);
+        }
+
+        const payload = await response.json();
+        const imageUrl = resolveNasaApodImageUrl(payload);
+
+        if (cancelled) return;
+
+        if (imageUrl) {
+          setNasaApodImageUrl(imageUrl);
+          writeNasaApodCache({ date: today, imageUrl });
+        } else {
+          setNasaApodImageUrl(null);
+          setNasaApodError("NASA APOD returned non-image media today.");
+        }
+      } catch (error) {
+        if (cancelled) return;
+        console.error("[lock-screen-preview] nasa-apod-error", error);
+        setNasaApodImageUrl(null);
+        setNasaApodError("Could not load NASA APOD image.");
+      } finally {
+        if (!cancelled) {
+          setIsNasaApodLoading(false);
+        }
+      }
+    };
+
+    void hydrateNasaApod();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [config.backgroundMode]);
+
   const previewImageUrl = useMemo(() => {
+    if (config.backgroundMode === "nasa-apod") {
+      return nasaApodImageUrl;
+    }
+
     if (config.backgroundMode === "single-image") {
       return config.imageUrl || null;
     }
@@ -681,7 +782,7 @@ function LockScreenPreview({
     }
 
     return null;
-  }, [config, now]);
+  }, [config, now, nasaApodImageUrl]);
 
   const shellBackground = useMemo(
     () =>
@@ -703,14 +804,37 @@ function LockScreenPreview({
     day: "numeric",
     year: "numeric",
   });
+  const backgroundStateLabel =
+    config.backgroundMode === "nasa-apod"
+      ? isNasaApodLoading
+        ? "Fetching APOD..."
+        : nasaApodError
+          ? "APOD unavailable"
+          : previewImageUrl
+            ? "APOD ready"
+            : "APOD fallback"
+      : null;
+  const previewHint = getPreviewHint({
+    mode: config.backgroundMode,
+    imageUrl: previewImageUrl,
+    nasaError: nasaApodError,
+    isNasaLoading: isNasaApodLoading,
+  });
 
   return (
     <aside className="space-y-4">
-      <div className="space-y-1">
-        <h3 className="text-sm font-semibold">Preview</h3>
+      <div className="space-y-1 px-1">
+        <h3 className="text-sm font-semibold tracking-[0.04em]">Preview</h3>
+        <p className="text-xs text-muted-foreground">
+          Live rendering with your current settings.
+        </p>
       </div>
 
-      <div className="relative min-h-[38rem] overflow-hidden rounded-[30px] border bg-black text-white shadow-[0_30px_90px_-45px_rgba(0,0,0,0.85)]">
+      <div className="relative  overflow-hidden rounded-[26px] border bg-black text-white shadow-[0_30px_90px_-45px_rgba(0,0,0,0.85)] w-full "
+        style={{
+          aspectRatio: "16 / 9",
+        }}
+      >
         <div
           aria-hidden="true"
           className="absolute inset-0"
@@ -753,11 +877,24 @@ function LockScreenPreview({
               )?.label
             }
           </Badge>
+          {backgroundStateLabel ? (
+            <Badge
+              variant="secondary"
+              className="border-white/10 bg-white/10 text-white"
+            >
+              {isNasaApodLoading ? (
+                <Loader2 className="mr-1.5 size-3 animate-spin" />
+              ) : nasaApodError ? (
+                <AlertTriangle className="mr-1.5 size-3" />
+              ) : null}
+              {backgroundStateLabel}
+            </Badge>
+          ) : null}
         </div>
 
         <div
           className={cn(
-            "relative z-10 flex min-h-[38rem] p-6",
+            "relative z-10 flex h-full p-6",
             getPreviewPositionClass(config.clockPosition),
           )}
         >
@@ -775,6 +912,12 @@ function LockScreenPreview({
             />
           </div>
         </div>
+
+        {previewHint ? (
+          <div className="absolute bottom-4 left-4 right-4 z-10 rounded-lg border border-white/10 bg-black/45 px-3 py-2 text-xs text-white/75 backdrop-blur-sm">
+            {previewHint}
+          </div>
+        ) : null}
       </div>
     </aside>
   );
@@ -937,6 +1080,44 @@ function getScaleOrigin(position: LockScreenConfig["clockPosition"]) {
   return "center center";
 }
 
+function getPreviewHint({
+  mode,
+  imageUrl,
+  nasaError,
+  isNasaLoading,
+}: {
+  mode: LockScreenConfig["backgroundMode"];
+  imageUrl: string | null;
+  nasaError: string | null;
+  isNasaLoading: boolean;
+}) {
+  if (mode === "media-artwork") {
+    return "Live artwork appears when media is playing in the client.";
+  }
+
+  if (mode === "single-image" && !imageUrl) {
+    return "Add a valid image URL to preview your selected background.";
+  }
+
+  if (mode === "playlist" && !imageUrl) {
+    return "Add at least one valid image URL to rotate the background.";
+  }
+
+  if (mode === "nasa-apod") {
+    if (isNasaLoading) {
+      return "Loading NASA APOD from api.nasa.gov...";
+    }
+    if (nasaError) {
+      return nasaError;
+    }
+    if (!imageUrl) {
+      return "APOD image unavailable right now. Try saving and refreshing.";
+    }
+  }
+
+  return null;
+}
+
 function getNeutralPreviewBackground(
   mode: LockScreenConfig["backgroundMode"],
 ) {
@@ -967,4 +1148,45 @@ function hexToRgba(hex: string, alpha: number) {
   const green = (parsed >> 8) & 255;
   const blue = parsed & 255;
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+function readNasaApodCache():
+  | {
+      date: string;
+      imageUrl: string;
+    }
+  | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(NASA_APOD_CACHE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as {
+      date?: string;
+      imageUrl?: string;
+    };
+
+    if (
+      typeof parsed.date === "string" &&
+      typeof parsed.imageUrl === "string" &&
+      parsed.imageUrl
+    ) {
+      return { date: parsed.date, imageUrl: parsed.imageUrl };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function writeNasaApodCache(entry: { date: string; imageUrl: string }) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(NASA_APOD_CACHE_KEY, JSON.stringify(entry));
+  } catch {
+    // noop
+  }
 }

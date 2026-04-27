@@ -72,6 +72,9 @@ export const CLIENT_LOCK_SCREEN_STYLE_STORAGE_KEY =
   "prometeo.client.lockScreen.style";
 export const CLIENT_LOCK_SCREEN_STYLE_EVENT =
   "prometeo:client-lock-screen-style";
+export const GLOBAL_LOCK_SCREEN_CONFIG_STORAGE_KEY =
+  "prometeo.lockScreen.config";
+export const GLOBAL_LOCK_SCREEN_CONFIG_EVENT = "prometeo:lock-screen-config";
 
 export function normalizeLockScreenConfig(input: unknown): LockScreenConfig {
   const source = asRecord(input);
@@ -186,6 +189,46 @@ export function writeLockScreenConfig(
     ...(asRecord(style) as Record<string, unknown>),
     lockScreen: normalizeLockScreenConfig(config),
   };
+}
+
+export function persistGlobalLockScreenConfig(config: LockScreenConfig) {
+  if (typeof window === "undefined") return;
+
+  const normalized = normalizeLockScreenConfig(config);
+  window.localStorage.setItem(
+    GLOBAL_LOCK_SCREEN_CONFIG_STORAGE_KEY,
+    JSON.stringify(normalized),
+  );
+
+  // Keep legacy session snapshot in sync for existing client runtime listeners.
+  persistClientLockScreenStyle({ lockScreen: normalized });
+  window.dispatchEvent(
+    new CustomEvent(GLOBAL_LOCK_SCREEN_CONFIG_EVENT, {
+      detail: normalized,
+    }),
+  );
+}
+
+export function readPersistedGlobalLockScreenConfig(): LockScreenConfig {
+  if (typeof window === "undefined") {
+    return normalizeLockScreenConfig(undefined);
+  }
+
+  const raw = window.localStorage.getItem(GLOBAL_LOCK_SCREEN_CONFIG_STORAGE_KEY);
+  if (raw) {
+    try {
+      return normalizeLockScreenConfig(JSON.parse(raw));
+    } catch {
+      // Fall through to legacy key/default.
+    }
+  }
+
+  const legacyStyle = readPersistedClientLockScreenStyle();
+  if (legacyStyle) {
+    return readLockScreenConfig(legacyStyle);
+  }
+
+  return normalizeLockScreenConfig(undefined);
 }
 
 export function parseLockScreenPlaylist(

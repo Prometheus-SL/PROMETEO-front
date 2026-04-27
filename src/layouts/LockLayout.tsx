@@ -5,9 +5,8 @@ import { Progress } from "@/components/ui/progress";
 import { useSharedValue } from "@/hooks/useSharedContext";
 import {
   buildLockScreenOverlayBackground,
-  CLIENT_LOCK_SCREEN_STYLE_EVENT,
-  readLockScreenConfig,
-  readPersistedClientLockScreenStyle,
+  GLOBAL_LOCK_SCREEN_CONFIG_EVENT,
+  readPersistedGlobalLockScreenConfig,
   resolveLockScreenCanvasBackground,
   resolveNasaApodImageUrl,
   resolvePlaylistImageUrl,
@@ -22,15 +21,10 @@ const NASA_APOD_CACHE_KEY = "prometeo.client.nasa-apod";
 function LockLayout() {
   const mediaSession = useSharedValue<MediaSession>(SharedKeys.MEDIA_SESSION);
   const [now, setNow] = useState(() => new Date());
-  const [styleSnapshot, setStyleSnapshot] = useState<Record<string, unknown>>(
-    () => readPersistedClientLockScreenStyle() ?? {},
+  const [config, setConfig] = useState<LockScreenConfig>(() =>
+    readPersistedGlobalLockScreenConfig(),
   );
   const [nasaApodImageUrl, setNasaApodImageUrl] = useState<string | null>(null);
-
-  const config = useMemo(
-    () => readLockScreenConfig(styleSnapshot),
-    [styleSnapshot],
-  );
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 1_000);
@@ -39,16 +33,16 @@ function LockLayout() {
 
   useEffect(() => {
     const syncFromStorage = () => {
-      setStyleSnapshot(readPersistedClientLockScreenStyle() ?? {});
+      setConfig(readPersistedGlobalLockScreenConfig());
     };
 
     syncFromStorage();
-    window.addEventListener(CLIENT_LOCK_SCREEN_STYLE_EVENT, syncFromStorage);
+    window.addEventListener(GLOBAL_LOCK_SCREEN_CONFIG_EVENT, syncFromStorage);
     window.addEventListener("storage", syncFromStorage);
 
     return () => {
       window.removeEventListener(
-        CLIENT_LOCK_SCREEN_STYLE_EVENT,
+        GLOBAL_LOCK_SCREEN_CONFIG_EVENT,
         syncFromStorage,
       );
       window.removeEventListener("storage", syncFromStorage);

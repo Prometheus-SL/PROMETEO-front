@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import type { ComponentProps } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -14,7 +14,6 @@ import { NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
 import { Link } from "react-router-dom";
 import { useAuthContext } from "@/providers/AuthProvider";
-import { Badge } from "@/components/ui/badge";
 
 type Section = {
   title: string;
@@ -23,7 +22,7 @@ type Section = {
 };
 
 const logo = {
-  url: "/",
+  url: "https://landing.prometeo.miguelprez.es",
   src: "/logo.svg",
   alt: "Prometeo Logo",
   title: "Prometeo",
@@ -32,54 +31,64 @@ const logo = {
 export function AppSidebar({
   sections = [],
   ...props
-}: React.ComponentProps<typeof Sidebar> & { sections?: Section[] }) {
+}: ComponentProps<typeof Sidebar> & { sections?: Section[] }) {
   const { user } = useAuthContext();
   const isAdmin = (user?.role || "").toLowerCase().includes("admin");
   const isDev =
     typeof window !== "undefined" &&
     (window.location.hostname === "localhost" ||
       window.location.hostname === "127.0.0.1");
+  const actualVersion = typeof import.meta !== "undefined" && import.meta.env && import.meta.env.PACKAGE_VERSION
+    ? import.meta.env.PACKAGE_VERSION
+    : "unknown";
+
   const visibleSections = sections
-    .filter((s) => !s.adminOnly || isAdmin)
-    .map((s) => ({ ...s, routes: s.routes || [] }))
-    .filter((s) => s.routes.length > 0 || !s.adminOnly); // evita grupos vacíos solo si serían admin-only
+    .filter((section) => !section.adminOnly || isAdmin)
+    .map((section) => ({ ...section, routes: section.routes || [] }))
+    .filter((section) => section.routes.length > 0 || !section.adminOnly);
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
-      <SidebarHeader>
+      <SidebarHeader className="border-sidebar-border/40 border-b px-3 py-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
+              className="h-auto data-[slot=sidebar-menu-button]:!p-0"
             >
               <Link
-                to="https://landing.prometeo.miguelprez.es/"
+                to={logo.url}
+                className="flex w-full items-center gap-3 rounded-md px-2 py-1.5"
                 target="_blank"
+                rel="noopener noreferrer"
               >
-                <img
-                  src={logo.src}
-                  alt={logo.alt}
-                  title={logo.title}
-                  className="h-6 dark:invert"
-                />
-                <span className="text-base font-semibold">Prometeo</span>
-                {isDev ? (
-                  <Badge
-                    variant="outline"
-                    className="ml-1 text-[10px] px-1.5 py-0"
-                  >
-                    DEV
-                  </Badge>
-                ) : null}
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-sidebar-border/50 bg-sidebar">
+                  <img
+                    src={logo.src}
+                    alt={logo.alt}
+                    title={logo.title}
+                    className="h-5 dark:invert"
+                  />
+                </span>
+                <span className="min-w-0 flex-1 leading-none">
+                  <span className="block truncate text-[15px] font-semibold tracking-[0.04em]">
+                    PROMETEO
+                  </span>
+                  <span className="mt-1 block truncate text-xs text-sidebar-foreground/55">
+                    {isDev ? `Development v.${actualVersion}` : `v.${actualVersion}`}
+                  </span>
+                </span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent>
+
+      <SidebarContent className="px-1 pt-3">
         <NavMain sections={visibleSections} />
       </SidebarContent>
-      <SidebarFooter>
+
+      <SidebarFooter className="border-sidebar-border/40 border-t p-2">
         <NavUser />
       </SidebarFooter>
     </Sidebar>
