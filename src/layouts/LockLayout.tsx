@@ -6,7 +6,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  Activity,
   AlertTriangle,
   Loader2,
   Music2,
