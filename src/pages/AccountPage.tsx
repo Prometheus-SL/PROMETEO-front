@@ -466,7 +466,7 @@ export default function AccountPage() {
         setLoading(false);
       }
     }
-  }, [updateUser]);
+  }, []);
 
   useEffect(() => {
     void loadAccount();
