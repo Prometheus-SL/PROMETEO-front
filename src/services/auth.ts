@@ -193,11 +193,14 @@ export const authService = {
     async confirm2FA(token: string) {
         return api.postData<{ recoveryCodes: string[] }>("/auth/2fa/confirm", { token });
     },
+    async regenerateRecoveryCodes(token: string) {
+        return api.postData<{ recoveryCodes: string[] }>("/auth/2fa/recovery-codes/regenerate", { token });
+    },
     async disable2FA(token: string) {
         return api.postData<null>("/auth/2fa/disable", { token });
     },
     async get2FAStatus() {
-        return api.getData<{ enabled: boolean; enabledAt?: string }>("/auth/2fa/status");
+        return api.getData<{ enabled: boolean; enabledAt?: string; recoveryCodesRemaining?: number }>("/auth/2fa/status");
     },
 
     // --- OAuth Login ---
