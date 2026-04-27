@@ -81,7 +81,7 @@ function isAllowedPermission(permission) {
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1024,
-    height: 600 + (isKiosk ? 40 : 0),
+    height: 600 + (isKiosk ? 0 : 40),
     minWidth: 1024,
     minHeight: 600,
     fullscreen: isKiosk,
@@ -97,6 +97,7 @@ function createWindow() {
       nodeIntegration: false,
       devTools: devToolsEnabled,
     },
+    icon: path.join(__dirname, "..", "assets", "icon.png"),
   });
 
 
