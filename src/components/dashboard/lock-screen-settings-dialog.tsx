@@ -1,5 +1,22 @@
-import { AlertTriangle, Clock3, Loader2, RotateCcw, Save } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  Clock3,
+  CloudSun,
+  Loader2,
+  Music2,
+  RotateCcw,
+  Save,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  useContext,
+  useEffect,
+  useRef,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,15 +35,21 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   buildLockScreenOverlayBackground,
   type LockScreenConfig,
+  LOCK_SCREEN_WIDGET_IDS,
+  type LockScreenWidgetId,
   normalizeLockScreenConfig,
   parseLockScreenPlaylist,
   resolveLockScreenCanvasBackground,
   resolveNasaApodImageUrl,
   resolvePlaylistImageUrl,
 } from "@/layouts/lock-screen-config";
+import { SharedContext } from "@/contexts/SharedContext";
 import { cn } from "@/lib/utils";
+import { SharedKeys, type MediaSession } from "@/types/shared";
 
 const NASA_APOD_CACHE_KEY = "prometeo.client.nasa-apod";
+const PREVIEW_CANVAS_WIDTH = 1024;
+const PREVIEW_CANVAS_HEIGHT = 600;
 
 const BACKGROUND_OPTIONS: Array<{
   value: LockScreenConfig["backgroundMode"];
@@ -81,11 +104,99 @@ const CLOCK_POSITION_OPTIONS: Array<{
   label: string;
 }> = [
   { value: "center", label: "Center" },
+  { value: "center-left", label: "Center left" },
+  { value: "center-right", label: "Center right" },
   { value: "top-left", label: "Top left" },
   { value: "top-right", label: "Top right" },
   { value: "bottom-left", label: "Bottom left" },
   { value: "bottom-right", label: "Bottom right" },
 ];
+
+const LOCK_WIDGET_OPTIONS: Array<{
+  value: LockScreenWidgetId;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+}> = [
+  {
+    value: "now-playing",
+    label: "Now playing",
+    description: "A boxed media card fed by Spotify or Hermes media state.",
+    icon: Music2,
+  },
+  {
+    value: "weather",
+    label: "Weather",
+    description:
+      "Current city temperature, condition, wind and feels-like data.",
+    icon: CloudSun,
+  },
+];
+
+const WEATHER_UNIT_OPTIONS: Array<{
+  value: LockScreenConfig["weatherUnits"];
+  label: string;
+}> = [
+  { value: "metric", label: "Metric" },
+  { value: "imperial", label: "Imperial" },
+];
+
+const WEATHER_LANGUAGE_OPTIONS: Array<{
+  value: LockScreenConfig["weatherLanguage"];
+  label: string;
+}> = [
+  { value: "es", label: "Spanish" },
+  { value: "en", label: "English" },
+  { value: "fr", label: "French" },
+  { value: "de", label: "German" },
+];
+
+function useOptionalSharedValue<T>(key: string): T | undefined {
+  const context = useContext(SharedContext);
+  const [value, setValue] = useState<T | undefined>(() =>
+    context?.getShared<T>(key),
+  );
+
+  useEffect(() => {
+    if (!context) {
+      setValue(undefined);
+      return;
+    }
+
+    setValue(context.getShared<T>(key));
+    return context.subscribe<T>(key, setValue);
+  }, [context, key]);
+
+  return value;
+}
+
+function useScaledPreviewCanvas() {
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+
+    const updateScale = () => {
+      const width = frame.clientWidth || PREVIEW_CANVAS_WIDTH;
+      setScale(width / PREVIEW_CANVAS_WIDTH);
+    };
+
+    updateScale();
+
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(updateScale);
+      observer.observe(frame);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener("resize", updateScale);
+    return () => window.removeEventListener("resize", updateScale);
+  }, []);
+
+  return { frameRef, scale };
+}
 
 export function LockScreenSettingsPanel({
   initialConfig,
@@ -101,8 +212,8 @@ export function LockScreenSettingsPanel({
     [initialConfig],
   );
 
-  const [draft, setDraft] = useState<LockScreenConfig>(() =>
-    normalizedInitialConfig,
+  const [draft, setDraft] = useState<LockScreenConfig>(
+    () => normalizedInitialConfig,
   );
   const [playlistText, setPlaylistText] = useState<string>(() =>
     normalizedInitialConfig.playlist.join("\n"),
@@ -110,6 +221,9 @@ export function LockScreenSettingsPanel({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const mediaSession = useOptionalSharedValue<MediaSession>(
+    SharedKeys.MEDIA_SESSION,
+  );
 
   useEffect(() => {
     setDraft(normalizedInitialConfig);
@@ -158,6 +272,26 @@ export function LockScreenSettingsPanel({
     parsedPlaylist.length === 0
       ? "No valid image URLs yet"
       : `${parsedPlaylist.length} image${parsedPlaylist.length === 1 ? "" : "s"} ready`;
+  const enabledWidgetCount = draft.enabledWidgets.length;
+
+  function handleWidgetToggle(widgetId: LockScreenWidgetId, checked: boolean) {
+    setDraft((current) => {
+      const enabledSet = new Set(current.enabledWidgets);
+
+      if (checked) {
+        enabledSet.add(widgetId);
+      } else {
+        enabledSet.delete(widgetId);
+      }
+
+      return {
+        ...current,
+        enabledWidgets: LOCK_SCREEN_WIDGET_IDS.filter((id) =>
+          enabledSet.has(id),
+        ),
+      };
+    });
+  }
 
   async function handleSubmit() {
     setIsSaving(true);
@@ -206,6 +340,10 @@ export function LockScreenSettingsPanel({
                   (option) => option.value === draft.backgroundMode,
                 )?.label
               }
+            </Badge>
+            <Badge variant="outline">
+              {enabledWidgetCount} lock widget
+              {enabledWidgetCount === 1 ? "" : "s"}
             </Badge>
           </div>
         </div>
@@ -455,7 +593,9 @@ export function LockScreenSettingsPanel({
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <Label htmlFor="lock-blur">Blur</Label>
-                  <span className="text-muted-foreground">{draft.blurPx}px</span>
+                  <span className="text-muted-foreground">
+                    {draft.blurPx}px
+                  </span>
                 </div>
                 <Slider
                   id="lock-blur"
@@ -567,7 +707,9 @@ export function LockScreenSettingsPanel({
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3 text-sm">
                 <Label htmlFor="lock-clock-scale">Clock scale</Label>
-                <span className="text-muted-foreground">{draft.clockScale}%</span>
+                <span className="text-muted-foreground">
+                  {draft.clockScale}%
+                </span>
               </div>
               <Slider
                 id="lock-clock-scale"
@@ -620,10 +762,107 @@ export function LockScreenSettingsPanel({
               />
             </div>
           </section>
+
+          <section className="space-y-4 rounded-xl border bg-card/60 p-5">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold">Lock widgets</h3>
+              <p className="text-sm text-muted-foreground">
+                Enable fixed information boxes for the lock screen. These are
+                not dashboard widgets, so they keep a consistent boxed layout.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              {LOCK_WIDGET_OPTIONS.map((option) => (
+                <ToggleCard
+                  key={option.value}
+                  title={option.label}
+                  description={option.description}
+                  icon={option.icon}
+                  checked={draft.enabledWidgets.includes(option.value)}
+                  onCheckedChange={(checked) =>
+                    handleWidgetToggle(option.value, Boolean(checked))
+                  }
+                />
+              ))}
+            </div>
+
+            {draft.enabledWidgets.includes("weather") ? (
+              <div className="grid gap-4 rounded-xl border bg-background/45 p-4 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]">
+                <div className="space-y-2">
+                  <Label htmlFor="lock-weather-city">Weather city</Label>
+                  <Input
+                    id="lock-weather-city"
+                    value={draft.weatherCity}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        weatherCity: event.target.value,
+                      }))
+                    }
+                    placeholder="Madrid"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="lock-weather-units">Units</Label>
+                  <Select
+                    value={draft.weatherUnits}
+                    onValueChange={(value) =>
+                      setDraft((current) => ({
+                        ...current,
+                        weatherUnits: value as LockScreenConfig["weatherUnits"],
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="lock-weather-units">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {WEATHER_UNIT_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="lock-weather-language">Language</Label>
+                  <Select
+                    value={draft.weatherLanguage}
+                    onValueChange={(value) =>
+                      setDraft((current) => ({
+                        ...current,
+                        weatherLanguage:
+                          value as LockScreenConfig["weatherLanguage"],
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="lock-weather-language">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {WEATHER_LANGUAGE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ) : null}
+          </section>
         </div>
 
         <div className="space-y-4 xl:sticky xl:top-4 xl:self-start">
-          <LockScreenPreview config={previewConfig} now={now} />
+          <LockScreenPreview
+            config={previewConfig}
+            mediaSession={mediaSession}
+            now={now}
+          />
 
           <div className="rounded-xl border bg-card/70 p-3">
             {error ? (
@@ -663,30 +902,57 @@ export function LockScreenSettingsPanel({
 function ToggleCard({
   title,
   description,
+  icon: Icon,
   checked,
   onCheckedChange,
 }: {
   title: string;
   description: string;
+  icon?: LucideIcon;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border px-4 py-3">
-      <div className="space-y-1">
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-xs text-muted-foreground">{description}</p>
+    <div
+      className={cn(
+        "flex items-start justify-between gap-3 rounded-lg border px-4 py-3 transition-colors",
+        checked && "border-primary/35 bg-primary/5",
+      )}
+    >
+      <div className="flex min-w-0 gap-3">
+        {Icon ? (
+          <div
+            className={cn(
+              "mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg border bg-background text-muted-foreground",
+              checked && "border-primary/30 text-primary",
+            )}
+          >
+            <Icon className="size-4" />
+          </div>
+        ) : null}
+        <div className="min-w-0 space-y-1">
+          <p className="text-sm font-medium">{title}</p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {description}
+          </p>
+        </div>
       </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+      <Switch
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        className="mt-1"
+      />
     </div>
   );
 }
 
 function LockScreenPreview({
   config,
+  mediaSession,
   now,
 }: {
   config: LockScreenConfig;
+  mediaSession?: MediaSession | null;
   now: Date;
 }) {
   const [nasaApodImageUrl, setNasaApodImageUrl] = useState<string | null>(null);
@@ -720,7 +986,9 @@ function LockScreenPreview({
       }
 
       try {
-        const apiKey = String(import.meta.env.VITE_NASA_APOD_API_KEY || "").trim();
+        const apiKey = String(
+          import.meta.env.VITE_NASA_APOD_API_KEY || "",
+        ).trim();
         const response = await fetch(
           `https://api.nasa.gov/planetary/apod?api_key=${encodeURIComponent(
             apiKey || "DEMO_KEY",
@@ -820,6 +1088,7 @@ function LockScreenPreview({
     nasaError: nasaApodError,
     isNasaLoading: isNasaApodLoading,
   });
+  const { frameRef, scale: previewScale } = useScaledPreviewCanvas();
 
   return (
     <aside className="space-y-4">
@@ -830,96 +1099,266 @@ function LockScreenPreview({
         </p>
       </div>
 
-      <div className="relative  overflow-hidden rounded-[26px] border bg-black text-white shadow-[0_30px_90px_-45px_rgba(0,0,0,0.85)] w-full "
+      <div
+        ref={frameRef}
+        className="relative w-full max-w-[1024px] overflow-hidden rounded-[26px] border bg-black shadow-[0_30px_90px_-45px_rgba(0,0,0,0.85)]"
         style={{
-          aspectRatio: "16 / 9",
+          aspectRatio: `${PREVIEW_CANVAS_WIDTH} / ${PREVIEW_CANVAS_HEIGHT}`,
         }}
       >
         <div
-          aria-hidden="true"
-          className="absolute inset-0"
-          style={{ background: shellBackground }}
-        />
-
-        {previewImageUrl ? (
+          className="absolute left-0 top-0 overflow-hidden bg-black text-white"
+          style={{
+            width: PREVIEW_CANVAS_WIDTH,
+            height: PREVIEW_CANVAS_HEIGHT,
+            transform: `scale(${previewScale})`,
+            transformOrigin: "top left",
+          }}
+        >
           <div
             aria-hidden="true"
-            className="absolute inset-0 scale-105 bg-cover bg-center"
+            className="absolute inset-0"
+            style={{ background: shellBackground }}
+          />
+
+          {previewImageUrl ? (
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 scale-105 bg-cover bg-center"
+              style={{
+                backgroundImage: `url(${previewImageUrl})`,
+                filter: `blur(${config.blurPx}px) saturate(1.04) brightness(0.92)`,
+              }}
+            />
+          ) : null}
+
+          <div
+            aria-hidden="true"
+            className="absolute inset-0"
             style={{
-              backgroundImage: `url(${previewImageUrl})`,
-              filter: `blur(${config.blurPx}px) saturate(1.04) brightness(0.92)`,
+              background: buildLockScreenOverlayBackground(
+                config.overlayOpacity,
+              ),
             }}
           />
-        ) : null}
 
-        <div
-          aria-hidden="true"
-          className="absolute inset-0"
-          style={{
-            background: buildLockScreenOverlayBackground(config.overlayOpacity),
-          }}
-        />
-
-        <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-          <Badge
-            variant="secondary"
-            className="border-white/10 bg-white/10 text-white"
-          >
-            {previewLabel}
-          </Badge>
-          <Badge
-            variant="secondary"
-            className="border-white/10 bg-white/10 text-white"
-          >
-            {
-              CLOCK_STYLE_OPTIONS.find(
-                (option) => option.value === config.clockStyle,
-              )?.label
-            }
-          </Badge>
-          {backgroundStateLabel ? (
+          <div className="absolute left-4 top-4 flex flex-wrap gap-2">
             <Badge
               variant="secondary"
               className="border-white/10 bg-white/10 text-white"
             >
-              {isNasaApodLoading ? (
-                <Loader2 className="mr-1.5 size-3 animate-spin" />
-              ) : nasaApodError ? (
-                <AlertTriangle className="mr-1.5 size-3" />
-              ) : null}
-              {backgroundStateLabel}
+              {previewLabel}
             </Badge>
+            <Badge
+              variant="secondary"
+              className="border-white/10 bg-white/10 text-white"
+            >
+              {
+                CLOCK_STYLE_OPTIONS.find(
+                  (option) => option.value === config.clockStyle,
+                )?.label
+              }
+            </Badge>
+            {backgroundStateLabel ? (
+              <Badge
+                variant="secondary"
+                className="border-white/10 bg-white/10 text-white"
+              >
+                {isNasaApodLoading ? (
+                  <Loader2 className="mr-1.5 size-3 animate-spin" />
+                ) : nasaApodError ? (
+                  <AlertTriangle className="mr-1.5 size-3" />
+                ) : null}
+                {backgroundStateLabel}
+              </Badge>
+            ) : null}
+          </div>
+
+          <div
+            className={cn(
+              "relative z-10 flex h-full p-6",
+              getPreviewPositionClass(config.clockPosition),
+            )}
+          >
+            <div
+              style={{
+                transform: `scale(${config.clockScale / 100})`,
+                transformOrigin: getScaleOrigin(config.clockPosition),
+              }}
+              className="w-full max-w-[20rem]"
+            >
+              <PreviewClockCard
+                config={config}
+                timeLabel={timeLabel}
+                dateLabel={dateLabel}
+              />
+            </div>
+          </div>
+
+          <PreviewWidgetRail config={config} mediaSession={mediaSession} />
+
+          {previewHint ? (
+            <div className="absolute bottom-4 left-4 right-4 z-10 rounded-lg border border-white/10 bg-black/45 px-3 py-2 text-xs text-white/75 backdrop-blur-sm">
+              {previewHint}
+            </div>
           ) : null}
         </div>
-
-        <div
-          className={cn(
-            "relative z-10 flex h-full p-6",
-            getPreviewPositionClass(config.clockPosition),
-          )}
-        >
-          <div
-            style={{
-              transform: `scale(${config.clockScale / 100})`,
-              transformOrigin: getScaleOrigin(config.clockPosition),
-            }}
-            className="w-full max-w-[20rem]"
-          >
-            <PreviewClockCard
-              config={config}
-              timeLabel={timeLabel}
-              dateLabel={dateLabel}
-            />
-          </div>
-        </div>
-
-        {previewHint ? (
-          <div className="absolute bottom-4 left-4 right-4 z-10 rounded-lg border border-white/10 bg-black/45 px-3 py-2 text-xs text-white/75 backdrop-blur-sm">
-            {previewHint}
-          </div>
-        ) : null}
       </div>
     </aside>
+  );
+}
+
+function PreviewWidgetRail({
+  config,
+  mediaSession,
+}: {
+  config: LockScreenConfig;
+  mediaSession?: MediaSession | null;
+}) {
+  const showWeather = config.enabledWidgets.includes("weather");
+  const showNowPlaying = config.enabledWidgets.includes("now-playing");
+
+  if (!showWeather && !showNowPlaying) return null;
+
+  return (
+    <div className="absolute bottom-4 right-4 z-20 flex w-[min(42%,18rem)] min-w-[12rem] flex-col-reverse gap-2">
+      {showNowPlaying ? (
+        <PreviewNowPlayingWidget config={config} mediaSession={mediaSession} />
+      ) : null}
+      {showWeather ? <PreviewWeatherWidget config={config} /> : null}
+    </div>
+  );
+}
+
+function PreviewWeatherWidget({ config }: { config: LockScreenConfig }) {
+  const isImperial = config.weatherUnits === "imperial";
+
+  return (
+    <PreviewInfoBox
+      accent="#60a5fa"
+      config={config}
+      label={`Weather - ${config.weatherCity}`}
+    >
+      <div className="flex items-center gap-3">
+        <div className="text-[2rem] font-semibold leading-none tracking-[-0.08em] tabular-nums">
+          {isImperial ? "64" : "18"}°
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-white">
+            Light clouds
+          </p>
+          <p className="truncate text-[11px] text-white/62">
+            Feels {isImperial ? "63" : "17"}° · wind{" "}
+            {isImperial ? "7 mph" : "11 km/h"}
+          </p>
+        </div>
+      </div>
+    </PreviewInfoBox>
+  );
+}
+
+function PreviewNowPlayingWidget({
+  config,
+  mediaSession,
+}: {
+  config: LockScreenConfig;
+  mediaSession?: MediaSession | null;
+}) {
+  const hasLiveMedia = mediaSession?.isPlaying === true;
+  const previewTitle = hasLiveMedia
+    ? mediaSession.title || "Untitled"
+    : "Balada";
+  const previewArtist = hasLiveMedia
+    ? mediaSession.artist || mediaSession.album
+    : "Natos y Waor, Charlie Hijos Bastardos";
+  const previewTimestamp = hasLiveMedia ? mediaSession.timestamp : 6_000;
+  const previewDuration = hasLiveMedia ? mediaSession.duration : 183_000;
+
+  const progressValue =
+    previewTimestamp && previewDuration
+      ? Math.max(
+          0,
+          Math.min(100, (previewTimestamp / previewDuration) * 100),
+        )
+      : 0;
+  const sourceLabel = String(
+    hasLiveMedia
+      ? mediaSession.sourceAppName ||
+          mediaSession.provider ||
+          mediaSession.source ||
+          "media"
+      : "Spotify",
+  ).toUpperCase();
+
+  return (
+    <PreviewInfoBox
+      accent="#34d399"
+      config={config}
+      label={`Now playing - ${sourceLabel}`}
+    >
+      <div className="flex items-center gap-3">
+        {hasLiveMedia && mediaSession.artwork ? (
+          <img
+            src={mediaSession.artwork}
+            alt={`${previewTitle} artwork`}
+            className="size-12 shrink-0 rounded-xl border border-white/10 object-cover shadow-[0_14px_36px_rgba(0,0,0,0.32)]"
+          />
+        ) : (
+          <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(135deg,#f97316,#facc15_42%,#8b5cf6)] shadow-[0_14px_36px_rgba(0,0,0,0.32)]">
+            {hasLiveMedia ? <Music2 className="size-4 text-white/75" /> : null}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-white">
+            {previewTitle}
+          </p>
+          <p className="truncate text-[11px] text-white/62">
+            {previewArtist || sourceLabel}
+          </p>
+        </div>
+      </div>
+
+      {previewTimestamp && previewDuration ? (
+        <div className="mt-3 space-y-1.5">
+          <div className="h-1 overflow-hidden rounded-full bg-white/14">
+            <div
+              className="h-full rounded-full bg-white"
+              style={{ width: `${progressValue}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-[10px] text-white/52">
+            <span>{formatPreviewMediaTime(previewTimestamp)}</span>
+            <span>{formatPreviewMediaTime(previewDuration)}</span>
+          </div>
+        </div>
+      ) : null}
+    </PreviewInfoBox>
+  );
+}
+
+function PreviewInfoBox({
+  accent,
+  config,
+  label,
+  children,
+}: {
+  accent: string;
+  config: LockScreenConfig;
+  label: string;
+  children: ReactNode;
+}) {
+  const widgetStyle = getPreviewInfoBoxStyle(config, accent);
+
+  return (
+    <div
+      className={widgetStyle.className}
+      style={widgetStyle.style}
+    >
+      <div className={widgetStyle.labelClassName}>
+        {label}
+      </div>
+      {children}
+    </div>
   );
 }
 
@@ -939,7 +1378,7 @@ function PreviewClockCard({
       <div
         className={cn(
           "space-y-3 text-white",
-          config.clockPosition === "center" ? "text-center" : "text-left",
+          getPreviewTextAlignClass(config.clockPosition),
         )}
       >
         <div
@@ -1033,7 +1472,7 @@ function PreviewClockCard({
     <div
       className={cn(
         "rounded-[28px] border border-white/[0.12] bg-white/10 px-6 py-7 shadow-2xl backdrop-blur-xl",
-        config.clockPosition === "center" && "text-center",
+        getPreviewTextAlignClass(config.clockPosition),
       )}
       style={{
         boxShadow: `${accentShadow}, 0 28px 90px rgba(0, 0, 0, 0.42)`,
@@ -1065,6 +1504,8 @@ function getPreviewLabel(mode: LockScreenConfig["backgroundMode"]) {
 }
 
 function getPreviewPositionClass(position: LockScreenConfig["clockPosition"]) {
+  if (position === "center-left") return "items-center justify-start";
+  if (position === "center-right") return "items-center justify-end";
   if (position === "top-left") return "items-start justify-start";
   if (position === "top-right") return "items-start justify-end";
   if (position === "bottom-left") return "items-end justify-start";
@@ -1072,12 +1513,120 @@ function getPreviewPositionClass(position: LockScreenConfig["clockPosition"]) {
   return "items-center justify-center";
 }
 
+function getPreviewTextAlignClass(position: LockScreenConfig["clockPosition"]) {
+  if (position.includes("right")) {
+    return "text-right";
+  }
+
+  if (position === "center") {
+    return "text-center";
+  }
+
+  return "text-left";
+}
+
 function getScaleOrigin(position: LockScreenConfig["clockPosition"]) {
+  if (position === "center-left") return "center left";
+  if (position === "center-right") return "center right";
   if (position === "top-left") return "top left";
   if (position === "top-right") return "top right";
   if (position === "bottom-left") return "bottom left";
   if (position === "bottom-right") return "bottom right";
   return "center center";
+}
+
+function getPreviewInfoBoxStyle(
+  config: Pick<LockScreenConfig, "accentColor" | "clockStyle">,
+  accent: string,
+): {
+  className: string;
+  labelClassName: string;
+  style: CSSProperties;
+} {
+  const baseClassName =
+    "border px-3.5 py-3 text-left transition-colors duration-200";
+  const baseLabelClassName =
+    "mb-2 text-[9px] font-semibold uppercase tracking-[0.36em]";
+
+  if (config.clockStyle === "minimal") {
+    return {
+      className: cn(
+        baseClassName,
+        "rounded-[16px] border-white/12 bg-black/42 shadow-[0_18px_45px_rgba(0,0,0,0.28)] backdrop-blur-md",
+      ),
+      labelClassName: cn(baseLabelClassName, "text-white/44"),
+      style: {
+        boxShadow: `0 18px 45px rgba(0, 0, 0, 0.28), inset 0 1px 0 ${hexToRgba(
+          accent,
+          0.16,
+        )}`,
+      },
+    };
+  }
+
+  if (config.clockStyle === "poster") {
+    return {
+      className: cn(
+        baseClassName,
+        "rounded-[22px] border-white/10 bg-black/24 shadow-[0_20px_60px_rgba(0,0,0,0.4)] backdrop-blur-md",
+      ),
+      labelClassName: cn(baseLabelClassName, "text-white/56"),
+      style: {
+        borderColor: hexToRgba(config.accentColor, 0.22),
+        boxShadow: `0 20px 60px rgba(0, 0, 0, 0.4), 0 0 0 1px ${hexToRgba(
+          config.accentColor,
+          0.16,
+        )}`,
+      },
+    };
+  }
+
+  if (config.clockStyle === "terminal") {
+    return {
+      className: cn(
+        baseClassName,
+        "rounded-[18px] border-emerald-400/35 bg-black/82 font-mono text-emerald-200 shadow-2xl [&_p]:text-emerald-200 [&_span]:text-emerald-300 [&_svg]:text-emerald-300",
+      ),
+      labelClassName: cn(baseLabelClassName, "text-emerald-400/72"),
+      style: {
+        boxShadow: `0 0 0 1px ${hexToRgba(
+          config.accentColor,
+          0.15,
+        )}, 0 20px 55px rgba(0, 0, 0, 0.48)`,
+      },
+    };
+  }
+
+  if (config.clockStyle === "capsule") {
+    return {
+      className: cn(
+        baseClassName,
+        "rounded-[24px] border-white/12 bg-white/10 shadow-[0_22px_60px_rgba(0,0,0,0.38)] backdrop-blur-xl",
+      ),
+      labelClassName: cn(baseLabelClassName, "text-white/52"),
+      style: {
+        boxShadow: `0 22px 60px rgba(0, 0, 0, 0.38), 0 0 0 1px ${hexToRgba(
+          config.accentColor,
+          0.18,
+        )}`,
+      },
+    };
+  }
+
+  return {
+    className: cn(
+      baseClassName,
+      "rounded-[18px] shadow-[0_20px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl",
+    ),
+    labelClassName: cn(baseLabelClassName, "text-white/48"),
+    style: {
+      borderColor: hexToRgba(accent, 0.38),
+      background: `linear-gradient(135deg, ${hexToRgba(
+        accent,
+        0.12,
+      )}, rgba(10, 10, 14, 0.78))`,
+    },
+  };
 }
 
 function getPreviewHint({
@@ -1118,9 +1667,14 @@ function getPreviewHint({
   return null;
 }
 
-function getNeutralPreviewBackground(
-  mode: LockScreenConfig["backgroundMode"],
-) {
+function formatPreviewMediaTime(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function getNeutralPreviewBackground(mode: LockScreenConfig["backgroundMode"]) {
   if (mode === "nasa-apod") {
     return "radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 22%), radial-gradient(circle at 72% 18%, rgba(255,255,255,0.06), transparent 18%), radial-gradient(circle at 50% 80%, rgba(255,255,255,0.04), transparent 24%), linear-gradient(180deg, #000000 0%, #090909 100%)";
   }
@@ -1129,9 +1683,7 @@ function getNeutralPreviewBackground(
 }
 
 function normalizeColorInput(color: string) {
-  return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color)
-    ? color
-    : "#f8fafc";
+  return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color) ? color : "#f8fafc";
 }
 
 function hexToRgba(hex: string, alpha: number) {
@@ -1150,12 +1702,10 @@ function hexToRgba(hex: string, alpha: number) {
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
-function readNasaApodCache():
-  | {
-      date: string;
-      imageUrl: string;
-    }
-  | null {
+function readNasaApodCache(): {
+  date: string;
+  imageUrl: string;
+} | null {
   if (typeof window === "undefined") return null;
 
   try {

@@ -37,6 +37,10 @@ describe("lock screen config helpers", () => {
         showDate: false,
         clockScale: 500,
         accentColor: "#12abef",
+        enabledWidgets: ["weather", "system", "weather", "unknown-widget"],
+        weatherCity: "  Barcelona  ",
+        weatherUnits: "imperial",
+        weatherLanguage: "en",
       }),
     ).toEqual({
       ...DEFAULT_LOCK_SCREEN_CONFIG,
@@ -57,7 +61,33 @@ describe("lock screen config helpers", () => {
       showDate: false,
       clockScale: 140,
       accentColor: "#12abef",
+      enabledWidgets: ["weather"],
+      weatherCity: "Barcelona",
+      weatherUnits: "imperial",
+      weatherLanguage: "en",
     });
+  });
+
+  it("normalizes lock-screen widget toggles from a boolean map", () => {
+    expect(
+      normalizeLockScreenConfig({
+        enabledWidgets: {
+          "now-playing": true,
+          weather: true,
+          system: true,
+          unknown: true,
+        },
+      }).enabledWidgets,
+    ).toEqual(["now-playing", "weather"]);
+  });
+
+  it("keeps supported center-side clock positions", () => {
+    expect(
+      normalizeLockScreenConfig({ clockPosition: "center-left" }).clockPosition,
+    ).toBe("center-left");
+    expect(
+      normalizeLockScreenConfig({ clockPosition: "center-right" }).clockPosition,
+    ).toBe("center-right");
   });
 
   it("parses playlist textarea lines into safe image urls", () => {

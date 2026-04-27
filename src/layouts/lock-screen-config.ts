@@ -16,17 +16,30 @@ const LOCK_SCREEN_CLOCK_STYLES = [
 ] as const;
 const LOCK_SCREEN_CLOCK_POSITIONS = [
   "center",
+  "center-left",
+  "center-right",
   "top-left",
   "top-right",
   "bottom-left",
   "bottom-right",
 ] as const;
+export const LOCK_SCREEN_WIDGET_IDS = [
+  "now-playing",
+  "weather",
+] as const;
+const LOCK_SCREEN_WEATHER_UNITS = ["metric", "imperial"] as const;
+const LOCK_SCREEN_WEATHER_LANGUAGES = ["es", "en", "fr", "de"] as const;
 
 export type LockScreenBackgroundMode =
   (typeof LOCK_SCREEN_BACKGROUND_MODES)[number];
 export type LockScreenClockStyle = (typeof LOCK_SCREEN_CLOCK_STYLES)[number];
 export type LockScreenClockPosition =
   (typeof LOCK_SCREEN_CLOCK_POSITIONS)[number];
+export type LockScreenWidgetId = (typeof LOCK_SCREEN_WIDGET_IDS)[number];
+export type LockScreenWeatherUnits =
+  (typeof LOCK_SCREEN_WEATHER_UNITS)[number];
+export type LockScreenWeatherLanguage =
+  (typeof LOCK_SCREEN_WEATHER_LANGUAGES)[number];
 
 export type LockScreenConfig = {
   backgroundMode: LockScreenBackgroundMode;
@@ -46,6 +59,10 @@ export type LockScreenConfig = {
   showDate: boolean;
   clockScale: number;
   accentColor: string;
+  enabledWidgets: LockScreenWidgetId[];
+  weatherCity: string;
+  weatherUnits: LockScreenWeatherUnits;
+  weatherLanguage: LockScreenWeatherLanguage;
 };
 
 export const DEFAULT_LOCK_SCREEN_CONFIG: LockScreenConfig = {
@@ -66,6 +83,10 @@ export const DEFAULT_LOCK_SCREEN_CONFIG: LockScreenConfig = {
   showDate: true,
   clockScale: 100,
   accentColor: "#f8fafc",
+  enabledWidgets: [],
+  weatherCity: "Madrid",
+  weatherUnits: "metric",
+  weatherLanguage: "es",
 };
 
 export const CLIENT_LOCK_SCREEN_STYLE_STORAGE_KEY =
@@ -143,6 +164,22 @@ export function normalizeLockScreenConfig(input: unknown): LockScreenConfig {
     140,
     DEFAULT_LOCK_SCREEN_CONFIG.clockScale,
   );
+  const enabledWidgets = normalizeLockScreenWidgets(source.enabledWidgets);
+  const weatherCity = normalizeText(
+    source.weatherCity,
+    DEFAULT_LOCK_SCREEN_CONFIG.weatherCity,
+    72,
+  );
+  const weatherUnits = asOneOf(
+    source.weatherUnits,
+    LOCK_SCREEN_WEATHER_UNITS,
+    DEFAULT_LOCK_SCREEN_CONFIG.weatherUnits,
+  );
+  const weatherLanguage = asOneOf(
+    source.weatherLanguage,
+    LOCK_SCREEN_WEATHER_LANGUAGES,
+    DEFAULT_LOCK_SCREEN_CONFIG.weatherLanguage,
+  );
 
   return {
     backgroundMode,
@@ -171,6 +208,10 @@ export function normalizeLockScreenConfig(input: unknown): LockScreenConfig {
         : DEFAULT_LOCK_SCREEN_CONFIG.showDate,
     clockScale,
     accentColor,
+    enabledWidgets,
+    weatherCity,
+    weatherUnits,
+    weatherLanguage,
   };
 }
 
@@ -355,6 +396,34 @@ function clampNumber(
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return fallback;
   return Math.max(min, Math.min(max, Math.round(numeric)));
+}
+
+function normalizeLockScreenWidgets(input: unknown): LockScreenWidgetId[] {
+  const candidates = Array.isArray(input)
+    ? input
+    : input && typeof input === "object"
+      ? LOCK_SCREEN_WIDGET_IDS.filter(
+          (widgetId) => (input as Record<string, unknown>)[widgetId] === true,
+        )
+      : DEFAULT_LOCK_SCREEN_CONFIG.enabledWidgets;
+  const seen = new Set<LockScreenWidgetId>();
+
+  for (const value of candidates) {
+    const widgetId = String(value || "").trim() as LockScreenWidgetId;
+    if (
+      LOCK_SCREEN_WIDGET_IDS.includes(widgetId) &&
+      !seen.has(widgetId)
+    ) {
+      seen.add(widgetId);
+    }
+  }
+
+  return Array.from(seen);
+}
+
+function normalizeText(value: unknown, fallback: string, maxLength: number) {
+  const candidate = String(value || "").trim().replace(/\s+/g, " ");
+  return candidate ? candidate.slice(0, maxLength) : fallback;
 }
 
 function clamp(value: number, min: number, max: number) {

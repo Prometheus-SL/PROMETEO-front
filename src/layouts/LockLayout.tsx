@@ -1,8 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import {
+  Activity,
+  AlertTriangle,
+  Loader2,
+  Music2,
+} from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useSharedValue } from "@/hooks/useSharedContext";
+import { api } from "@/lib/api";
 import {
   buildLockScreenOverlayBackground,
   GLOBAL_LOCK_SCREEN_CONFIG_EVENT,
@@ -17,6 +30,20 @@ import { SharedKeys } from "@/types/shared";
 import type { MediaSession } from "@/types/shared";
 
 const NASA_APOD_CACHE_KEY = "prometeo.client.nasa-apod";
+const LOCK_SCREEN_WEATHER_REFRESH_MS = 15 * 60 * 1000;
+
+type LockScreenWeatherResponse = {
+  weather: { id: number; main: string; description: string; icon: string }[];
+  main: { temp: number; feels_like?: number; humidity?: number };
+  wind?: { speed?: number };
+  name: string;
+};
+
+type LockScreenWeatherState = {
+  data: LockScreenWeatherResponse | null;
+  loading: boolean;
+  error: string | null;
+};
 
 function LockLayout() {
   const mediaSession = useSharedValue<MediaSession>(SharedKeys.MEDIA_SESSION);
@@ -25,6 +52,12 @@ function LockLayout() {
     readPersistedGlobalLockScreenConfig(),
   );
   const [nasaApodImageUrl, setNasaApodImageUrl] = useState<string | null>(null);
+  const [weatherState, setWeatherState] = useState<LockScreenWeatherState>({
+    data: null,
+    loading: false,
+    error: null,
+  });
+  const isWeatherWidgetEnabled = config.enabledWidgets.includes("weather");
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 1_000);
@@ -48,6 +81,76 @@ function LockLayout() {
       window.removeEventListener("storage", syncFromStorage);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isWeatherWidgetEnabled) {
+      setWeatherState({ data: null, loading: false, error: null });
+      return;
+    }
+
+    const city = config.weatherCity.trim();
+    if (!city) {
+      setWeatherState({
+        data: null,
+        loading: false,
+        error: "Weather city is not configured.",
+      });
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const hydrateWeather = async (isRefresh = false) => {
+      setWeatherState((current) => ({
+        data: current.data,
+        loading: !isRefresh || !current.data,
+        error: null,
+      }));
+
+      try {
+        const params = new URLSearchParams({
+          city,
+          units: config.weatherUnits,
+          lang: config.weatherLanguage,
+        });
+        const data = await api.getData<LockScreenWeatherResponse>(
+          `/api/v1/integrations/weather/current?${params.toString()}`,
+          { signal: controller.signal },
+        );
+
+        if (!cancelled) {
+          setWeatherState({ data, loading: false, error: null });
+        }
+      } catch (error) {
+        if (cancelled) return;
+        setWeatherState((current) => ({
+          data: current.data,
+          loading: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Could not load weather data.",
+        }));
+      }
+    };
+
+    void hydrateWeather();
+    const interval = window.setInterval(() => {
+      void hydrateWeather(true);
+    }, LOCK_SCREEN_WEATHER_REFRESH_MS);
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearInterval(interval);
+    };
+  }, [
+    isWeatherWidgetEnabled,
+    config.weatherCity,
+    config.weatherLanguage,
+    config.weatherUnits,
+  ]);
 
   useEffect(() => {
     if (config.backgroundMode !== "nasa-apod") {
@@ -163,7 +266,10 @@ function LockLayout() {
     [config],
   );
 
-  const showMediaInfo = mediaSession !== null && mediaSession !== undefined;
+  const showNowPlayingWidget =
+    config.enabledWidgets.includes("now-playing") &&
+    mediaSession?.isPlaying === true;
+  const hasLockWidgets = isWeatherWidgetEnabled || showNowPlayingWidget;
 
   return (
     <div className="absolute inset-0 z-[1000] flex min-h-screen w-full overflow-hidden bg-black text-white">
@@ -192,76 +298,255 @@ function LockLayout() {
         }}
       />
 
-      <div
-        className={cn(
-          "relative z-10 flex w-full px-6 py-8 sm:px-10 sm:py-10",
-          getLayoutPositionClass(config.clockPosition),
-        )}
-      >
+      <div className="relative z-10 h-full w-full">
         <div
           className={cn(
-            "flex w-full max-w-[38rem] flex-col gap-6",
-            config.clockPosition.includes("right") && "items-end text-right",
-            config.clockPosition === "center" && "items-center text-center",
+            "absolute inset-0 flex px-6 py-8 sm:px-10 sm:py-10",
+            getLayoutPositionClass(config.clockPosition),
           )}
         >
           <div
-            style={{
-              transform: `scale(${config.clockScale / 100})`,
-              transformOrigin: getScaleOrigin(config.clockPosition),
-            }}
-            className="w-full max-w-[22rem]"
+            className={cn(
+              "flex w-full max-w-[38rem] flex-col gap-6",
+              config.clockPosition.includes("right") && "items-end text-right",
+              config.clockPosition === "center" && "items-center text-center",
+            )}
           >
-            <LockClockPanel
-              config={config}
-              timeLabel={timeLabel}
-              dateLabel={dateLabel}
-            />
+            <div
+              style={{
+                transform: `scale(${config.clockScale / 100})`,
+                transformOrigin: getScaleOrigin(config.clockPosition),
+              }}
+              className="w-full max-w-[22rem]"
+            >
+              <LockClockPanel
+                config={config}
+                timeLabel={timeLabel}
+                dateLabel={dateLabel}
+              />
+            </div>
           </div>
-
-          {showMediaInfo && mediaSession ? (
-            <Card className="w-full border-white/10 bg-white/[0.06] py-0 text-white shadow-xl backdrop-blur-md">
-              <CardContent className="flex items-center gap-4 p-4">
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-lg font-semibold text-white">
-                    {mediaSession.title}
-                  </h3>
-                  <p className="truncate text-sm text-white/70">
-                    {mediaSession.artist}
-                  </p>
-                  {mediaSession.timestamp && mediaSession.duration ? (
-                    <Progress
-                      value={Math.max(
-                        0,
-                        Math.min(
-                          100,
-                          (mediaSession.timestamp / mediaSession.duration) * 100,
-                        ),
-                      )}
-                      max={100}
-                      className="mt-3 h-2 bg-white/10"
-                    />
-                  ) : null}
-                </div>
-
-                <div className="flex-shrink-0">
-                  <span
-                    className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium text-white/90 backdrop-blur-sm"
-                    style={{
-                      backgroundColor: hexToRgba(config.accentColor, 0.16),
-                      boxShadow: `0 0 0 1px ${hexToRgba(
-                        config.accentColor,
-                        0.22,
-                      )} inset`,
-                    }}
-                  >
-                    {mediaSession.source.toUpperCase()}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
         </div>
+
+        {hasLockWidgets ? (
+          <LockWidgetRail
+            config={config}
+            mediaSession={mediaSession}
+            weatherState={weatherState}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function LockWidgetRail({
+  config,
+  mediaSession,
+  weatherState,
+}: {
+  config: LockScreenConfig;
+  mediaSession?: MediaSession | null;
+  weatherState: LockScreenWeatherState;
+}) {
+  return (
+    <aside
+      className="absolute bottom-4 right-4 z-20 flex w-[min(calc(100vw-2rem),28rem)] max-h-[calc(100dvh-2rem)] flex-col-reverse gap-3 overflow-visible sm:bottom-6 sm:right-6 lg:bottom-10 lg:right-10 lg:w-[min(36vw,28rem)]"
+      aria-label="Lock screen information widgets"
+    >
+      {config.enabledWidgets.includes("now-playing") &&
+      mediaSession?.isPlaying === true ? (
+        <NowPlayingInfoBox config={config} mediaSession={mediaSession} />
+      ) : null}
+      {config.enabledWidgets.includes("weather") ? (
+        <WeatherInfoBox config={config} weatherState={weatherState} />
+      ) : null}
+    </aside>
+  );
+}
+
+function WeatherInfoBox({
+  config,
+  weatherState,
+}: {
+  config: LockScreenConfig;
+  weatherState: LockScreenWeatherState;
+}) {
+  const data = weatherState.data;
+  const condition = data?.weather?.[0];
+  const temp =
+    typeof data?.main?.temp === "number" ? Math.round(data.main.temp) : null;
+  const feelsLike =
+    typeof data?.main?.feels_like === "number"
+      ? Math.round(data.main.feels_like)
+      : null;
+  const location = data?.name || config.weatherCity;
+  const unitLabel = config.weatherUnits === "imperial" ? "F" : "C";
+
+  return (
+    <LockInfoBox
+      accent="#60a5fa"
+      config={config}
+      label={`Weather - ${location}`}
+    >
+      {weatherState.loading && !data ? (
+        <LockWidgetState
+          icon={<Loader2 className="size-4 animate-spin" />}
+          title="Loading weather"
+          message={`Checking ${config.weatherCity}.`}
+        />
+      ) : weatherState.error && !data ? (
+        <LockWidgetState
+          icon={<AlertTriangle className="size-4" />}
+          title="Weather unavailable"
+          message={weatherState.error}
+        />
+      ) : (
+        <div className="flex items-center gap-4">
+          <div className="flex items-start gap-1">
+            <span className="text-[2.55rem] font-semibold leading-none tracking-[-0.08em] tabular-nums text-white">
+              {temp ?? "--"}°
+            </span>
+            <span className="pt-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white/52">
+              {unitLabel}
+            </span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-base font-semibold text-white">
+              {capitalizeText(condition?.description)}
+            </p>
+            <p className="truncate text-sm text-white/62">
+              Feels {feelsLike ?? "--"}° · wind{" "}
+              {formatWind(data?.wind?.speed, config.weatherUnits)}
+            </p>
+          </div>
+        </div>
+      )}
+    </LockInfoBox>
+  );
+}
+
+function NowPlayingInfoBox({
+  config,
+  mediaSession,
+}: {
+  config: LockScreenConfig;
+  mediaSession?: MediaSession | null;
+}) {
+  if (!mediaSession?.isPlaying) {
+    return null;
+  }
+
+  const progressValue =
+    mediaSession.timestamp && mediaSession.duration
+      ? Math.max(
+          0,
+          Math.min(100, (mediaSession.timestamp / mediaSession.duration) * 100),
+        )
+      : 0;
+  const sourceLabel = String(
+    mediaSession.sourceAppName ||
+      mediaSession.provider ||
+      mediaSession.source ||
+      "media",
+  ).toUpperCase();
+
+  return (
+    <LockInfoBox
+      accent="#34d399"
+      config={config}
+      label={`Now playing - ${sourceLabel}`}
+    >
+      <div className="flex items-center gap-4">
+        {mediaSession.artwork ? (
+          <img
+            src={mediaSession.artwork}
+            alt={`${mediaSession.title} artwork`}
+            className="size-14 shrink-0 rounded-2xl border border-white/10 object-cover shadow-[0_16px_40px_rgba(0,0,0,0.38)]"
+          />
+        ) : (
+          <div
+            className="grid size-14 shrink-0 place-items-center rounded-2xl border border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.28)]"
+            style={{
+              background: `linear-gradient(135deg, ${hexToRgba(
+                config.accentColor,
+                0.5,
+              )}, rgba(255,255,255,0.08))`,
+            }}
+          >
+            <Music2 className="size-5 text-white/80" />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-base font-semibold text-white">
+            {mediaSession.title || "Untitled"}
+          </p>
+          <p className="truncate text-sm text-white/62">
+            {mediaSession.artist || mediaSession.album || sourceLabel}
+          </p>
+        </div>
+      </div>
+
+      {mediaSession.timestamp && mediaSession.duration ? (
+        <div className="mt-4 space-y-2">
+          <Progress
+            value={progressValue}
+            max={100}
+            className="h-1.5 bg-white/12"
+          />
+          <div className="flex items-center justify-between text-xs text-white/55">
+            <span>{formatMediaTime(mediaSession.timestamp)}</span>
+            <span>{formatMediaTime(mediaSession.duration)}</span>
+          </div>
+        </div>
+      ) : null}
+    </LockInfoBox>
+  );
+}
+
+function LockInfoBox({
+  accent,
+  config,
+  label,
+  children,
+}: {
+  accent: string;
+  config: LockScreenConfig;
+  label: string;
+  children: ReactNode;
+}) {
+  const widgetStyle = getLockInfoBoxStyle(config, accent);
+
+  return (
+    <section
+      className={widgetStyle.className}
+      style={widgetStyle.style}
+    >
+      <div className={widgetStyle.labelClassName}>
+        {label}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function LockWidgetState({
+  icon,
+  title,
+  message,
+}: {
+  icon: ReactNode;
+  title: string;
+  message: string;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="grid size-10 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[0.06] text-white/70">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-base font-semibold text-white">{title}</p>
+        <p className="text-sm text-white/62">{message}</p>
       </div>
     </div>
   );
@@ -415,6 +700,8 @@ function LockClockPanel({
 }
 
 function getLayoutPositionClass(position: LockScreenConfig["clockPosition"]) {
+  if (position === "center-left") return "items-center justify-start";
+  if (position === "center-right") return "items-center justify-end";
   if (position === "top-left") return "items-start justify-start";
   if (position === "top-right") return "items-start justify-end";
   if (position === "bottom-left") return "items-end justify-start";
@@ -423,11 +710,107 @@ function getLayoutPositionClass(position: LockScreenConfig["clockPosition"]) {
 }
 
 function getScaleOrigin(position: LockScreenConfig["clockPosition"]) {
+  if (position === "center-left") return "center left";
+  if (position === "center-right") return "center right";
   if (position === "top-left") return "top left";
   if (position === "top-right") return "top right";
   if (position === "bottom-left") return "bottom left";
   if (position === "bottom-right") return "bottom right";
   return "center center";
+}
+
+function getLockInfoBoxStyle(
+  config: Pick<LockScreenConfig, "accentColor" | "clockStyle">,
+  accent: string,
+): {
+  className: string;
+  labelClassName: string;
+  style: CSSProperties;
+} {
+  const baseClassName =
+    "border px-5 py-4 text-left transition-colors duration-200";
+  const baseLabelClassName =
+    "mb-3 text-[0.62rem] font-semibold uppercase tracking-[0.36em]";
+
+  if (config.clockStyle === "minimal") {
+    return {
+      className: cn(
+        baseClassName,
+        "rounded-[20px] border-white/12 bg-black/42 shadow-[0_22px_70px_rgba(0,0,0,0.32)] backdrop-blur-md",
+      ),
+      labelClassName: cn(baseLabelClassName, "text-white/45"),
+      style: {
+        boxShadow: `0 22px 70px rgba(0, 0, 0, 0.32), inset 0 1px 0 ${hexToRgba(
+          accent,
+          0.16,
+        )}`,
+      },
+    };
+  }
+
+  if (config.clockStyle === "poster") {
+    return {
+      className: cn(
+        baseClassName,
+        "rounded-[30px] border-white/10 bg-black/24 shadow-[0_24px_90px_rgba(0,0,0,0.46)] backdrop-blur-xl",
+      ),
+      labelClassName: cn(baseLabelClassName, "text-white/56"),
+      style: {
+        borderColor: hexToRgba(config.accentColor, 0.22),
+        boxShadow: `0 24px 90px rgba(0, 0, 0, 0.46), 0 0 0 1px ${hexToRgba(
+          config.accentColor,
+          0.16,
+        )}`,
+      },
+    };
+  }
+
+  if (config.clockStyle === "terminal") {
+    return {
+      className: cn(
+        baseClassName,
+        "rounded-[24px] border-emerald-400/35 bg-black/82 font-mono text-emerald-200 shadow-2xl [&_p]:text-emerald-200 [&_span]:text-emerald-300 [&_svg]:text-emerald-300",
+      ),
+      labelClassName: cn(baseLabelClassName, "text-emerald-400/72"),
+      style: {
+        boxShadow: `0 0 0 1px ${hexToRgba(
+          config.accentColor,
+          0.15,
+        )}, 0 24px 80px rgba(0, 0, 0, 0.52)`,
+      },
+    };
+  }
+
+  if (config.clockStyle === "capsule") {
+    return {
+      className: cn(
+        baseClassName,
+        "rounded-[32px] border-white/12 bg-white/10 shadow-[0_28px_90px_rgba(0,0,0,0.42)] backdrop-blur-xl",
+      ),
+      labelClassName: cn(baseLabelClassName, "text-white/52"),
+      style: {
+        boxShadow: `0 28px 90px rgba(0, 0, 0, 0.42), 0 0 0 1px ${hexToRgba(
+          config.accentColor,
+          0.18,
+        )}`,
+      },
+    };
+  }
+
+  return {
+    className: cn(
+      baseClassName,
+      "rounded-[24px] shadow-[0_28px_80px_rgba(0,0,0,0.36)] backdrop-blur-xl",
+    ),
+    labelClassName: cn(baseLabelClassName, "text-white/48"),
+    style: {
+      borderColor: hexToRgba(accent, 0.32),
+      background: `linear-gradient(135deg, ${hexToRgba(
+        accent,
+        0.12,
+      )}, rgba(8, 9, 13, 0.76))`,
+    },
+  };
 }
 
 function getNeutralLockBackground(mode: LockScreenConfig["backgroundMode"]) {
@@ -436,6 +819,24 @@ function getNeutralLockBackground(mode: LockScreenConfig["backgroundMode"]) {
   }
 
   return "radial-gradient(circle at top left, rgba(255,255,255,0.08), transparent 30%), radial-gradient(circle at bottom right, rgba(255,255,255,0.05), transparent 26%), linear-gradient(180deg, #000000 0%, #0a0a0a 100%)";
+}
+
+function capitalizeText(value?: string) {
+  if (!value) return "No data";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatWind(speed?: number, units: LockScreenConfig["weatherUnits"] = "metric") {
+  if (typeof speed !== "number") return "--";
+  if (units === "imperial") return `${Math.round(speed)} mph`;
+  return `${Math.round(speed * 3.6)} km/h`;
+}
+
+function formatMediaTime(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function hexToRgba(hex: string, alpha: number) {
