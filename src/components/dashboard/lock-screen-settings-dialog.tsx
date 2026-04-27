@@ -202,10 +202,12 @@ export function LockScreenSettingsPanel({
   initialConfig,
   onSave,
   saveLabel = "Save lock screen",
+  forceHasChanges = false,
 }: {
   initialConfig?: LockScreenConfig;
   onSave: (config: LockScreenConfig) => Promise<void>;
   saveLabel?: string;
+  forceHasChanges?: boolean;
 }) {
   const normalizedInitialConfig = useMemo(
     () => normalizeLockScreenConfig(initialConfig),
@@ -256,9 +258,10 @@ export function LockScreenSettingsPanel({
 
   const hasChanges = useMemo(
     () =>
+      forceHasChanges ||
       JSON.stringify(normalizedCurrentConfig) !==
-      JSON.stringify(normalizedInitialConfig),
-    [normalizedCurrentConfig, normalizedInitialConfig],
+        JSON.stringify(normalizedInitialConfig),
+    [forceHasChanges, normalizedCurrentConfig, normalizedInitialConfig],
   );
 
   const backgroundHint = useMemo(

@@ -3,11 +3,14 @@ import { describe, expect, it } from "vitest";
 import {
   buildLockScreenOverlayBackground,
   DEFAULT_LOCK_SCREEN_CONFIG,
+  hasLockScreenConfig,
   normalizeLockScreenConfig,
   parseLockScreenPlaylist,
+  readLockScreenConfig,
   resolveNasaApodImageUrl,
   resolveLockScreenCanvasBackground,
   resolvePlaylistImageUrl,
+  writeLockScreenConfig,
 } from "./lock-screen-config";
 
 describe("lock screen config helpers", () => {
@@ -79,6 +82,52 @@ describe("lock screen config helpers", () => {
         },
       }).enabledWidgets,
     ).toEqual(["now-playing", "weather"]);
+  });
+
+  it("reads and writes lock screen config inside dashboard style", () => {
+    const style = {
+      theme: "midnight",
+      layoutDensity: "compact",
+      lockScreen: {
+        clockStyle: "terminal",
+        clockPosition: "center-right",
+        enabledWidgets: ["weather"],
+        weatherCity: "Valencia",
+      },
+    };
+
+    expect(hasLockScreenConfig(style)).toBe(true);
+    expect(readLockScreenConfig(style)).toEqual({
+      ...DEFAULT_LOCK_SCREEN_CONFIG,
+      clockStyle: "terminal",
+      clockPosition: "center-right",
+      enabledWidgets: ["weather"],
+      weatherCity: "Valencia",
+    });
+
+    const nextStyle = writeLockScreenConfig(style, {
+      ...DEFAULT_LOCK_SCREEN_CONFIG,
+      clockStyle: "poster",
+      clockPosition: "bottom-right",
+      enabledWidgets: ["now-playing"],
+      weatherCity: "Bilbao",
+    });
+
+    expect(nextStyle.theme).toBe("midnight");
+    expect(nextStyle.layoutDensity).toBe("compact");
+    expect(nextStyle.lockScreen).toEqual({
+      ...DEFAULT_LOCK_SCREEN_CONFIG,
+      clockStyle: "poster",
+      clockPosition: "bottom-right",
+      enabledWidgets: ["now-playing"],
+      weatherCity: "Bilbao",
+    });
+  });
+
+  it("detects when dashboard style does not yet contain lock screen config", () => {
+    expect(hasLockScreenConfig({ theme: "midnight" })).toBe(false);
+    expect(hasLockScreenConfig({ lockScreen: null })).toBe(false);
+    expect(hasLockScreenConfig(undefined)).toBe(false);
   });
 
   it("keeps supported center-side clock positions", () => {

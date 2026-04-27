@@ -18,6 +18,9 @@ import { api } from "@/lib/api";
 import {
   buildLockScreenOverlayBackground,
   GLOBAL_LOCK_SCREEN_CONFIG_EVENT,
+  hasLockScreenConfig,
+  persistGlobalLockScreenConfig,
+  readLockScreenConfig,
   readPersistedGlobalLockScreenConfig,
   resolveLockScreenCanvasBackground,
   resolveNasaApodImageUrl,
@@ -25,6 +28,7 @@ import {
   type LockScreenConfig,
 } from "@/layouts/lock-screen-config";
 import { cn } from "@/lib/utils";
+import { dashboardService } from "@/services/dashboards";
 import { SharedKeys } from "@/types/shared";
 import type { MediaSession } from "@/types/shared";
 
@@ -78,6 +82,31 @@ function LockLayout() {
         syncFromStorage,
       );
       window.removeEventListener("storage", syncFromStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateRemoteConfig = async () => {
+      try {
+        const page = await dashboardService.getActivePage();
+        if (cancelled || !page || !hasLockScreenConfig(page.style)) return;
+
+        const remoteConfig = readLockScreenConfig(page.style);
+        setConfig(remoteConfig);
+        persistGlobalLockScreenConfig(remoteConfig);
+      } catch (error) {
+        if (!cancelled) {
+          console.error("[lock-screen] config-hydrate-error", error);
+        }
+      }
+    };
+
+    void hydrateRemoteConfig();
+
+    return () => {
+      cancelled = true;
     };
   }, []);
 

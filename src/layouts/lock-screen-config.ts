@@ -222,8 +222,19 @@ export function readLockScreenConfig(
   return normalizeLockScreenConfig(source.lockScreen);
 }
 
+export function hasLockScreenConfig(
+  style?: Record<string, unknown> | null,
+): boolean {
+  const source = asRecord(style);
+  return Boolean(
+    source.lockScreen &&
+      typeof source.lockScreen === "object" &&
+      !Array.isArray(source.lockScreen),
+  );
+}
+
 export function writeLockScreenConfig(
-  style: Record<string, unknown> | undefined,
+  style: Record<string, unknown> | null | undefined,
   config: LockScreenConfig,
 ): Record<string, unknown> {
   return {
