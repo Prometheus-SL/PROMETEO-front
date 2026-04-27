@@ -1,7 +1,11 @@
-import { HttpResponse, http } from "msw";
+import { http } from "msw";
 import { z } from "zod";
 
-import { createMswModuleDevMockAdapter } from "@/dev/modules";
+import {
+  createModuleDevBackendUrl,
+  createModuleDevSuccessResponse,
+  createMswModuleDevMockAdapter,
+} from "@/dev/modules";
 
 const weatherMockStateSchema = z.object({
     city: z.string().default("Madrid"),
@@ -18,32 +22,35 @@ const weatherMockStateSchema = z.object({
 type WeatherMockState = z.infer<typeof weatherMockStateSchema>;
 
 function buildHandlers(state: WeatherMockState) {
-    return [
-        http.get("https://api.openweathermap.org/data/2.5/weather", () => {
-            return HttpResponse.json({
-                weather: [
-                    {
-                        id: state.weatherId,
-                        main: state.weatherMain,
-                        description: state.weatherDescription,
-                        icon: state.weatherIcon,
-                    },
-                ],
-                main: {
-                    temp: state.temp,
-                    feels_like: state.feelsLike,
-                    humidity: state.humidity,
-                },
-                wind: { speed: state.windSpeed },
-                name: state.city,
-            });
-        }),
-    ];
+  return [
+    http.get(createModuleDevBackendUrl("/api/v1/integrations/weather/current"), ({ request }) => {
+      const url = new URL(request.url);
+      const city = url.searchParams.get("city")?.trim() || state.city;
+
+      return createModuleDevSuccessResponse({
+        weather: [
+          {
+            id: state.weatherId,
+            main: state.weatherMain,
+            description: state.weatherDescription,
+            icon: state.weatherIcon,
+          },
+        ],
+        main: {
+          temp: state.temp,
+          feels_like: state.feelsLike,
+          humidity: state.humidity,
+        },
+        wind: { speed: state.windSpeed },
+        name: city,
+      });
+    }),
+  ];
 }
 
 const adapter = createMswModuleDevMockAdapter<WeatherMockState>({
-    stateSchema: weatherMockStateSchema,
-    buildHandlers,
+  stateSchema: weatherMockStateSchema,
+  buildHandlers,
 });
 
 export default adapter;

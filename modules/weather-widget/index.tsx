@@ -24,6 +24,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Meteors } from "@/components/ui/meteors";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
   WidgetContent,
@@ -126,8 +127,7 @@ export default function WeatherWidget({
 }) {
   const city = String(config["city"] ?? "Madrid").trim();
   const units = String(config["units"] ?? "metric");
-  const apiKey = String(config["apiKey"] ?? "").trim();
-  const lang = String(config["language"] ?? "en");
+  const lang = String(config["language"] ?? "es");
 
   const [data, setData] = useState<OpenWeatherResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -142,14 +142,6 @@ export default function WeatherWidget({
   const fetchWeather = useCallback(async () => {
     if (inFlightRef.current) return dataRef.current;
 
-    if (!apiKey) {
-      setError("Configura la API key de OpenWeather");
-      errorRef.current = "Configura la API key de OpenWeather";
-      setLoading(false);
-      setRefreshing(false);
-      return null;
-    }
-
     if (!city) {
       setError("Configura una ciudad");
       errorRef.current = "Configura una ciudad";
@@ -157,11 +149,6 @@ export default function WeatherWidget({
       setRefreshing(false);
       return null;
     }
-
-    const base = "https://api.openweathermap.org/data/2.5/weather";
-    const url = `${base}?q=${encodeURIComponent(
-      city,
-    )}&units=${units}&lang=${lang}&appid=${apiKey}`;
 
     inFlightRef.current = true;
     try {
@@ -174,10 +161,14 @@ export default function WeatherWidget({
       setError(null);
       errorRef.current = null;
 
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      const json = (await res.json()) as OpenWeatherResponse;
+      const params = new URLSearchParams({
+        city,
+        units,
+        lang,
+      });
+      const json = await api.getData<OpenWeatherResponse>(
+        `/api/v1/integrations/weather/current?${params.toString()}`,
+      );
       setData(json);
       dataRef.current = json;
       return json;
@@ -191,7 +182,7 @@ export default function WeatherWidget({
       setLoading(false);
       setRefreshing(false);
     }
-  }, [apiKey, city, units, lang]);
+  }, [city, units, lang]);
 
   useEffect(() => {
     dataRef.current = null;
@@ -201,7 +192,7 @@ export default function WeatherWidget({
     setError(null);
     setLoading(true);
     setRefreshing(false);
-  }, [apiKey, city, units, lang]);
+  }, [city, units, lang]);
 
   useEffect(() => {
     void fetchWeather();
@@ -275,20 +266,6 @@ export default function WeatherWidget({
       unregisterAction(summaryId);
     };
   }, [fetchWeather, registerAction, unregisterAction]);
-
-  if (!apiKey) {
-    return (
-      <WidgetShell accent="amber">
-        <WidgetContent className="flex items-center">
-          <WidgetState
-            accent="amber"
-            title="Weather"
-            message="Configura la API key de OpenWeather."
-          />
-        </WidgetContent>
-      </WidgetShell>
-    );
-  }
 
   if (!city) {
     return (

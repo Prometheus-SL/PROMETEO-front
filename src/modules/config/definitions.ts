@@ -342,7 +342,7 @@ const DEFINITIONS: Record<string, Partial<ModuleConfigUiDefinition>> = {
   "weather-widget": {
     id: "weather-widget",
     fields: COMMON_FIELDS,
-    order: ["city", "units", "language", "apiKey"],
+    order: ["city", "units", "language"],
   },
   "minecraft-widget": {
     id: "minecraft-widget",

@@ -29,20 +29,19 @@ function meta(id: string, name = id): ModuleMeta {
 }
 
 describe("module config helpers", () => {
-  it("keeps required fields without defaults empty and invalid", () => {
+  it("builds weather defaults as a valid config without user secrets", () => {
     const initial = buildInitialConfig(weatherSchema, meta("weather-widget"), {});
 
     expect(initial).toMatchObject({
       city: "Madrid",
       units: "metric",
-      apiKey: "",
       language: "es",
     });
 
     const validation = validateConfigDraft(weatherSchema, initial);
 
-    expect(validation.isValid).toBe(false);
-    expect(validation.errorsByKey.apiKey).toContain("Too small");
+    expect(validation.isValid).toBe(true);
+    expect(validation.errorsByKey).toEqual({});
   });
 
   it("does not treat invalid empty defaults as a valid configured value", () => {
@@ -88,8 +87,8 @@ describe("module config helpers", () => {
       value: {},
     });
 
-    expect(weatherFields.find((field) => field.key === "apiKey")?.input).toBe(
-      "secret",
+    expect(weatherFields.find((field) => field.key === "city")?.input).toBe(
+      "text",
     );
     expect(sparkFields.find((field) => field.key === "color")?.input).toBe(
       "color",
