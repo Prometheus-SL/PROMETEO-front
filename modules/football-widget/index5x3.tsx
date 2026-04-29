@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import {
   WidgetContent,
@@ -22,22 +21,11 @@ export default function FootballWidget5x3({
   const leagueId = String(config["leagueId"] ?? "laliga");
   const teamName = String(config["teamName"] ?? "").trim();
 
-  const { snapshot, featured, standings, leagues, error, loading, refresh } = useFootballState({
+  const { snapshot, featured, standings, leagues, error, loading } = useFootballState({
     leagueId,
     teamName,
     includeStandings: true,
   });
-
-  const [refreshing, setRefreshing] = useState(false);
-  const onRefreshClick = async () => {
-    if (refreshing) return;
-    setRefreshing(true);
-    try {
-      await refresh();
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   const currentLeague = leagues?.find((l) => l.id === leagueId) ?? null;
   const channelUrl = currentLeague?.highlightsChannelUrl ?? null;
@@ -82,17 +70,7 @@ export default function FootballWidget5x3({
 
   return (
     <WidgetShell accent="sky">
-      <WidgetContent className="relative grid h-full grid-rows-[auto_1fr] gap-2 p-2">
-        <button
-          type="button"
-          onClick={() => void onRefreshClick()}
-          aria-label="Refresh football data"
-          title="Refresh"
-          className="absolute right-2 top-2 z-20 grid size-6 place-items-center rounded-full border border-border/40 bg-background/70 text-muted-foreground backdrop-blur-sm transition-colors hover:border-border hover:bg-background hover:text-foreground disabled:opacity-50"
-          disabled={refreshing}
-        >
-          <RefreshCw className={refreshing ? "size-3 animate-spin" : "size-3"} />
-        </button>
+      <WidgetContent className="grid h-full grid-rows-[auto_1fr] gap-2 p-2">
         {headerMatch ? (
           <MatchHeader match={headerMatch} favoriteTeamName={teamName} />
         ) : (
