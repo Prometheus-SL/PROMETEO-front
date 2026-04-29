@@ -135,6 +135,28 @@ export function useFootballState({
     return () => clearInterval(id);
   }, [loadAll, snapshot]);
 
+  // When the tab regains visibility or the window regains focus, refetch
+  // immediately. Browsers throttle setInterval aggressively in background
+  // tabs (Chrome / Opera can stretch a 30s timer to several minutes), so
+  // without this the user can come back to the dashboard after a while
+  // and see stale data until the next interval fires.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void loadAll();
+      }
+    };
+    const onFocus = () => {
+      void loadAll();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [loadAll]);
+
   useEffect(() => {
     if (!includeStandings) return;
     const id = window.setInterval(() => {
