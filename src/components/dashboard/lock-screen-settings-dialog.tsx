@@ -3,6 +3,7 @@ import {
   Clock3,
   CloudSun,
   Loader2,
+  Moon,
   Music2,
   RotateCcw,
   Save,
@@ -25,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -34,7 +36,9 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   buildLockScreenOverlayBackground,
+  isLockScreenSleepScheduleActive,
   type LockScreenConfig,
+  type LockScreenWeekDay,
   LOCK_SCREEN_WIDGET_IDS,
   type LockScreenWidgetId,
   normalizeLockScreenConfig,
@@ -150,6 +154,26 @@ const WEATHER_LANGUAGE_OPTIONS: Array<{
   { value: "fr", label: "French" },
   { value: "de", label: "German" },
 ];
+
+const SLEEP_DAY_OPTIONS: Array<{
+  value: LockScreenWeekDay;
+  label: string;
+  shortLabel: string;
+}> = [
+  { value: 1, label: "Monday", shortLabel: "Mo" },
+  { value: 2, label: "Tuesday", shortLabel: "Tu" },
+  { value: 3, label: "Wednesday", shortLabel: "We" },
+  { value: 4, label: "Thursday", shortLabel: "Th" },
+  { value: 5, label: "Friday", shortLabel: "Fr" },
+  { value: 6, label: "Saturday", shortLabel: "Sa" },
+  { value: 0, label: "Sunday", shortLabel: "Su" },
+];
+const SLEEP_HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) =>
+  index.toString().padStart(2, "0"),
+);
+const SLEEP_MINUTE_OPTIONS = Array.from({ length: 60 }, (_, index) =>
+  index.toString().padStart(2, "0"),
+);
 
 function useOptionalSharedValue<T>(key: string): T | undefined {
   const context = useContext(SharedContext);
@@ -292,6 +316,28 @@ export function LockScreenSettingsPanel({
         enabledWidgets: LOCK_SCREEN_WIDGET_IDS.filter((id) =>
           enabledSet.has(id),
         ),
+      };
+    });
+  }
+
+  function handleSleepDayToggle(day: LockScreenWeekDay, checked: boolean) {
+    setDraft((current) => {
+      const selectedDays = new Set(current.sleepSchedule.days);
+
+      if (checked) {
+        selectedDays.add(day);
+      } else {
+        selectedDays.delete(day);
+      }
+
+      return {
+        ...current,
+        sleepSchedule: {
+          ...current.sleepSchedule,
+          days: SLEEP_DAY_OPTIONS.map((option) => option.value).filter((value) =>
+            selectedDays.has(value),
+          ),
+        },
       };
     });
   }
@@ -766,6 +812,117 @@ export function LockScreenSettingsPanel({
             </div>
           </section>
 
+          <section className="flex flex-col gap-5 rounded-xl border bg-card/60 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex min-w-0 gap-3">
+                <div
+                  className={cn(
+                    "grid size-11 shrink-0 place-items-center rounded-xl border bg-background text-muted-foreground transition-colors",
+                    draft.sleepSchedule.enabled &&
+                      "border-primary/30 bg-primary/5 text-primary",
+                  )}
+                >
+                  <Moon className="size-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold">Sleep hours</h3>
+                  <p className="mt-1 max-w-[64ch] text-sm leading-6 text-muted-foreground">
+                    During this schedule the lock screen turns fully black and
+                    keeps only a very dim clock visible.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex h-10 items-center gap-3 rounded-full border bg-background/55 px-3">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {draft.sleepSchedule.enabled ? "Enabled" : "Off"}
+                </span>
+                <Switch
+                  checked={draft.sleepSchedule.enabled}
+                  onCheckedChange={(checked) =>
+                    setDraft((current) => ({
+                      ...current,
+                      sleepSchedule: {
+                        ...current.sleepSchedule,
+                        enabled: Boolean(checked),
+                      },
+                    }))
+                  }
+                  aria-label="Enable sleep hours"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-5 border-t pt-5 md:grid-cols-[minmax(18rem,19rem)_minmax(0,1fr)] md:items-start">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <SleepTimeSelect
+                  id="lock-sleep-start-time"
+                  label="From"
+                  value={draft.sleepSchedule.startTime}
+                  onValueChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      sleepSchedule: {
+                        ...current.sleepSchedule,
+                        startTime: value,
+                      },
+                    }))
+                  }
+                />
+                <SleepTimeSelect
+                  id="lock-sleep-end-time"
+                  label="To"
+                  value={draft.sleepSchedule.endTime}
+                  onValueChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      sleepSchedule: {
+                        ...current.sleepSchedule,
+                        endTime: value,
+                      },
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="flex min-w-0 flex-col gap-2">
+                <div className="flex h-6 items-center justify-between gap-3">
+                  <Label>Days</Label>
+                  <Badge variant="outline">
+                    {draft.sleepSchedule.days.length || "No"} selected
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                  {SLEEP_DAY_OPTIONS.map((day) => {
+                    const id = `lock-sleep-day-${day.value}`;
+                    const checked = draft.sleepSchedule.days.includes(day.value);
+
+                    return (
+                      <Button
+                        key={day.value}
+                        id={id}
+                        type="button"
+                        variant={checked ? "default" : "outline"}
+                        size="sm"
+                        aria-pressed={checked}
+                        aria-label={`${checked ? "Disable" : "Enable"} ${
+                          day.label
+                        }`}
+                        onClick={() => handleSleepDayToggle(day.value, !checked)}
+                        className={cn(
+                          "h-10 min-w-0 rounded-lg px-0 text-xs font-semibold",
+                          !checked && "bg-background/70 text-muted-foreground",
+                        )}
+                      >
+                        {day.shortLabel}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section className="space-y-4 rounded-xl border bg-card/60 p-5">
             <div className="space-y-1">
               <h3 className="text-sm font-semibold">Lock widgets</h3>
@@ -949,6 +1106,81 @@ function ToggleCard({
   );
 }
 
+function SleepTimeSelect({
+  id,
+  label,
+  value,
+  onValueChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onValueChange: (value: string) => void;
+}) {
+  const [hour, minute] = splitTimeValue(value);
+
+  return (
+    <div id={id} className="flex min-w-0 flex-col gap-2">
+      <div className="flex h-6 items-center">
+        <Label htmlFor={`${id}-hour`}>{label}</Label>
+      </div>
+      <div className="grid h-11 grid-cols-[minmax(0,1fr)_0.875rem_minmax(0,1fr)] items-center rounded-xl border bg-background/70 px-1 shadow-xs">
+        <Select
+          value={hour}
+          onValueChange={(nextHour) =>
+            onValueChange(composeTimeValue(nextHour, minute))
+          }
+        >
+          <SelectTrigger
+            id={`${id}-hour`}
+            aria-label={`${label} hour`}
+            className="h-8 w-full justify-center gap-1 rounded-lg border-0 bg-transparent px-1 text-base font-semibold tabular-nums shadow-none hover:bg-muted/45 focus:ring-0 dark:hover:bg-muted/35 [&>svg]:size-3.5"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="max-h-64">
+            <SelectGroup>
+              {SLEEP_HOUR_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+
+        <span className="grid h-8 place-items-center text-sm font-semibold leading-none text-muted-foreground">
+          :
+        </span>
+
+        <Select
+          value={minute}
+          onValueChange={(nextMinute) =>
+            onValueChange(composeTimeValue(hour, nextMinute))
+          }
+        >
+          <SelectTrigger
+            id={`${id}-minute`}
+            aria-label={`${label} minute`}
+            className="h-8 w-full justify-center gap-1 rounded-lg border-0 bg-transparent px-1 text-base font-semibold tabular-nums shadow-none hover:bg-muted/45 focus:ring-0 dark:hover:bg-muted/35 [&>svg]:size-3.5"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="max-h-64">
+            <SelectGroup>
+              {SLEEP_MINUTE_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
 function LockScreenPreview({
   config,
   mediaSession,
@@ -961,9 +1193,13 @@ function LockScreenPreview({
   const [nasaApodImageUrl, setNasaApodImageUrl] = useState<string | null>(null);
   const [isNasaApodLoading, setIsNasaApodLoading] = useState(false);
   const [nasaApodError, setNasaApodError] = useState<string | null>(null);
+  const isSleepModeActive = isLockScreenSleepScheduleActive(
+    config.sleepSchedule,
+    now,
+  );
 
   useEffect(() => {
-    if (config.backgroundMode !== "nasa-apod") {
+    if (isSleepModeActive || config.backgroundMode !== "nasa-apod") {
       setNasaApodImageUrl(null);
       setIsNasaApodLoading(false);
       setNasaApodError(null);
@@ -1033,9 +1269,13 @@ function LockScreenPreview({
       cancelled = true;
       controller.abort();
     };
-  }, [config.backgroundMode]);
+  }, [config.backgroundMode, isSleepModeActive]);
 
   const previewImageUrl = useMemo(() => {
+    if (isSleepModeActive) {
+      return null;
+    }
+
     if (config.backgroundMode === "nasa-apod") {
       return nasaApodImageUrl;
     }
@@ -1053,13 +1293,15 @@ function LockScreenPreview({
     }
 
     return null;
-  }, [config, now, nasaApodImageUrl]);
+  }, [config, isSleepModeActive, now, nasaApodImageUrl]);
 
   const shellBackground = useMemo(
     () =>
-      resolveLockScreenCanvasBackground(config) ??
-      getNeutralPreviewBackground(config.backgroundMode),
-    [config],
+      isSleepModeActive
+        ? "#000000"
+        : resolveLockScreenCanvasBackground(config) ??
+          getNeutralPreviewBackground(config.backgroundMode),
+    [config, isSleepModeActive],
   );
 
   const previewLabel = getPreviewLabel(config.backgroundMode);
@@ -1076,7 +1318,7 @@ function LockScreenPreview({
     year: "numeric",
   });
   const backgroundStateLabel =
-    config.backgroundMode === "nasa-apod"
+    !isSleepModeActive && config.backgroundMode === "nasa-apod"
       ? isNasaApodLoading
         ? "Fetching APOD..."
         : nasaApodError
@@ -1086,7 +1328,7 @@ function LockScreenPreview({
             : "APOD fallback"
       : null;
   const previewHint = getPreviewHint({
-    mode: config.backgroundMode,
+    mode: isSleepModeActive ? "solid-color" : config.backgroundMode,
     imageUrl: previewImageUrl,
     nasaError: nasaApodError,
     isNasaLoading: isNasaApodLoading,
@@ -1124,7 +1366,15 @@ function LockScreenPreview({
             style={{ background: shellBackground }}
           />
 
-          {previewImageUrl ? (
+          {isSleepModeActive ? (
+            <div className="absolute inset-0 z-20 grid place-items-center bg-black">
+              <div className="text-[5.8rem] font-semibold leading-none tracking-[-0.08em] tabular-nums text-white opacity-[0.16]">
+                {timeLabel}
+              </div>
+            </div>
+          ) : null}
+
+          {!isSleepModeActive && previewImageUrl ? (
             <div
               aria-hidden="true"
               className="absolute inset-0 scale-105 bg-cover bg-center"
@@ -1135,17 +1385,20 @@ function LockScreenPreview({
             />
           ) : null}
 
-          <div
-            aria-hidden="true"
-            className="absolute inset-0"
-            style={{
-              background: buildLockScreenOverlayBackground(
-                config.overlayOpacity,
-              ),
-            }}
-          />
+          {!isSleepModeActive ? (
+            <div
+              aria-hidden="true"
+              className="absolute inset-0"
+              style={{
+                background: buildLockScreenOverlayBackground(
+                  config.overlayOpacity,
+                ),
+              }}
+            />
+          ) : null}
 
-          <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+          {!isSleepModeActive ? (
+            <div className="absolute left-4 top-4 flex flex-wrap gap-2">
             <Badge
               variant="secondary"
               className="border-white/10 bg-white/10 text-white"
@@ -1175,32 +1428,37 @@ function LockScreenPreview({
                 {backgroundStateLabel}
               </Badge>
             ) : null}
-          </div>
-
-          <div
-            className={cn(
-              "relative z-10 flex h-full p-6",
-              getPreviewPositionClass(config.clockPosition),
-            )}
-          >
-            <div
-              style={{
-                transform: `scale(${config.clockScale / 100})`,
-                transformOrigin: getScaleOrigin(config.clockPosition),
-              }}
-              className="w-full max-w-[20rem]"
-            >
-              <PreviewClockCard
-                config={config}
-                timeLabel={timeLabel}
-                dateLabel={dateLabel}
-              />
             </div>
-          </div>
+          ) : null}
 
-          <PreviewWidgetRail config={config} mediaSession={mediaSession} />
+          {!isSleepModeActive ? (
+            <div
+              className={cn(
+                "relative z-10 flex h-full p-6",
+                getPreviewPositionClass(config.clockPosition),
+              )}
+            >
+              <div
+                style={{
+                  transform: `scale(${config.clockScale / 100})`,
+                  transformOrigin: getScaleOrigin(config.clockPosition),
+                }}
+                className="w-full max-w-[20rem]"
+              >
+                <PreviewClockCard
+                  config={config}
+                  timeLabel={timeLabel}
+                  dateLabel={dateLabel}
+                />
+              </div>
+            </div>
+          ) : null}
 
-          {previewHint ? (
+          {!isSleepModeActive ? (
+            <PreviewWidgetRail config={config} mediaSession={mediaSession} />
+          ) : null}
+
+          {!isSleepModeActive && previewHint ? (
             <div className="absolute bottom-4 left-4 right-4 z-10 rounded-lg border border-white/10 bg-black/45 px-3 py-2 text-xs text-white/75 backdrop-blur-sm">
               {previewHint}
             </div>
@@ -1675,6 +1933,21 @@ function formatPreviewMediaTime(ms: number) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function splitTimeValue(value: string): [string, string] {
+  const [hour = "00", minute = "00"] = value.split(":");
+  const safeHour = SLEEP_HOUR_OPTIONS.includes(hour) ? hour : "00";
+  const safeMinute = SLEEP_MINUTE_OPTIONS.includes(minute) ? minute : "00";
+
+  return [safeHour, safeMinute];
+}
+
+function composeTimeValue(hour: string, minute: string) {
+  const [safeHour] = splitTimeValue(`${hour}:00`);
+  const [, safeMinute] = splitTimeValue(`00:${minute}`);
+
+  return `${safeHour}:${safeMinute}`;
 }
 
 function getNeutralPreviewBackground(mode: LockScreenConfig["backgroundMode"]) {

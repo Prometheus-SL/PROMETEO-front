@@ -4,6 +4,7 @@ import {
   buildLockScreenOverlayBackground,
   DEFAULT_LOCK_SCREEN_CONFIG,
   hasLockScreenConfig,
+  isLockScreenSleepScheduleActive,
   normalizeLockScreenConfig,
   parseLockScreenPlaylist,
   readLockScreenConfig,
@@ -44,6 +45,12 @@ describe("lock screen config helpers", () => {
         weatherCity: "  Barcelona  ",
         weatherUnits: "imperial",
         weatherLanguage: "en",
+        sleepSchedule: {
+          enabled: true,
+          startTime: "22:30",
+          endTime: "06:45",
+          days: [1, 2, 7, "bad", 1],
+        },
       }),
     ).toEqual({
       ...DEFAULT_LOCK_SCREEN_CONFIG,
@@ -68,6 +75,12 @@ describe("lock screen config helpers", () => {
       weatherCity: "Barcelona",
       weatherUnits: "imperial",
       weatherLanguage: "en",
+      sleepSchedule: {
+        enabled: true,
+        startTime: "22:30",
+        endTime: "06:45",
+        days: [1, 2],
+      },
     });
   });
 
@@ -208,5 +221,41 @@ describe("lock screen config helpers", () => {
     expect(buildLockScreenOverlayBackground(60)).toBe(
       "linear-gradient(180deg, rgba(0, 0, 0, 0.74), rgba(0, 0, 0, 0.88))",
     );
+  });
+
+  it("activates overnight sleep hours using the configured start day", () => {
+    const config = normalizeLockScreenConfig({
+      sleepSchedule: {
+        enabled: true,
+        startTime: "23:00",
+        endTime: "07:00",
+        days: [1, 2, 3, 4, 5],
+      },
+    });
+
+    expect(
+      isLockScreenSleepScheduleActive(
+        config.sleepSchedule,
+        new Date("2026-04-27T23:30:00"),
+      ),
+    ).toBe(true);
+    expect(
+      isLockScreenSleepScheduleActive(
+        config.sleepSchedule,
+        new Date("2026-04-28T06:30:00"),
+      ),
+    ).toBe(true);
+    expect(
+      isLockScreenSleepScheduleActive(
+        config.sleepSchedule,
+        new Date("2026-04-28T08:00:00"),
+      ),
+    ).toBe(false);
+    expect(
+      isLockScreenSleepScheduleActive(
+        config.sleepSchedule,
+        new Date("2026-05-03T23:30:00"),
+      ),
+    ).toBe(false);
   });
 });

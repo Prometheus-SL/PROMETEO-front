@@ -19,6 +19,7 @@ import {
   buildLockScreenOverlayBackground,
   GLOBAL_LOCK_SCREEN_CONFIG_EVENT,
   hasLockScreenConfig,
+  isLockScreenSleepScheduleActive,
   persistGlobalLockScreenConfig,
   readLockScreenConfig,
   readPersistedGlobalLockScreenConfig,
@@ -60,7 +61,12 @@ function LockLayout() {
     loading: false,
     error: null,
   });
-  const isWeatherWidgetEnabled = config.enabledWidgets.includes("weather");
+  const isSleepModeActive = isLockScreenSleepScheduleActive(
+    config.sleepSchedule,
+    now,
+  );
+  const isWeatherWidgetEnabled =
+    !isSleepModeActive && config.enabledWidgets.includes("weather");
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 1_000);
@@ -181,7 +187,7 @@ function LockLayout() {
   ]);
 
   useEffect(() => {
-    if (config.backgroundMode !== "nasa-apod") {
+    if (isSleepModeActive || config.backgroundMode !== "nasa-apod") {
       setNasaApodImageUrl(null);
       return;
     }
@@ -235,7 +241,7 @@ function LockLayout() {
       cancelled = true;
       controller.abort();
     };
-  }, [config.backgroundMode]);
+  }, [config.backgroundMode, isSleepModeActive]);
 
   const timeLabel = useMemo(
     () =>
@@ -260,6 +266,10 @@ function LockLayout() {
   );
 
   const backgroundImageUrl = useMemo(() => {
+    if (isSleepModeActive) {
+      return null;
+    }
+
     if (
       config.backgroundMode === "media-artwork" &&
       mediaSession?.isPlaying &&
@@ -285,19 +295,45 @@ function LockLayout() {
     }
 
     return null;
-  }, [config, mediaSession?.artwork, mediaSession?.isPlaying, nasaApodImageUrl, now]);
+  }, [
+    config,
+    isSleepModeActive,
+    mediaSession?.artwork,
+    mediaSession?.isPlaying,
+    nasaApodImageUrl,
+    now,
+  ]);
 
   const canvasBackground = useMemo(
     () =>
-      resolveLockScreenCanvasBackground(config) ??
-      getNeutralLockBackground(config.backgroundMode),
-    [config],
+      isSleepModeActive
+        ? "#000000"
+        : resolveLockScreenCanvasBackground(config) ??
+          getNeutralLockBackground(config.backgroundMode),
+    [config, isSleepModeActive],
   );
 
   const showNowPlayingWidget =
+    !isSleepModeActive &&
     config.enabledWidgets.includes("now-playing") &&
     mediaSession?.isPlaying === true;
   const hasLockWidgets = isWeatherWidgetEnabled || showNowPlayingWidget;
+
+  if (isSleepModeActive) {
+    return (
+      <div
+        className="absolute inset-0 z-[1000] grid min-h-screen w-full place-items-center overflow-hidden bg-black text-white"
+        aria-label="Sleep hours lock screen"
+      >
+        <time
+          className="max-w-[90vw] text-center text-[5rem] font-semibold leading-none tracking-normal opacity-[0.16] sm:text-[6.5rem]"
+          aria-live="polite"
+        >
+          {timeLabel}
+        </time>
+      </div>
+    );
+  }
 
   return (
     <div className="absolute inset-0 z-[1000] flex min-h-screen w-full overflow-hidden bg-black text-white">
