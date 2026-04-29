@@ -1,0 +1,42 @@
+[
+  {
+    "id": "football-widget",
+    "name": "Football",
+    "description": "League standings, your favorite team's last match, and highlight video.",
+    "category": "entertainment",
+    "size": { "width": 5, "height": 3 },
+    "entry": "./index5x3.tsx",
+    "configSchema": "./config.ts",
+    "audience": "dashboard",
+    "requiredProviders": [],
+    "requiredRole": null,
+    "capabilities": ["football", "sports"],
+    "preview": "./preview.png",
+    "marketplace": {
+      "familyId": "football",
+      "familyName": "Football",
+      "variantLabel": "Standings + Highlights",
+      "variantOrder": 1
+    }
+  },
+  {
+    "id": "football-widget-compact",
+    "name": "Football (Compact)",
+    "description": "Compact card showing live, upcoming or last match for your favorite team.",
+    "category": "entertainment",
+    "size": { "width": 1, "height": 1 },
+    "entry": "./index1x1.tsx",
+    "configSchema": "./config.ts",
+    "audience": "dashboard",
+    "requiredProviders": [],
+    "requiredRole": null,
+    "capabilities": ["football", "sports"],
+    "preview": "./preview-compact.png",
+    "marketplace": {
+      "familyId": "football",
+      "familyName": "Football",
+      "variantLabel": "Compact",
+      "variantOrder": 2
+    }
+  }
+]

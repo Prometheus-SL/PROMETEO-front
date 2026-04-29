@@ -450,3 +450,23 @@
     opacity: 0;
   }
 }
+
+
+/* Football widget standings — hide the native scrollbar entirely.
+   A custom indicator is rendered in React (CustomScrollIndicator) so we get
+   zero browser chrome: no arrow buttons, no native thumb, no quirks across
+   Chrome / Firefox / Opera / Edge. */
+.football-standings-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.football-standings-scroll::-webkit-scrollbar,
+.football-standings-scroll::-webkit-scrollbar-track,
+.football-standings-scroll::-webkit-scrollbar-thumb,
+.football-standings-scroll::-webkit-scrollbar-button,
+.football-standings-scroll::-webkit-scrollbar-corner {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
