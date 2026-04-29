@@ -1,6 +1,6 @@
 {
   "name": "@prometeo-dashboard/desktop-shell",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Electron shell for the PROMETEO dashboard",
   "type": "module",
   "main": "src/main.mjs",
@@ -22,10 +22,10 @@
   },
   "dependencies": {
     "cross-env": "^10.1.0",
-    "electron": "^30.0.0"
+    "electron": "^41.3.0"
   },
   "devDependencies": {
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^26.8.1"
   },
   "engines": {
     "node": ">=20"

@@ -11,10 +11,10 @@ loadEnvFile(path.join(__dirname, "..", ".env.local"));
 
 const dashboardUrl = parseUrl(
   process.env.PROMETEO_DASHBOARD_URL,
-  "http://localhost:5173/client",
+  "https://prometeo.miguelprez.es/client",
 );
 const allowedOrigins = new Set([dashboardUrl.origin]);
-const isKiosk = process.env.PROMETEO_KIOSK === "1";
+const isKiosk = !app.isPackaged || process.env.PROMETEO_KIOSK === "1";
 const devToolsEnabled =
   !app.isPackaged || process.env.PROMETEO_ENABLE_DEVTOOLS === "1";
 const openDevToolsOnStart = process.env.PROMETEO_OPEN_DEVTOOLS === "1";
