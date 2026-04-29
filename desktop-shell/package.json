@@ -1,6 +1,6 @@
 {
   "name": "@prometeo-dashboard/desktop-shell",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Electron shell for the PROMETEO dashboard",
   "type": "module",
   "main": "src/main.mjs",
