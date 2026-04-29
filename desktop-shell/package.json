@@ -1,5 +1,5 @@
 {
-  "name": "@prometeo/desktop-shell",
+  "name": "@prometeo-dashboard/desktop-shell",
   "version": "0.1.0",
   "description": "Electron shell for the PROMETEO dashboard",
   "type": "module",
