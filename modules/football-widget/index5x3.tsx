@@ -30,6 +30,7 @@ export default function FootballWidget5x3({
   const currentLeague = leagues?.find((l) => l.id === leagueId) ?? null;
   const channelUrl = currentLeague?.highlightsChannelUrl ?? null;
   const channelLabel = currentLeague?.highlightsChannelLabel ?? "Watch on YouTube";
+  const supportsStandings = currentLeague?.supportsStandings !== false;
 
   const tableRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -79,7 +80,14 @@ export default function FootballWidget5x3({
         )}
         <div className="grid min-h-0 grid-cols-[1.6fr_1fr] gap-2">
           <div ref={tableRef} className="min-h-0">
-            {standings ? (
+            {!supportsStandings ? (
+              <div className="flex h-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border/40 bg-background/40 p-3 text-center">
+                <p className="text-xs font-semibold text-foreground">Group stage table</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Coming soon for {currentLeague?.label ?? "this competition"}.
+                </p>
+              </div>
+            ) : standings ? (
               <StandingsTable standings={standings} favoriteTeamName={teamName} />
             ) : (
               <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border/40 bg-background/40 text-xs text-muted-foreground">

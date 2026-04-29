@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const schema = z.object({
-  leagueId: z.enum(["laliga"]).default("laliga"),
+  leagueId: z.enum(["laliga", "champions"]).default("laliga"),
   teamName: z.string().default(""),
 });
 

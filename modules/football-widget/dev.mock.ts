@@ -120,6 +120,7 @@ function buildHandlers(state: FootballMockState) {
         id: "laliga",
         label: "LaLiga",
         country: "Spain",
+        supportsStandings: true,
         highlightsChannelUrl: "https://www.youtube.com/@LaLiga",
         highlightsChannelLabel: "LaLiga on YouTube",
       }]),

@@ -67,6 +67,7 @@ export interface FootballLeague {
   id: string;
   label: string;
   country: string;
+  supportsStandings: boolean;
   highlightsChannelUrl: string | null;
   highlightsChannelLabel: string | null;
 }
