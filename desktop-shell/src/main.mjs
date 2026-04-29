@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, session, shell } from "electron";
+import { app, BrowserWindow, screen, session, shell } from "electron";
+import { createBrowserWindowOptions } from "./window-options.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -79,23 +80,21 @@ function isAllowedPermission(permission) {
 }
 
 function createWindow() {
+  const displayBounds = screen.getPrimaryDisplay().bounds;
   mainWindow = new BrowserWindow({
-    fullscreen: isKiosk,
-    resizable: false,
-    autoHideMenuBar: true,
-    thickFrame: !isKiosk,
-    backgroundColor: "#08111f",
-    frame: !isKiosk,
-    kiosk: isKiosk,
-    webPreferences: {
-      contextIsolation: true,
-      sandbox: true,
-      nodeIntegration: false,
-      devTools: devToolsEnabled,
-    },
-    icon: path.join(__dirname, "..", "assets", "icon.png"),
+    ...createBrowserWindowOptions({
+      displayBounds,
+      isKiosk,
+      devToolsEnabled,
+      iconPath: path.join(__dirname, "..", "assets", "icon.png"),
+    }),
   });
 
+  if (isKiosk) {
+    mainWindow.setBounds(displayBounds);
+    mainWindow.setFullScreen(true);
+    mainWindow.setKiosk(true);
+  }
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
