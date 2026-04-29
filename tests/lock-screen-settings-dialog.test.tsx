@@ -61,4 +61,25 @@ describe("LockScreenSettingsPanel", () => {
 
     expect(document.body.textContent).toContain("Lock screen");
   });
+
+  it("renders sleep hours controls", async () => {
+    root = createRoot(container!);
+
+    await act(async () => {
+      root!.render(
+        <LockScreenSettingsPanel
+          initialConfig={DEFAULT_LOCK_SCREEN_CONFIG}
+          onSave={vi.fn(async () => undefined)}
+        />,
+      );
+    });
+
+    expect(document.body.textContent).toContain("Sleep hours");
+    expect(document.querySelector("#lock-sleep-start-time")).not.toBeNull();
+    expect(document.querySelector("#lock-sleep-end-time")).not.toBeNull();
+    expect(document.querySelector("#lock-sleep-start-time-hour")).not.toBeNull();
+    expect(document.querySelector("#lock-sleep-start-time-minute")).not.toBeNull();
+    expect(document.querySelector("input[type='time']")).toBeNull();
+    expect(document.querySelector("#lock-sleep-day-1")).not.toBeNull();
+  });
 });

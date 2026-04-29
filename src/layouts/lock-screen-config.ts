@@ -29,6 +29,7 @@ export const LOCK_SCREEN_WIDGET_IDS = [
 ] as const;
 const LOCK_SCREEN_WEATHER_UNITS = ["metric", "imperial"] as const;
 const LOCK_SCREEN_WEATHER_LANGUAGES = ["es", "en", "fr", "de"] as const;
+const LOCK_SCREEN_WEEK_DAYS = [0, 1, 2, 3, 4, 5, 6] as const;
 
 export type LockScreenBackgroundMode =
   (typeof LOCK_SCREEN_BACKGROUND_MODES)[number];
@@ -40,6 +41,13 @@ export type LockScreenWeatherUnits =
   (typeof LOCK_SCREEN_WEATHER_UNITS)[number];
 export type LockScreenWeatherLanguage =
   (typeof LOCK_SCREEN_WEATHER_LANGUAGES)[number];
+export type LockScreenWeekDay = (typeof LOCK_SCREEN_WEEK_DAYS)[number];
+export type LockScreenSleepSchedule = {
+  enabled: boolean;
+  startTime: string;
+  endTime: string;
+  days: LockScreenWeekDay[];
+};
 
 export type LockScreenConfig = {
   backgroundMode: LockScreenBackgroundMode;
@@ -63,6 +71,7 @@ export type LockScreenConfig = {
   weatherCity: string;
   weatherUnits: LockScreenWeatherUnits;
   weatherLanguage: LockScreenWeatherLanguage;
+  sleepSchedule: LockScreenSleepSchedule;
 };
 
 export const DEFAULT_LOCK_SCREEN_CONFIG: LockScreenConfig = {
@@ -87,6 +96,12 @@ export const DEFAULT_LOCK_SCREEN_CONFIG: LockScreenConfig = {
   weatherCity: "Madrid",
   weatherUnits: "metric",
   weatherLanguage: "es",
+  sleepSchedule: {
+    enabled: false,
+    startTime: "23:00",
+    endTime: "07:00",
+    days: [...LOCK_SCREEN_WEEK_DAYS],
+  },
 };
 
 export const CLIENT_LOCK_SCREEN_STYLE_STORAGE_KEY =
@@ -180,6 +195,7 @@ export function normalizeLockScreenConfig(input: unknown): LockScreenConfig {
     LOCK_SCREEN_WEATHER_LANGUAGES,
     DEFAULT_LOCK_SCREEN_CONFIG.weatherLanguage,
   );
+  const sleepSchedule = normalizeLockScreenSleepSchedule(source.sleepSchedule);
 
   return {
     backgroundMode,
@@ -212,6 +228,7 @@ export function normalizeLockScreenConfig(input: unknown): LockScreenConfig {
     weatherCity,
     weatherUnits,
     weatherLanguage,
+    sleepSchedule,
   };
 }
 
@@ -348,6 +365,46 @@ export function buildLockScreenOverlayBackground(overlayOpacity: number) {
   return `linear-gradient(180deg, rgba(0, 0, 0, ${startAlpha}), rgba(0, 0, 0, ${endAlpha}))`;
 }
 
+export function isLockScreenSleepScheduleActive(
+  schedule: LockScreenSleepSchedule,
+  now = new Date(),
+): boolean {
+  const normalized = normalizeLockScreenSleepSchedule(schedule);
+
+  if (!normalized.enabled || normalized.days.length === 0) {
+    return false;
+  }
+
+  const startMinutes = parseTimeToMinutes(normalized.startTime);
+  const endMinutes = parseTimeToMinutes(normalized.endTime);
+
+  if (startMinutes === endMinutes) {
+    return false;
+  }
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const currentDay = now.getDay() as LockScreenWeekDay;
+
+  if (startMinutes < endMinutes) {
+    return (
+      normalized.days.includes(currentDay) &&
+      currentMinutes >= startMinutes &&
+      currentMinutes < endMinutes
+    );
+  }
+
+  if (currentMinutes >= startMinutes) {
+    return normalized.days.includes(currentDay);
+  }
+
+  if (currentMinutes < endMinutes) {
+    const previousDay = ((currentDay + 6) % 7) as LockScreenWeekDay;
+    return normalized.days.includes(previousDay);
+  }
+
+  return false;
+}
+
 export function persistClientLockScreenStyle(
   style?: Record<string, unknown> | null,
 ) {
@@ -430,6 +487,56 @@ function normalizeLockScreenWidgets(input: unknown): LockScreenWidgetId[] {
   }
 
   return Array.from(seen);
+}
+
+function normalizeLockScreenSleepSchedule(input: unknown): LockScreenSleepSchedule {
+  const source = asRecord(input);
+
+  return {
+    enabled:
+      typeof source.enabled === "boolean"
+        ? source.enabled
+        : DEFAULT_LOCK_SCREEN_CONFIG.sleepSchedule.enabled,
+    startTime: normalizeTime(
+      source.startTime,
+      DEFAULT_LOCK_SCREEN_CONFIG.sleepSchedule.startTime,
+    ),
+    endTime: normalizeTime(
+      source.endTime,
+      DEFAULT_LOCK_SCREEN_CONFIG.sleepSchedule.endTime,
+    ),
+    days: normalizeLockScreenSleepDays(source.days),
+  };
+}
+
+function normalizeLockScreenSleepDays(input: unknown): LockScreenWeekDay[] {
+  if (!Array.isArray(input)) {
+    return [...DEFAULT_LOCK_SCREEN_CONFIG.sleepSchedule.days];
+  }
+
+  const seen = new Set<LockScreenWeekDay>();
+
+  for (const value of input) {
+    if (
+      typeof value === "number" &&
+      Number.isInteger(value) &&
+      LOCK_SCREEN_WEEK_DAYS.includes(value as LockScreenWeekDay)
+    ) {
+      seen.add(value as LockScreenWeekDay);
+    }
+  }
+
+  return LOCK_SCREEN_WEEK_DAYS.filter((day) => seen.has(day));
+}
+
+function normalizeTime(value: unknown, fallback: string) {
+  const candidate = String(value || "").trim();
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(candidate) ? candidate : fallback;
+}
+
+function parseTimeToMinutes(value: string) {
+  const [hours = "0", minutes = "0"] = value.split(":");
+  return Number(hours) * 60 + Number(minutes);
 }
 
 function normalizeText(value: unknown, fallback: string, maxLength: number) {

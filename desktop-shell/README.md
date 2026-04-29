@@ -1,4 +1,4 @@
-# @prometeo/desktop-shell
+# @prometeo-dashboard/desktop-shell
 
 Electron shell to launch the PROMETEO dashboard from terminal with:
 
@@ -9,7 +9,7 @@ prometeo
 ## Install
 
 ```bash
-npm install -g @prometeo/desktop-shell
+npm install -g @prometeo-dashboard/desktop-shell
 ```
 
 ## Usage

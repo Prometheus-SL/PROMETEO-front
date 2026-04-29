@@ -8,7 +8,7 @@ import ErrorBoundary from "./components/common/ErrorBoundary";
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
         <AuthProvider>
           <SidebarProvider
             style={

@@ -1,6 +1,6 @@
 {
-  "name": "@prometeo/desktop-shell",
-  "version": "0.1.0",
+  "name": "@prometeo-dashboard/desktop-shell",
+  "version": "0.4.0",
   "description": "Electron shell for the PROMETEO dashboard",
   "type": "module",
   "main": "src/main.mjs",
@@ -14,6 +14,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "cross-env electron .",
+    "test": "node --test test/*.test.mjs",
     "pack:dry-run": "npm pack --dry-run",
     "pack:dir": "electron-builder --dir",
     "pack:linux": "electron-builder --linux AppImage deb",
@@ -22,10 +23,10 @@
   },
   "dependencies": {
     "cross-env": "^10.1.0",
-    "electron": "^30.0.0"
+    "electron": "^41.3.0"
   },
   "devDependencies": {
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^26.8.1"
   },
   "engines": {
     "node": ">=20"

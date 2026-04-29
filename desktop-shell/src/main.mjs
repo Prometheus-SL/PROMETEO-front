@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, session, shell } from "electron";
+import { app, BrowserWindow, screen, session, shell } from "electron";
+import { createBrowserWindowOptions } from "./window-options.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,10 +12,10 @@ loadEnvFile(path.join(__dirname, "..", ".env.local"));
 
 const dashboardUrl = parseUrl(
   process.env.PROMETEO_DASHBOARD_URL,
-  "http://localhost:5173/client",
+  "https://prometeo.miguelprez.es/client",
 );
 const allowedOrigins = new Set([dashboardUrl.origin]);
-const isKiosk = process.env.PROMETEO_KIOSK === "1";
+const isKiosk = !app.isPackaged || process.env.PROMETEO_KIOSK === "1";
 const devToolsEnabled =
   !app.isPackaged || process.env.PROMETEO_ENABLE_DEVTOOLS === "1";
 const openDevToolsOnStart = process.env.PROMETEO_OPEN_DEVTOOLS === "1";
@@ -79,27 +80,21 @@ function isAllowedPermission(permission) {
 }
 
 function createWindow() {
+  const displayBounds = screen.getPrimaryDisplay().bounds;
   mainWindow = new BrowserWindow({
-    width: 1024,
-    height: 600 + (isKiosk ? 0 : 40),
-    minWidth: 1024,
-    minHeight: 600,
-    fullscreen: isKiosk,
-    resizable: false,
-    autoHideMenuBar: true,
-    thickFrame: !isKiosk,
-    backgroundColor: "#08111f",
-    frame: !isKiosk,
-    kiosk: isKiosk,
-    webPreferences: {
-      contextIsolation: true,
-      sandbox: true,
-      nodeIntegration: false,
-      devTools: devToolsEnabled,
-    },
-    icon: path.join(__dirname, "..", "assets", "icon.png"),
+    ...createBrowserWindowOptions({
+      displayBounds,
+      isKiosk,
+      devToolsEnabled,
+      iconPath: path.join(__dirname, "..", "assets", "icon.png"),
+    }),
   });
 
+  if (isKiosk) {
+    mainWindow.setBounds(displayBounds);
+    mainWindow.setFullScreen(true);
+    mainWindow.setKiosk(true);
+  }
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
