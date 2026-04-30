@@ -98,13 +98,14 @@ export default function FootballWidget1x1({
 
   const { match, state } = pickMatchForCompact(snapshot);
   if (!match) {
+    const resolvedName = snapshot.team.name || snapshot.team.shortName || teamName;
     return (
       <WidgetShell accent="slate">
         <WidgetContent className="flex items-center">
           <WidgetState
             accent="slate"
-            title={snapshot.team.shortName || "Football"}
-            message="No matches available."
+            title={resolvedName || "Football"}
+            message="No matches in the next 30 days."
           />
         </WidgetContent>
       </WidgetShell>
