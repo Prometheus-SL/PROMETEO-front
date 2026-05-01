@@ -11,7 +11,10 @@ import {
 } from "./football-service";
 
 const POLL_MS = {
-  live: 30_000,
+  // Live scores need to feel near real-time. With a 10s frontend poll and the
+  // backend's FotMob cache also at ~5s, a goal shows up within ~10–15s of
+  // happening (vs. up to ~30–60s at 30s polling).
+  live: 10_000,
   upcomingClose: 60_000,
   upcoming: 5 * 60_000,
   finished: 5 * 60_000,

@@ -6,7 +6,7 @@ import {
   WidgetState,
 } from "@/modules/ui/WidgetShell";
 
-import { Crest, ScoreLine } from "./widget-ui";
+import { Crest, LiveClock, ScoreLine } from "./widget-ui";
 import type { FootballMatch } from "./football-service";
 import { useFootballState } from "./useFootballState";
 
@@ -128,7 +128,15 @@ export default function FootballWidget1x1({
             {state === "upcoming" ? (
               <span className="text-lg font-semibold text-muted-foreground">vs</span>
             ) : (
-              <ScoreLine match={match} compact />
+              <ScoreLine
+                match={match}
+                compact
+                centerSlot={
+                  state === "live" ? (
+                    <LiveClock statusDescription={match.statusDescription} size="sm" />
+                  ) : undefined
+                }
+              />
             )}
           </div>
           <div className="flex flex-col items-center gap-1">
@@ -138,12 +146,6 @@ export default function FootballWidget1x1({
             </span>
           </div>
         </div>
-        {state === "live" && (
-          <div className="flex items-center justify-center text-[9px] uppercase tracking-[0.08em] text-muted-foreground">
-            <span className="mr-1 inline-block size-1.5 animate-pulse rounded-full bg-rose-500" />
-            LIVE · {match.statusDescription || "In progress"}
-          </div>
-        )}
         {state === "upcoming" && (
           <div className="flex items-center justify-center text-[9px] uppercase tracking-[0.08em] text-muted-foreground">
             {formatCountdown(match.startTimestamp, now)}

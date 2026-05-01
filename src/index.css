@@ -470,3 +470,6 @@
   height: 0 !important;
   background: transparent !important;
 }
+
+/* IndeterminateBar styles live colocated next to the component
+   (src/components/ui/indeterminate-bar.css). */

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { IndeterminateBar } from "@/components/ui/indeterminate-bar";
 import type {
   FootballMatch,
   FootballStandings,
@@ -53,17 +54,109 @@ export function Crest({
   );
 }
 
-export function ScoreLine({ match, compact = false }: { match: FootballMatch; compact?: boolean }) {
+export function ScoreLine({
+  match,
+  compact = false,
+  centerSlot,
+}: {
+  match: FootballMatch;
+  compact?: boolean;
+  centerSlot?: ReactNode;
+}) {
   const homeScore = match.home.score ?? 0;
   const awayScore = match.away.score ?? 0;
   return (
     <div
       className={cn(
-        "tabular-nums font-semibold text-foreground",
+        "flex items-center gap-2 tabular-nums font-semibold text-foreground",
         compact ? "text-base" : "text-2xl",
       )}
     >
-      {homeScore} <span className="text-muted-foreground">-</span> {awayScore}
+      <span>{homeScore}</span>
+      {centerSlot ?? <span className="text-muted-foreground">-</span>}
+      <span>{awayScore}</span>
+    </div>
+  );
+}
+
+// FotMob's `liveTime.short` uses formats like "37'", "45+2'", "HT", "FT".
+// We extract the displayed game minute (45+2 → 47) so the local seconds
+// counter has a stable anchor; non-numeric tokens (HT/FT) are surfaced as-is.
+function parseGameMinute(raw: string): {
+  minute: number | null;
+  isHalftime: boolean;
+  fallback: string;
+} {
+  const text = (raw || "").trim();
+  if (!text) return { minute: null, isHalftime: false, fallback: "" };
+  if (/^(half[- ]?time|ht|descanso)$/i.test(text)) {
+    return { minute: null, isHalftime: true, fallback: "HT" };
+  }
+  const match = text.match(/^(\d{1,3})(?:\s*\+\s*(\d{1,2}))?\s*'?$/);
+  if (match) {
+    const base = parseInt(match[1], 10);
+    const added = match[2] ? parseInt(match[2], 10) : 0;
+    return { minute: base + added, isHalftime: false, fallback: text };
+  }
+  return { minute: null, isHalftime: false, fallback: text };
+}
+
+// Live clock shown between scores. The MINUTE is the backend's (FotMob's),
+// which already accounts for halftime / stoppage / extra time. SECONDS are
+// counted locally from the moment the minute last advanced — they are an
+// estimate but tick smoothly.
+//
+// If FotMob doesn't provide a parseable minute (e.g. status comes back as
+// just "In progress"), we render the bare "LIVE" label rather than guessing
+// the minute from kickoff: a wall-clock estimate would drift by ~15 min after
+// halftime and would mislead the user about the actual game time.
+export function LiveClock({
+  statusDescription,
+  size = "md",
+}: {
+  statusDescription: string;
+  size?: "sm" | "md";
+}) {
+  const parsed = parseGameMinute(statusDescription);
+  const [, setTick] = useState(0);
+  const minuteRef = useRef<number | null>(null);
+  const anchorRef = useRef<number>(Date.now());
+
+  if (parsed.minute !== null && parsed.minute !== minuteRef.current) {
+    minuteRef.current = parsed.minute;
+    anchorRef.current = Date.now();
+  }
+
+  useEffect(() => {
+    if (parsed.isHalftime || parsed.minute === null) return;
+    const id = window.setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [parsed.isHalftime, parsed.minute]);
+
+  const textCls = size === "sm" ? "text-[11px]" : "text-xs";
+  const wrapCls = size === "sm" ? "w-16" : "w-20";
+
+  let label: ReactNode;
+  if (parsed.isHalftime) {
+    label = "HT";
+  } else if (parsed.minute === null) {
+    label = "LIVE";
+  } else {
+    const seconds = Math.min(
+      59,
+      Math.max(0, Math.floor((Date.now() - anchorRef.current) / 1000)),
+    );
+    label = `${String(parsed.minute).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-1.5 leading-none">
+      <span className={cn("font-semibold tabular-nums text-emerald-400", textCls)}>
+        {label}
+      </span>
+      <div className={wrapCls}>
+        <IndeterminateBar />
+      </div>
     </div>
   );
 }
@@ -95,7 +188,14 @@ export function MatchHeader({
         </span>
       </div>
       <div className="flex flex-col items-center justify-center">
-        <ScoreLine match={match} />
+        <ScoreLine
+          match={match}
+          centerSlot={
+            match.status === "inprogress" ? (
+              <LiveClock statusDescription={match.statusDescription} />
+            ) : undefined
+          }
+        />
       </div>
       <div className="flex min-w-0 items-center justify-end gap-2">
         <span
