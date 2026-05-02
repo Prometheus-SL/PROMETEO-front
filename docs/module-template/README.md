@@ -30,26 +30,26 @@ The optional files are included because they represent common patterns, not beca
 
 ### Required fields
 
-| Field | Type | Description |
-|---|---|---|
-| `id` | string | Unique module ID. Must match the key used in the backend module registry. |
-| `name` | string | Display name shown in the marketplace. |
-| `description` | string | One-sentence description shown in the marketplace. |
-| `category` | string | One of: `utilities`, `productivity`, `smart-home`, `media`, `social`, `development`, `entertainment`. |
-| `size.width` | number | Number of dashboard grid columns (1–3). |
-| `size.height` | number | Number of dashboard grid rows (1–4). |
-| `entry` | string | Relative path to the module's React entry component. |
-| `audience` | string | Always `"dashboard"` for standard modules. |
+| Field         | Type   | Description                                                                                           |
+| ------------- | ------ | ----------------------------------------------------------------------------------------------------- |
+| `id`          | string | Unique module ID. Must match the key used in the backend module registry.                             |
+| `name`        | string | Display name shown in the marketplace.                                                                |
+| `description` | string | One-sentence description shown in the marketplace.                                                    |
+| `category`    | string | One of: `utilities`, `productivity`, `smart-home`, `media`, `social`, `development`, `entertainment`. |
+| `size.width`  | number | Number of dashboard grid columns (1–3).                                                               |
+| `size.height` | number | Number of dashboard grid rows (1–4).                                                                  |
+| `entry`       | string | Relative path to the module's React entry component.                                                  |
+| `audience`    | string | Always `"dashboard"` for standard modules.                                                            |
 
 ### Optional fields
 
-| Field | Type | Description |
-|---|---|---|
-| `configSchema` | string | Relative path to a Zod schema file for the module configuration. |
-| `requiredProviders` | string[] | OAuth providers that must be connected before the module works (e.g. `["google"]`, `["github"]`, `["discord"]`). |
-| `requiredRole` | string \| null | Minimum user role required to add this module. `null` means any role. |
-| `capabilities` | string[] | Feature tags used by the marketplace and admin UI (e.g. `["smart-home", "lights"]`). |
-| `preview` | string | Relative path to a PNG screenshot shown in the marketplace. |
+| Field               | Type           | Description                                                                                                      |
+| ------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `configSchema`      | string         | Relative path to a Zod schema file for the module configuration.                                                 |
+| `requiredProviders` | string[]       | OAuth providers that must be connected before the module works (e.g. `["google"]`, `["github"]`, `["discord"]`). |
+| `requiredRole`      | string \| null | Minimum user role required to add this module. `null` means any role.                                            |
+| `capabilities`      | string[]       | Feature tags used by the marketplace and admin UI (e.g. `["smart-home", "lights"]`).                             |
+| `preview`           | string         | Relative path to a PNG screenshot shown in the marketplace.                                                      |
 
 ### `ai` block — Spark AI integration
 
@@ -76,12 +76,12 @@ When a `module.json` exports more than one size variant of the same concept, use
 }
 ```
 
-| Field | Description |
-|---|---|
-| `familyId` | Shared ID across all variants of this module family. |
-| `familyName` | Display name for the family card. |
+| Field          | Description                                                        |
+| -------------- | ------------------------------------------------------------------ |
+| `familyId`     | Shared ID across all variants of this module family.               |
+| `familyName`   | Display name for the family card.                                  |
 | `variantLabel` | Label for this specific variant (`"Standard"`, `"Compact"`, etc.). |
-| `variantOrder` | Sort order within the family (1 = first). |
+| `variantOrder` | Sort order within the family (1 = first).                          |
 
 Omit for standalone modules that have no variants.
 
