@@ -11,6 +11,11 @@
     "requiredProviders": ["github"],
     "requiredRole": null,
     "capabilities": ["github", "notifications"],
+    "ai": {
+      "actions": [
+        "github.pulse"
+      ]
+    },
     "preview": "./preview.png",
     "marketplace": {
       "familyId": "github-pulse",
@@ -31,6 +36,11 @@
     "requiredProviders": ["github"],
     "requiredRole": null,
     "capabilities": ["github", "notifications"],
+    "ai": {
+      "actions": [
+        "github.pulse"
+      ]
+    },
     "preview": "./preview-compact.png",
     "marketplace": {
       "familyId": "github-pulse",

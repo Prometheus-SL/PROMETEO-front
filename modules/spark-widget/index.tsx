@@ -8,10 +8,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useSharedContext } from "@/hooks/useSharedContext";
-import type { SharedAction } from "@/contexts/SharedContext";
 import { Particles } from "@/components/ui/shadcn-io/particles";
-import { askAI, transcribeAudio } from "./ai-service";
+import {
+  askAI,
+  transcribeAudio,
+} from "./ai-service";
 import PooSvg from "./complements/poo.svg";
 import { renderSparkAccessory, type Accessory } from "./spark-accessories";
 
@@ -96,9 +97,6 @@ export default function SparkChispaCard({
   const inactivityMs = Number(config["inactivityMs"] ?? 20000); // 20s
   const stepMs = Number(config["inactivityStepMs"] ?? 20000); // cada 20s cambia
 
-  const { getActions, subscribeActions, registerAction, unregisterAction } =
-    useSharedContext();
-  const [availableActions, setAvailableActions] = useState<SharedAction[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [assistantMessage, setAssistantMessage] = useState<string>("");
@@ -195,112 +193,6 @@ export default function SparkChispaCard({
     };
   }, [pooSpawnEnabled, spawnMin, spawnMax, pooLimit]);
 
-  useEffect(() => {
-    setAvailableActions(getActions());
-    const unsubscribe = subscribeActions(setAvailableActions);
-    return unsubscribe;
-  }, [getActions, subscribeActions]);
-
-  useEffect(() => {
-    const actions = [
-      {
-        id: "spark-widget:help",
-        widgetId: "spark-widget",
-        title: "Ayuda",
-        description: "Explica qué cosas puedo hacer",
-        intentTags: ["ayuda", "qué puedes hacer", "cómo funciona", "qué haces"],
-        run: () => {
-          const allActions = getActions().filter(
-            (a) => a.id !== "spark-widget:help",
-          );
-          const names = allActions.map((a) => a.title).join(", ");
-          return {
-            success: true,
-            message:
-              allActions.length > 0
-                ? `Puedo ejecutar: ${names}.`
-                : "Aún no hay acciones de otros widgets. Instala o expón acciones para controlarlas.",
-          };
-        },
-      },
-      {
-        id: "spark-widget:time",
-        widgetId: "spark-widget",
-        title: "Decir la hora",
-        description: "Te dice la hora actual",
-        intentTags: ["qué hora es", "hora", "dime la hora", "hora actual"],
-        run: () => {
-          const now = new Date();
-          const hours = now.getHours();
-          const minutes = now.getMinutes();
-          const timeStr = `${hours}:${minutes.toString().padStart(2, "0")}`;
-          return {
-            success: true,
-            message: `Son las ${timeStr}.`,
-          };
-        },
-      },
-      {
-        id: "spark-widget:date",
-        widgetId: "spark-widget",
-        title: "Decir la fecha",
-        description: "Te dice la fecha actual",
-        intentTags: [
-          "qué día es",
-          "fecha",
-          "dime la fecha",
-          "fecha actual",
-          "qué fecha es",
-        ],
-        run: () => {
-          const now = new Date();
-          const options: Intl.DateTimeFormatOptions = {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          };
-          const dateStr = now.toLocaleDateString("es-ES", options);
-          return {
-            success: true,
-            message: `Hoy es ${dateStr}.`,
-          };
-        },
-      },
-      {
-        id: "spark-widget:joke",
-        widgetId: "spark-widget",
-        title: "Contar un chiste",
-        description: "Te cuenta un chiste aleatorio",
-        intentTags: [
-          "cuéntame un chiste",
-          "dime un chiste",
-          "chiste",
-          "hazme reír",
-        ],
-        run: () => {
-          const jokes = [
-            "¿Por qué los pájaros no usan Facebook? Porque ya tienen Twitter.",
-            "¿Cómo se despiden los químicos? Ácido un placer.",
-            "¿Qué le dice un techo a otro? Techo de menos.",
-            "¿Por qué las focas del circo miran siempre hacia arriba? Porque es donde están los focos.",
-            "¿Cuál es el colmo de un electricista? Que su mujer se llame Luz y sus hijos le sigan la corriente.",
-          ];
-          const joke = jokes[Math.floor(Math.random() * jokes.length)];
-          return {
-            success: true,
-            message: joke,
-          };
-        },
-      },
-    ];
-
-    actions.forEach(registerAction);
-    return () => {
-      actions.forEach((action) => unregisterAction(action.id));
-    };
-  }, [getActions, registerAction, unregisterAction]);
-
   // Ya no necesitamos el timeout del modal, se cierra cuando termina el TTS
   useEffect(() => {
     if (isListening) {
@@ -329,77 +221,26 @@ export default function SparkChispaCard({
     [setShowModal],
   );
 
-  const normalizedActions = useMemo(
-    () =>
-      availableActions.map((action) => ({
-        action,
-        title: action.title.toLowerCase(),
-        tags: (action.intentTags ?? []).map((tag) => tag.toLowerCase()),
-      })),
-    [availableActions],
-  );
-
-  const pickAction = useCallback(
-    (transcript: string): SharedAction | null => {
-      const normalizedTranscript = transcript.toLowerCase();
-      let best: { action: SharedAction; score: number } | null = null;
-
-      for (const candidate of normalizedActions) {
-        let score = 0;
-        for (const tag of candidate.tags) {
-          if (normalizedTranscript.includes(tag)) score += 3;
-        }
-        if (normalizedTranscript.includes(candidate.title)) score += 1;
-
-        if (score > 0 && (!best || score > best.score)) {
-          best = { action: candidate.action, score };
-        }
-      }
-
-      return best?.action ?? null;
-    },
-    [normalizedActions],
-  );
-
   const handleTranscript = useCallback(
     async (transcript: string) => {
       setLastTranscript(transcript);
-      const action = pickAction(transcript);
-
-      if (!action) {
-        setAssistantMessage("Pensando...");
-        setShowModal(true);
-
-        try {
-          const aiResponse = await askAI(transcript);
-          setAssistantMessage(aiResponse);
-          speak(aiResponse);
-        } catch (error) {
-          console.error("Error calling AI:", error);
-          const fallbackMessage =
-            "No encontré una acción para eso y no pude consultar la IA. Prueba con 'pausa la música' o 'actualiza el clima'.";
-          setAssistantMessage(fallbackMessage);
-          speak(fallbackMessage);
-        }
-        return;
-      }
+      setAssistantMessage("Pensando...");
+      setShowModal(true);
 
       try {
-        const result = await action.run({ transcript });
-        const message = result?.message ?? "Acción ejecutada.";
-        setAssistantMessage(message);
-        setShowModal(true);
-        speak(message);
+        const aiResponse = await askAI(transcript);
+        setAssistantMessage(aiResponse);
+        speak(aiResponse);
       } catch (error) {
-        console.error("Error executing action", error);
-        const message = "Hubo un error al ejecutar la acción.";
-        setAssistantMessage(message);
-        setShowModal(true);
-        speak(message);
-        toast.error(message);
+        console.error("Error calling AI:", error);
+        const fallbackMessage =
+          "No pude consultar a Spark ahora mismo. Prueba otra vez en un momento.";
+        setAssistantMessage(fallbackMessage);
+        speak(fallbackMessage);
+        toast.error(fallbackMessage);
       }
     },
-    [pickAction, speak],
+    [speak],
   );
 
   const stopMediaStream = useCallback((stream?: MediaStream | null) => {

@@ -19,6 +19,23 @@
       "media",
       "spotify"
     ],
+    "ai": {
+      "actions": [
+        "spotify.status",
+        "spotify.play",
+        "spotify.track.play",
+        "spotify.pause",
+        "spotify.next",
+        "spotify.previous",
+        "spotify.volume.up",
+        "spotify.volume.down",
+        "spotify.volume.set",
+        "spotify.shuffle.set",
+        "spotify.repeat.set",
+        "spotify.seek.to",
+        "spotify.seek.by"
+      ]
+    },
     "preview": "./preview.png",
     "marketplace": {
       "familyId": "spotify-now-playing",
@@ -47,6 +64,23 @@
       "media",
       "spotify"
     ],
+    "ai": {
+      "actions": [
+        "spotify.status",
+        "spotify.play",
+        "spotify.track.play",
+        "spotify.pause",
+        "spotify.next",
+        "spotify.previous",
+        "spotify.volume.up",
+        "spotify.volume.down",
+        "spotify.volume.set",
+        "spotify.shuffle.set",
+        "spotify.repeat.set",
+        "spotify.seek.to",
+        "spotify.seek.by"
+      ]
+    },
     "preview": "./preview-compact.png",
     "marketplace": {
       "familyId": "spotify-now-playing",
@@ -75,6 +109,23 @@
       "media",
       "spotify"
     ],
+    "ai": {
+      "actions": [
+        "spotify.status",
+        "spotify.play",
+        "spotify.track.play",
+        "spotify.pause",
+        "spotify.next",
+        "spotify.previous",
+        "spotify.volume.up",
+        "spotify.volume.down",
+        "spotify.volume.set",
+        "spotify.shuffle.set",
+        "spotify.repeat.set",
+        "spotify.seek.to",
+        "spotify.seek.by"
+      ]
+    },
     "preview": "./preview-queue.png",
     "marketplace": {
       "familyId": "spotify-now-playing",

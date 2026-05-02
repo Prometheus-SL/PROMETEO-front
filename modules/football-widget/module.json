@@ -11,6 +11,13 @@
     "requiredProviders": [],
     "requiredRole": null,
     "capabilities": ["football", "sports"],
+    "ai": {
+      "actions": [
+        "football.team.summary",
+        "football.featured.summary",
+        "football.standings"
+      ]
+    },
     "preview": "./preview.png",
     "marketplace": {
       "familyId": "football",
@@ -31,6 +38,13 @@
     "requiredProviders": [],
     "requiredRole": null,
     "capabilities": ["football", "sports"],
+    "ai": {
+      "actions": [
+        "football.team.summary",
+        "football.featured.summary",
+        "football.standings"
+      ]
+    },
     "preview": "./preview-compact.png",
     "marketplace": {
       "familyId": "football",

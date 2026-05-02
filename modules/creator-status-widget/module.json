@@ -11,6 +11,11 @@
     "requiredProviders": [],
     "requiredRole": null,
     "capabilities": ["creator", "live"],
+    "ai": {
+      "actions": [
+        "creator.status"
+      ]
+    },
     "preview": "./preview.png",
     "marketplace": {
       "familyId": "creator-status",
@@ -31,6 +36,11 @@
     "requiredProviders": [],
     "requiredRole": null,
     "capabilities": ["creator", "live"],
+    "ai": {
+      "actions": [
+        "creator.status"
+      ]
+    },
     "preview": "./preview-compact.png",
     "marketplace": {
       "familyId": "creator-status",

@@ -9,6 +9,9 @@ const moduleMarketplaceSchema = z.object({
     variantLabel: z.string().min(1).optional(),
     variantOrder: z.number().optional(),
 }).optional()
+const moduleAiSchema = z.object({
+    actions: z.array(z.string().min(1)).default([]),
+}).optional()
 
 // Esquema Zod para module.json
 export const moduleMetaSchema = z.object({
@@ -28,6 +31,7 @@ export const moduleMetaSchema = z.object({
     requiredRole: moduleRoleSchema.nullable().default(null),
     capabilities: z.array(z.string().min(1)).default([]),
     marketplace: moduleMarketplaceSchema,
+    ai: moduleAiSchema,
 })
 
 export type ModuleMetaValidated = z.infer<typeof moduleMetaSchema> & ModuleMeta

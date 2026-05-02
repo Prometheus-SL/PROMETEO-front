@@ -11,6 +11,11 @@
     "requiredProviders": ["google"],
     "requiredRole": null,
     "capabilities": ["tasks", "focus"],
+    "ai": {
+      "actions": [
+        "google.summary.tasks"
+      ]
+    },
     "marketplace": {
       "familyId": "tasks-today",
       "familyName": "Tasks Today",
@@ -30,6 +35,11 @@
     "requiredProviders": ["google"],
     "requiredRole": null,
     "capabilities": ["tasks", "focus"],
+    "ai": {
+      "actions": [
+        "google.summary.tasks"
+      ]
+    },
     "marketplace": {
       "familyId": "tasks-today",
       "familyName": "Tasks Today",

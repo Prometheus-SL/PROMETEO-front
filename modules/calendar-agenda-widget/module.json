@@ -11,6 +11,11 @@
     "requiredProviders": ["google"],
     "requiredRole": null,
     "capabilities": ["calendar", "focus"],
+    "ai": {
+      "actions": [
+        "google.summary.calendar"
+      ]
+    },
     "preview": "./preview.png",
     "marketplace": {
       "familyId": "calendar-agenda",
@@ -31,6 +36,11 @@
     "requiredProviders": ["google"],
     "requiredRole": null,
     "capabilities": ["calendar", "focus"],
+    "ai": {
+      "actions": [
+        "google.summary.calendar"
+      ]
+    },
     "preview": "./preview-compact.png",
     "marketplace": {
       "familyId": "calendar-agenda",

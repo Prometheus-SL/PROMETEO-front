@@ -1,5 +1,5 @@
 import path from "path";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 
 const dirname =
@@ -16,5 +16,9 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    exclude: [
+      ...configDefaults.exclude,
+      "desktop-shell/**",
+    ],
   },
 });

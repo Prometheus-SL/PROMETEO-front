@@ -16,6 +16,11 @@
     "capabilities": [
       "minecraft",
       "gaming"
-    ]
+    ],
+    "ai": {
+      "actions": [
+        "minecraft.status"
+      ]
+    }
   }
 ]

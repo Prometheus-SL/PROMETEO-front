@@ -13,6 +13,16 @@
     "audience": "dashboard",
     "requiredProviders": [],
     "requiredRole": null,
-    "capabilities": ["demo"]
+    "capabilities": ["demo"],
+    "ai": {
+      "actions": []
+    },
+    "preview": "./preview.png",
+    "marketplace": {
+      "familyId": "your-widget",
+      "familyName": "Your Widget",
+      "variantLabel": "Standard",
+      "variantOrder": 1
+    }
   }
 ]

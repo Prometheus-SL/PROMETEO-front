@@ -15,6 +15,10 @@ export interface ModuleMarketplaceMeta {
     variantOrder?: number
 }
 
+export interface ModuleAiMeta {
+    actions?: string[]
+}
+
 export interface ModuleMeta {
     id: string
     name: string
@@ -29,6 +33,7 @@ export interface ModuleMeta {
     requiredRole?: ModuleRole | null
     capabilities?: string[]
     marketplace?: ModuleMarketplaceMeta
+    ai?: ModuleAiMeta
 }
 
 export interface InstalledModule {

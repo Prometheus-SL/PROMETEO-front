@@ -18,6 +18,12 @@
       "lights",
       "wled"
     ],
+    "ai": {
+      "actions": [
+        "lighting.power.set",
+        "lighting.effect.next"
+      ]
+    },
     "preview": "./preview.png",
     "marketplace": {
       "familyId": "wled",
@@ -45,6 +51,12 @@
       "lights",
       "wled"
     ],
+    "ai": {
+      "actions": [
+        "lighting.power.set",
+        "lighting.effect.next"
+      ]
+    },
     "preview": "./preview-compact.png",
     "marketplace": {
       "familyId": "wled",

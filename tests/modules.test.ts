@@ -40,6 +40,22 @@ describe("module metadata", () => {
     });
   });
 
+  it("accepts ai action metadata declared by widgets", () => {
+    const meta = validateModuleMeta({
+      id: "spotify-widget",
+      name: "Spotify",
+      entry: "./index.tsx",
+      size: { width: 2, height: 2 },
+      ai: {
+        actions: ["spotify.status", "spotify.play", "spotify.pause"],
+      },
+    });
+
+    expect(meta.ai).toEqual({
+      actions: ["spotify.status", "spotify.play", "spotify.pause"],
+    });
+  });
+
   it("hides ops modules from the client surface and reports missing providers", () => {
     const meta = validateModuleMeta({
       id: "command-center-widget",

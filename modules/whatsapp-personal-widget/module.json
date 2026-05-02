@@ -16,6 +16,12 @@
     "capabilities": [
       "messaging",
       "social"
-    ]
+    ],
+    "ai": {
+      "actions": [
+        "whatsapp.status",
+        "whatsapp.conversations.list"
+      ]
+    }
   }
 ]

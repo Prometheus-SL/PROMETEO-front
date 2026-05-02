@@ -15,6 +15,11 @@
     "requiredRole": null,
     "capabilities": [
       "weather"
-    ]
+    ],
+    "ai": {
+      "actions": [
+        "weather.current"
+      ]
+    }
   }
 ]

@@ -361,6 +361,40 @@ const sharedSpotifyWebPlaybackController = createSpotifyWebPlaybackController({
 
 let activeConsumers = 0;
 
+function waitForSharedSpotifyWebPlaybackSnapshot(
+  predicate: (snapshot: SpotifyWebPlaybackSnapshot) => boolean,
+  timeoutMs = 8000,
+) {
+  const current = sharedSpotifyWebPlaybackController.getSnapshot();
+  if (predicate(current)) {
+    return Promise.resolve(current);
+  }
+
+  return new Promise<SpotifyWebPlaybackSnapshot>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      unsubscribe();
+      reject(new Error("Spotify web player did not become ready in time."));
+    }, timeoutMs);
+
+    const unsubscribe = sharedSpotifyWebPlaybackController.subscribe((snapshot) => {
+      if (!predicate(snapshot)) return;
+      window.clearTimeout(timer);
+      unsubscribe();
+      resolve(snapshot);
+    });
+  });
+}
+
+export async function activateSpotifyWebPlaybackForSpark() {
+  await sharedSpotifyWebPlaybackController.activate();
+
+  return waitForSharedSpotifyWebPlaybackSnapshot((snapshot) => (
+    snapshot.status === "active"
+    || snapshot.status === "activation_required"
+    || snapshot.status === "error"
+  ));
+}
+
 export function useSpotifyWebPlayback(enabled: boolean) {
   const [snapshot, setSnapshot] = React.useState(
     sharedSpotifyWebPlaybackController.getSnapshot(),

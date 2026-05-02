@@ -10,6 +10,11 @@
     "audience": "dashboard",
     "requiredProviders": ["discord"],
     "requiredRole": null,
-    "capabilities": ["discord", "social"]
+    "capabilities": ["discord", "social"],
+    "ai": {
+      "actions": [
+        "discord.guild.info"
+      ]
+    }
   }
 ]

@@ -17,6 +17,11 @@
       "agent.health",
       "hermes"
     ],
+    "ai": {
+      "actions": [
+        "hermes.status.system"
+      ]
+    },
     "preview": "./preview-hermes-pc-widget.png"
   },
   {
@@ -36,7 +41,18 @@
     "capabilities": [
       "media",
       "hermes"
-    ]
+    ],
+    "ai": {
+      "actions": [
+        "hermes.status.media",
+        "hermes.command.media.refresh",
+        "hermes.command.media.toggle_playback",
+        "hermes.command.media.play",
+        "hermes.command.media.pause",
+        "hermes.command.media.next",
+        "hermes.command.media.previous"
+      ]
+    }
   },
   {
     "id": "hermes-volume-widget",
@@ -56,6 +72,17 @@
       "audio",
       "hermes"
     ],
+    "ai": {
+      "actions": [
+        "hermes.status.audio",
+        "hermes.command.volume.set",
+        "hermes.command.volume.mute",
+        "hermes.command.volume.unmute",
+        "hermes.command.volume.up",
+        "hermes.command.volume.down",
+        "hermes.command.audio_output.set"
+      ]
+    },
     "preview": "./preview-hermes-volume-widget.png"
   }
 ]

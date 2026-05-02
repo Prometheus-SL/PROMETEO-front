@@ -125,6 +125,20 @@ const COMMON_FIELDS: Record<string, ModuleConfigFieldDefinition> = {
       { value: "de", label: "German" },
     ],
   },
+  leagueId: {
+    label: "Competition",
+    helpText: "League used for the standings and featured match summary.",
+    input: "segmented",
+    options: [
+      { value: "laliga", label: "LaLiga" },
+      { value: "champions", label: "Champions" },
+    ],
+  },
+  teamName: {
+    label: "Team",
+    helpText: "Optional team name used for personalized match summaries.",
+    placeholder: "Real Madrid",
+  },
   apiKey: {
     label: "API key",
     helpText: "Stored with this widget config. Use Live preview only when you want to test it.",
@@ -343,6 +357,16 @@ const DEFINITIONS: Record<string, Partial<ModuleConfigUiDefinition>> = {
     id: "weather-widget",
     fields: COMMON_FIELDS,
     order: ["city", "units", "language"],
+  },
+  "football-widget": {
+    id: "football-widget",
+    fields: COMMON_FIELDS,
+    order: ["leagueId", "teamName"],
+  },
+  "football-widget-compact": {
+    id: "football-widget-compact",
+    fields: COMMON_FIELDS,
+    order: ["leagueId", "teamName"],
   },
   "minecraft-widget": {
     id: "minecraft-widget",

@@ -1,5 +1,7 @@
 import type { WledFullResponse, WledState } from "./types";
 
+const DEFAULT_WLED_REQUEST_TIMEOUT_MS = 8000;
+
 export class WledApi {
     private baseUrl: string;
 
@@ -12,13 +14,33 @@ export class WledApi {
         endpoint: string,
         options?: RequestInit,
     ): Promise<T> {
-        const response = await fetch(`${this.baseUrl}${endpoint}`, {
-            ...options,
-            headers: {
-                "Content-Type": "application/json",
-                ...options?.headers,
-            },
-        });
+        const controller = new AbortController();
+        const timeoutId = globalThis.setTimeout(() => {
+            controller.abort();
+        }, DEFAULT_WLED_REQUEST_TIMEOUT_MS);
+
+        let response: Response;
+        try {
+            response = await fetch(`${this.baseUrl}${endpoint}`, {
+                ...options,
+                method: options?.method ?? "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...options?.headers,
+                },
+                signal: controller.signal,
+            });
+        } catch (error) {
+            globalThis.clearTimeout(timeoutId);
+            if (controller.signal.aborted) {
+                throw new Error(
+                    `WLED API timeout after ${DEFAULT_WLED_REQUEST_TIMEOUT_MS}ms`,
+                );
+            }
+            throw error;
+        }
+
+        globalThis.clearTimeout(timeoutId);
 
         if (!response.ok) {
             throw new Error(

@@ -11,6 +11,11 @@
     "requiredProviders": ["google"],
     "requiredRole": null,
     "capabilities": ["inbox", "focus"],
+    "ai": {
+      "actions": [
+        "google.summary.inbox"
+      ]
+    },
     "marketplace": {
       "familyId": "inbox-summary",
       "familyName": "Inbox Summary",
@@ -30,6 +35,11 @@
     "requiredProviders": ["google"],
     "requiredRole": null,
     "capabilities": ["inbox", "focus"],
+    "ai": {
+      "actions": [
+        "google.summary.inbox"
+      ]
+    },
     "marketplace": {
       "familyId": "inbox-summary",
       "familyName": "Inbox Summary",
