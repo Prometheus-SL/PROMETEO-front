@@ -246,6 +246,41 @@ const PROVIDER_PRESENTATIONS: Record<string, ProviderPresentation> = {
       },
     ],
   },
+  steam: {
+    description: "Friends presence, current games and Steam Store context.",
+    icon: (
+      <img
+        src="/steam.png"
+        alt="Steam"
+        className="size-10 rounded-lg contain h-auto"
+      />
+    ),
+    cardClassName:
+      "border-slate-500/15 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_38%),linear-gradient(135deg,rgba(15,23,42,0.06),transparent)]",
+    getDetails: (provider) => [
+      {
+        label: "Steam account",
+        value:
+          readString(provider.profile, "displayName") ||
+          readString(provider.profile, "personaName") ||
+          "No Steam account linked",
+      },
+      {
+        label: "SteamID64",
+        value: readString(provider.profile, "steamId") || "Unknown",
+      },
+      {
+        label: "Connected at",
+        value: formatDate(provider.connectedAt),
+      },
+      {
+        label: "Data access",
+        value: provider.scopes.length
+          ? `${provider.scopes.length} permissions`
+          : "OpenID identity",
+      },
+    ],
+  },
   creator: {
     description:
       "Internal creator-source status across live channels and publishing surfaces.",

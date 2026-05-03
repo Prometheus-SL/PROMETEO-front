@@ -1,0 +1,13 @@
+{
+  "id": "steam-deals-widget",
+  "name": "Steam Deals",
+  "description": "Current Steam Store specials and daily game discounts.",
+  "category": "gaming",
+  "size": { "width": 2, "height": 3 },
+  "entry": "./index.tsx",
+  "configSchema": "./config.ts",
+  "audience": "dashboard",
+  "requiredProviders": [],
+  "requiredRole": null,
+  "capabilities": ["steam", "deals", "gaming"]
+}

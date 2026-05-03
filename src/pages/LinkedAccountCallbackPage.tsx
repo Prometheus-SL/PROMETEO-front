@@ -10,6 +10,7 @@ function normalizeProviderName(provider: string) {
   if (provider === "discord") return "Discord";
   if (provider === "google") return "Google";
   if (provider === "github") return "GitHub";
+  if (provider === "steam") return "Steam";
   if (!provider) return "Account";
   return provider.charAt(0).toUpperCase() + provider.slice(1);
 }

@@ -125,6 +125,37 @@ const COMMON_FIELDS: Record<string, ModuleConfigFieldDefinition> = {
       { value: "de", label: "German" },
     ],
   },
+  country: {
+    label: "Store country",
+    helpText: "Country code used for regional Steam Store prices.",
+    input: "segmented",
+    options: [
+      { value: "ES", label: "Spain" },
+      { value: "US", label: "US" },
+      { value: "GB", label: "UK" },
+      { value: "DE", label: "Germany" },
+      { value: "FR", label: "France" },
+    ],
+  },
+  maxDeals: {
+    label: "Deals to show",
+    helpText: "Maximum number of Steam Store specials in the widget.",
+    input: "slider",
+    unit: "items",
+    min: 1,
+    max: 12,
+    step: 1,
+  },
+  maxFriendsToInspect: {
+    label: "Friends to scan",
+    helpText: "How many Steam friends Prometeo checks before ranking online friends.",
+    section: "advanced",
+    input: "slider",
+    unit: "items",
+    min: 10,
+    max: 500,
+    step: 10,
+  },
   leagueId: {
     label: "Competition",
     helpText: "League used for the standings and featured match summary.",
@@ -343,6 +374,34 @@ const DEFINITIONS: Record<string, Partial<ModuleConfigUiDefinition>> = {
   "github-pulse-widget-compact": PRODUCTIVITY,
   "tasks-today-widget": PRODUCTIVITY,
   "tasks-today-widget-compact": PRODUCTIVITY,
+  "steam-friends-widget": {
+    id: "steam-friends-widget",
+    fields: COMMON_FIELDS,
+    order: ["title", "maxItems", "maxFriendsToInspect", "pollMs"],
+  },
+  "steam-deals-widget": {
+    id: "steam-deals-widget",
+    fields: {
+      ...COMMON_FIELDS,
+      language: {
+        label: "Store language",
+        input: "segmented",
+        options: [
+          { value: "spanish", label: "Spanish" },
+          { value: "english", label: "English" },
+          { value: "french", label: "French" },
+          { value: "german", label: "German" },
+        ],
+      },
+      pollMs: {
+        ...COMMON_FIELDS.pollMs,
+        min: 300_000,
+        max: 3_600_000,
+        step: 300_000,
+      },
+    },
+    order: ["title", "country", "language", "maxDeals", "pollMs"],
+  },
   "creator-status-widget": {
     id: "creator-status-widget",
     fields: COMMON_FIELDS,

@@ -69,7 +69,10 @@ export default function OAuthButtons() {
 
   // Keep a stable ref so the message handler never uses a stale closure
   const loginQRRef = useRef(loginQR);
-  loginQRRef.current = loginQR;
+
+  useEffect(() => {
+    loginQRRef.current = loginQR;
+  }, [loginQR]);
 
   const clearPopupWatcher = useCallback(() => {
     if (popupTimerRef.current !== null) {

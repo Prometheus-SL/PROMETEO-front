@@ -1,0 +1,13 @@
+{
+  "id": "steam-friends-widget",
+  "name": "Steam Friends",
+  "description": "Online Steam friends and the game they are playing right now.",
+  "category": "social",
+  "size": { "width": 2, "height": 3 },
+  "entry": "./index.tsx",
+  "configSchema": "./config.ts",
+  "audience": "dashboard",
+  "requiredProviders": ["steam"],
+  "requiredRole": null,
+  "capabilities": ["steam", "presence", "social", "gaming"]
+}

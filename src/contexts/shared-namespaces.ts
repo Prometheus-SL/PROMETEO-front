@@ -3,6 +3,7 @@ export const SHARED_NAMESPACES = {
   providerStatus: "provider.status",
   providerGoogleSummary: "provider.google.summary",
   providerGithubPulse: "provider.github.pulse",
+  providerSteamFriends: "provider.steam.friends",
   providerCreatorStatus: "provider.creator.status",
   mediaNowPlaying: "media.nowPlaying",
   mediaActions: "media.actions",
