@@ -29,6 +29,7 @@ const LockScreenPage = lazy(() => import("./pages/LockScreenPage"));
 const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
+const InstallPage = lazy(() => import("./pages/InstallPage"));
 
 function RouteFallback() {
   return (
@@ -94,7 +95,10 @@ export function createAppRoutes(isDev = import.meta.env.DEV) {
       ),
       handle: [
         {
-          routes: [{ title: "Home", url: "/" }],
+          routes: [
+            { title: "Home", url: "/" },
+            { title: "Install", url: "/install" },
+          ],
           adminOnly: false,
           title: "Principal",
         },
@@ -129,6 +133,11 @@ export function createAppRoutes(isDev = import.meta.env.DEV) {
           index: true,
           element: <HomePage />,
           handle: { title: "Home" },
+        },
+        {
+          path: "/install",
+          element: lazyElement(InstallPage),
+          handle: { title: "Install" },
         },
         {
           path: "/dashboard",
