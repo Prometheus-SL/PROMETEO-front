@@ -108,4 +108,63 @@ describe("steamService", () => {
       expect.any(Object),
     );
   });
+
+  it("loads inventory summary with all query params", async () => {
+    const { fetchMock, storage } = installTestEnvironment();
+    storage.set("auth_access_token", "token-123");
+    fetchMock.mockResolvedValue(
+      createJsonResponse({
+        success: true,
+        data: {
+          provider: { status: "connected" },
+          appId: "730",
+          appName: "Counter-Strike 2",
+          currency: "EUR",
+          totalValue: 12.5,
+          totalItems: 1,
+          totalItemsWithPrice: 1,
+          totalItemsUnmarketable: 0,
+          pricesPending: false,
+          items: [],
+          fetchedAt: "2026-05-04T00:00:00.000Z",
+          cache: { inventory: "miss", prices: { hits: 0, misses: 1, skipped: 0 } },
+        },
+      }),
+    );
+
+    const summary = await steamService.getInventory({
+      appId: "730",
+      currency: "EUR",
+      sortBy: "priceDesc",
+      force: true,
+    });
+
+    expect(summary.appName).toBe("Counter-Strike 2");
+    expect(summary.totalValue).toBe(12.5);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "/api/v1/integrations/steam/inventory?appId=730&currency=EUR&sortBy=priceDesc&force=true",
+      ),
+      expect.any(Object),
+    );
+  });
+
+  it("omits optional inventory params when not provided", async () => {
+    const { fetchMock, storage } = installTestEnvironment();
+    storage.set("auth_access_token", "token-123");
+    fetchMock.mockResolvedValue(
+      createJsonResponse({ success: true, data: {} }),
+    );
+
+    await steamService.getInventory({ appId: "730" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/integrations/steam/inventory?appId=730"),
+      expect.any(Object),
+    );
+    const calledUrl = String(fetchMock.mock.calls[0]?.[0] ?? "");
+    expect(calledUrl).not.toContain("currency=");
+    expect(calledUrl).not.toContain("sortBy=");
+    expect(calledUrl).not.toContain("force=");
+  });
 });

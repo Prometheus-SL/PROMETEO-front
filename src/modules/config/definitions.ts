@@ -402,6 +402,51 @@ const DEFINITIONS: Record<string, Partial<ModuleConfigUiDefinition>> = {
     },
     order: ["title", "country", "language", "maxDeals", "pollMs"],
   },
+  "steam-inventory-widget": {
+    id: "steam-inventory-widget",
+    fields: {
+      ...COMMON_FIELDS,
+      appId: {
+        label: "Game",
+        helpText: "Steam game whose inventory to display.",
+        input: "segmented",
+        options: [
+          { value: "730", label: "CS2" },
+          { value: "570", label: "Dota 2" },
+          { value: "440", label: "TF2" },
+          { value: "252490", label: "Rust" },
+          { value: "753", label: "Community" },
+        ],
+      },
+      currency: {
+        label: "Currency",
+        helpText: "Currency used for Steam Market prices.",
+        input: "segmented",
+        options: [
+          { value: "EUR", label: "EUR" },
+          { value: "USD", label: "USD" },
+          { value: "GBP", label: "GBP" },
+        ],
+      },
+      sortBy: {
+        label: "Sort by",
+        input: "select",
+        options: [
+          { value: "priceDesc", label: "Price (high to low)" },
+          { value: "priceAsc", label: "Price (low to high)" },
+          { value: "name", label: "Name (A-Z)" },
+          { value: "dateDesc", label: "Date acquired (newest first)" },
+          { value: "dateAsc", label: "Date acquired (oldest first)" },
+        ],
+      },
+      hideUnmarketable: {
+        label: "Hide unmarketable",
+        helpText: "Only show items that can be listed on the Steam Market.",
+        input: "switch",
+      },
+    },
+    order: ["title", "appId", "currency", "sortBy", "hideUnmarketable"],
+  },
   "creator-status-widget": {
     id: "creator-status-widget",
     fields: COMMON_FIELDS,

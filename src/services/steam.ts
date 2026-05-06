@@ -79,6 +79,78 @@ export type SteamDealsOptions = {
   limit?: number;
 };
 
+export type SteamCurrency = "EUR" | "USD" | "GBP";
+export type SteamInventorySortBy =
+  | "priceDesc"
+  | "priceAsc"
+  | "name"
+  | "dateDesc"
+  | "dateAsc";
+
+export type SteamInventoryItemPrice = {
+  lowest: number;
+  median: number | null;
+  volume: number | null;
+  currency: SteamCurrency;
+  fetchedAt: string;
+};
+
+export type SteamInventoryTag = {
+  category: string;
+  name: string;
+  color: string | null;
+};
+
+export type SteamInventoryDescription = {
+  value: string;
+  color: string | null;
+  type: string | null;
+};
+
+export type SteamInventoryItem = {
+  id: string;
+  marketHashName: string;
+  name: string;
+  marketName: string;
+  iconUrl: string | null;
+  iconUrlLarge: string | null;
+  type: string | null;
+  rarityColor: string | null;
+  marketable: boolean;
+  tradable: boolean;
+  quantity: number;
+  latestAssetId: string;
+  tags: SteamInventoryTag[];
+  descriptions: SteamInventoryDescription[];
+  marketUrl: string;
+  price: SteamInventoryItemPrice | null;
+};
+
+export type SteamInventorySummary = {
+  provider?: SteamProviderStatus;
+  appId: string;
+  appName: string;
+  currency: SteamCurrency;
+  totalValue: number;
+  totalItems: number;
+  totalItemsWithPrice: number;
+  totalItemsUnmarketable: number;
+  pricesPending: boolean;
+  items: SteamInventoryItem[];
+  fetchedAt: string;
+  cache: {
+    inventory: "hit" | "miss" | "forced";
+    prices: { hits: number; misses: number; skipped: number };
+  };
+};
+
+export type SteamInventoryOptions = {
+  appId: string;
+  currency?: SteamCurrency;
+  sortBy?: SteamInventorySortBy;
+  force?: boolean;
+};
+
 function appendOptionalParam(
   params: URLSearchParams,
   key: string,
@@ -116,6 +188,18 @@ export const steamService = {
 
     return api.getData<SteamDealsSummary>(
       `/api/v1/integrations/steam/deals${query ? `?${query}` : ""}`,
+    );
+  },
+
+  async getInventory(options: SteamInventoryOptions): Promise<SteamInventorySummary> {
+    const params = new URLSearchParams();
+    params.set("appId", options.appId);
+    appendOptionalParam(params, "currency", options.currency);
+    appendOptionalParam(params, "sortBy", options.sortBy);
+    if (options.force) params.set("force", "true");
+    const query = params.toString();
+    return api.getData<SteamInventorySummary>(
+      `/api/v1/integrations/steam/inventory${query ? `?${query}` : ""}`,
     );
   },
 };

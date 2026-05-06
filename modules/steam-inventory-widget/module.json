@@ -1,0 +1,22 @@
+[
+  {
+    "id": "steam-inventory-widget",
+    "name": "Steam Inventory",
+    "description": "Your Steam inventory for one game with live Steam Market prices.",
+    "category": "linked-accounts",
+    "size": { "width": 2, "height": 5 },
+    "entry": "./index.tsx",
+    "configSchema": "./config.ts",
+    "audience": "dashboard",
+    "requiredProviders": ["steam"],
+    "requiredRole": null,
+    "capabilities": ["steam", "inventory"],
+    "preview": "./preview.png",
+    "marketplace": {
+      "familyId": "steam-inventory",
+      "familyName": "Steam Inventory",
+      "variantLabel": "Standard",
+      "variantOrder": 1
+    }
+  }
+]
