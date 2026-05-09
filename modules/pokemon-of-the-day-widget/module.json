@@ -1,0 +1,17 @@
+[
+  {
+    "id": "pokemon-of-the-day-widget",
+    "name": "Pokémon of the Day",
+    "description": "Your personal Pokémon for today, with types, level-50 stats and matchups. 1/4096 shiny chance.",
+    "category": "fun",
+    "size": { "width": 2, "height": 5 },
+    "entry": "./index.tsx",
+    "configSchema": "./config.ts",
+    "audience": "dashboard",
+    "requiredProviders": [],
+    "requiredRole": null,
+    "capabilities": [],
+    "ai": { "actions": [] },
+    "preview": "./preview.png"
+  }
+]
