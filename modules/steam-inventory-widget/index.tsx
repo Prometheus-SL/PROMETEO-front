@@ -24,7 +24,6 @@ import {
   WidgetHeader,
   WidgetShell,
   WidgetState,
-  WidgetStatus,
 } from "@/modules/ui/WidgetShell";
 import { ApiError } from "@/lib/api";
 import {
@@ -75,6 +74,27 @@ function formatCurrency(value: number, currency: SteamCurrency): string {
 
 function appNameForCode(appId: string): string {
     return APP_ID_LABELS[appId as keyof typeof APP_ID_LABELS] ?? `Steam app ${appId}`;
+}
+
+function gameIconUrl(appId: string): string | null {
+    if (appId === "753") return null;
+    return `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/capsule_231x87.jpg`;
+}
+
+function GameIcon({ appId, name }: { appId: string; name: string }) {
+    const [errored, setErrored] = useState(false);
+    const url = gameIconUrl(appId);
+    if (!url || errored) {
+        return <Package className="size-4" />;
+    }
+    return (
+        <img
+            src={url}
+            alt={name}
+            className="size-full rounded-md object-cover"
+            onError={() => setErrored(true)}
+        />
+    );
 }
 
 function mapErrorToState(error: unknown, appId: string): LoadState {
@@ -408,22 +428,19 @@ export default function SteamInventoryWidget({
     setCurrentPage(0);
   }, [appId, currency, sortBy, hideUnmarketable]);
 
+  const gameName = state.kind === "ready" ? state.summary.appName : appNameForCode(appId);
+
   return (
     <WidgetShell accent={ACCENT}>
       <WidgetHeader
         accent={ACCENT}
-        icon={<Package className="size-4" />}
-        title={title}
-        description={
-          state.kind === "ready"
-            ? `${state.summary.appName} · ${state.summary.totalItems} items`
-            : appNameForCode(appId)
-        }
+        icon={<GameIcon appId={appId} name={gameName} />}
+        title={<span className="block translate-y-[2.6px]">{title}</span>}
         status={
           state.kind === "ready" ? (
-            <WidgetStatus tone="neutral">
+            <span className="inline-flex translate-y-[2.6px] items-center gap-1 rounded-full bg-gradient-to-r from-violet-500/25 via-violet-500/15 to-violet-500/10 px-2 py-0.5 text-[11px] font-bold leading-none text-violet-700 shadow-sm ring-1 ring-violet-500/30 dark:text-violet-100">
               {formatCurrency(state.summary.totalValue, state.summary.currency)}
-            </WidgetStatus>
+            </span>
           ) : null
         }
         actions={
