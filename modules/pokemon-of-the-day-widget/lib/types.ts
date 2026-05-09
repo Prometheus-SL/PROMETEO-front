@@ -27,9 +27,6 @@ export type BaseStats = {
   spe: number;
 };
 
-/** Output of the level-50 stat formula; structurally identical to BaseStats but distinct in intent. */
-export type ComputedStats = BaseStats;
-
 export type PokedexEntry = {
   id: number;          // PokeAPI numeric id (used for sprite paths)
   dexNumber: number;   // National Dex number, 1..1025

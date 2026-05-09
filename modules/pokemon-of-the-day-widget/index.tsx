@@ -155,6 +155,7 @@ export default function PokemonOfTheDayWidget() {
   const { entry, isShiny } = selection;
   const sprites = getSpriteUrls(entry.id, isShiny);
   const [spriteStage, setSpriteStage] = useState<"primary" | "fallback" | "missing">("primary");
+  const [loreOpen, setLoreOpen] = useState(false);
   const spriteSrc =
     spriteStage === "primary" ? sprites.primary :
     spriteStage === "fallback" ? sprites.fallback :
@@ -198,7 +199,7 @@ export default function PokemonOfTheDayWidget() {
           </div>
         </div>
 
-        {/* Sprite frame — hover to reveal stats */}
+        {/* Sprite frame — hover (desktop) or tap (mobile) to reveal lore */}
         <SpriteFrame
           src={spriteSrc}
           alt={entry.displayName}
@@ -209,6 +210,8 @@ export default function PokemonOfTheDayWidget() {
             )
           }
           hoverOverlay={<LorePanel text={entry.flavorText} name={entry.displayName} />}
+          isOverlayOpen={loreOpen}
+          onToggleOverlay={() => setLoreOpen((v) => !v)}
         />
 
         {/* Matchups */}
@@ -226,12 +229,16 @@ function SpriteFrame({
   isShiny,
   onError,
   hoverOverlay,
+  isOverlayOpen,
+  onToggleOverlay,
 }: {
   src: string | null;
   alt: string;
   isShiny: boolean;
   onError: () => void;
   hoverOverlay?: ReactNode;
+  isOverlayOpen?: boolean;
+  onToggleOverlay?: () => void;
 }) {
   return (
     <>
@@ -258,6 +265,7 @@ function SpriteFrame({
         className={cn(
           "group relative w-full flex-1 min-h-[160px] overflow-hidden rounded-lg",
           isShiny ? "p-[2px]" : "border border-border/50",
+          hoverOverlay && onToggleOverlay && "cursor-pointer select-none",
         )}
         style={
           isShiny
@@ -269,6 +277,9 @@ function SpriteFrame({
               }
             : undefined
         }
+        onClick={onToggleOverlay}
+        role={onToggleOverlay ? "button" : undefined}
+        aria-pressed={onToggleOverlay ? isOverlayOpen : undefined}
       >
       <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-md bg-background/90">
         {src ? (
@@ -304,7 +315,12 @@ function SpriteFrame({
           </>
         )}
         {hoverOverlay && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-background/95 p-3 backdrop-blur-sm transition-transform duration-200 group-hover:translate-y-0">
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-x-0 bottom-0 bg-background/95 p-3 backdrop-blur-sm transition-transform duration-200",
+              isOverlayOpen ? "translate-y-0" : "translate-y-full group-hover:translate-y-0",
+            )}
+          >
             {hoverOverlay}
           </div>
         )}
