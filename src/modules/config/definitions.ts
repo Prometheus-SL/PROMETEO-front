@@ -157,17 +157,18 @@ const COMMON_FIELDS: Record<string, ModuleConfigFieldDefinition> = {
     step: 10,
   },
   leagueId: {
-    label: "Competition",
-    helpText: "League used for the standings and featured match summary.",
+    label: "Leagues",
+    helpText:
+      '"Leagues" auto-detects your team\'s league from its name. "Champions" shows Champions League matches.',
     input: "segmented",
     options: [
-      { value: "laliga", label: "LaLiga" },
+      { value: "leagues", label: "Leagues" },
       { value: "champions", label: "Champions" },
     ],
   },
   teamName: {
     label: "Team",
-    helpText: "Optional team name used for personalized match summaries.",
+    helpText: "Your team's name. Required in Leagues mode; optional in Champions mode.",
     placeholder: "Real Madrid",
   },
   apiKey: {

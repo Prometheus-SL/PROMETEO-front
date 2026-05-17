@@ -115,6 +115,9 @@ function buildStandings() {
 
 function buildHandlers(state: FootballMockState) {
   return [
+    http.get(createModuleDevBackendUrl("/api/v1/integrations/football/resolve-team"), () =>
+      createModuleDevSuccessResponse({ leagueId: "laliga", team: teamRMA }),
+    ),
     http.get(createModuleDevBackendUrl("/api/v1/integrations/football/leagues"), () =>
       createModuleDevSuccessResponse([{
         id: "laliga",

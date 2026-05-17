@@ -37,10 +37,10 @@ export default function FootballWidget1x1({
 }: {
   config: Record<string, unknown>;
 }) {
-  const leagueId = String(config["leagueId"] ?? "laliga");
+  const leagueId = String(config["leagueId"] ?? "leagues");
   const teamName = String(config["teamName"] ?? "").trim();
 
-  const { snapshot, error, loading } = useFootballState({
+  const { snapshot, needsTeam, error, loading } = useFootballState({
     leagueId,
     teamName,
     includeStandings: false,
@@ -52,14 +52,18 @@ export default function FootballWidget1x1({
     return () => clearInterval(id);
   }, []);
 
-  if (!teamName) {
+  if (needsTeam || !teamName) {
     return (
       <WidgetShell accent="amber">
         <WidgetContent className="flex items-center">
           <WidgetState
             accent="amber"
             title="Football"
-            message="Pick a favorite team for this competition."
+            message={
+              leagueId === "champions"
+                ? "Pick a favorite team for this competition."
+                : "Type a team to see its league."
+            }
           />
         </WidgetContent>
       </WidgetShell>

@@ -1,6 +1,12 @@
+// @vitest-environment jsdom
+// Tell React that act() is expected in this test environment.
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { createRoot } from "react-dom/client";
+import { act } from "react";
 
 import {
   HighlightVideo,
@@ -9,6 +15,32 @@ import {
 import type {
   FootballStandings,
 } from "../modules/football-widget/football-service";
+import { SharedContextProvider } from "../src/providers/SharedContextProvider";
+import FootballWidget3x3 from "../modules/football-widget/index3x3";
+
+// ---------------------------------------------------------------------------
+// Mock the network boundary: footballApi. All methods default to a promise
+// that never resolves so tests that don't configure them fail-fast rather
+// than silently passing.
+// ---------------------------------------------------------------------------
+vi.mock("../modules/football-widget/football-service", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../modules/football-widget/football-service")>();
+  return {
+    ...original,
+    footballApi: {
+      listLeagues: vi.fn().mockResolvedValue([]),
+      getStandings: vi.fn().mockResolvedValue({ leagueId: "laliga", rows: [] }),
+      getSnapshotByName: vi.fn().mockResolvedValue(null),
+      getFeatured: vi.fn().mockResolvedValue({ match: null, highlights: null }),
+      resolveTeam: vi.fn().mockResolvedValue({ leagueId: "laliga", team: { id: 86, name: "Real Madrid", shortName: "Real Madrid", code: "RMA", crest: "" } }),
+      listTeams: vi.fn().mockResolvedValue([]),
+      searchTeams: vi.fn().mockResolvedValue([]),
+    },
+  };
+});
+
+// Pull the mocked api reference so we can inspect spy calls in tests.
+const { footballApi } = await import("../modules/football-widget/football-service");
 
 const teamRMA = { id: 86, name: "Real Madrid", shortName: "Real Madrid", code: "RMA", crest: "https://crests.football-data.org/86.png" };
 const teamFCB = { id: 81, name: "Barcelona", shortName: "Barcelona", code: "BAR", crest: "https://crests.football-data.org/81.svg" };
@@ -72,5 +104,42 @@ describe("Football HighlightVideo", () => {
       <HighlightVideo videoId={null} channelUrl={null} channelLabel="" />,
     );
     expect(html).toContain("Highlights unavailable");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Step 3: empty-team state — 3x3 widget renders "Type a team" and makes no
+// network calls when leagueId="leagues" and teamName="".
+// ---------------------------------------------------------------------------
+describe("Football 3x3 widget — leagues mode / empty team", () => {
+  let container: HTMLDivElement;
+  let root: ReturnType<typeof createRoot>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it("renders the empty-team state without resolving a team or fetching standings", async () => {
+    await act(async () => {
+      root.render(
+        <SharedContextProvider persist={false}>
+          <FootballWidget3x3 config={{ leagueId: "leagues", teamName: "" }} />
+        </SharedContextProvider>,
+      );
+    });
+
+    expect(container.textContent).toContain("Type a team to see its league.");
+    expect(footballApi.resolveTeam).not.toHaveBeenCalled();
+    expect(footballApi.getStandings).not.toHaveBeenCalled();
   });
 });

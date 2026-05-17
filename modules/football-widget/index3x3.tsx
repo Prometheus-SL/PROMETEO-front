@@ -18,16 +18,25 @@ export default function FootballWidget5x3({
 }: {
   config: Record<string, unknown>;
 }) {
-  const leagueId = String(config["leagueId"] ?? "laliga");
+  const leagueId = String(config["leagueId"] ?? "leagues");
   const teamName = String(config["teamName"] ?? "").trim();
 
-  const { snapshot, featured, standings, leagues, error, loading } = useFootballState({
+  const {
+    snapshot,
+    featured,
+    standings,
+    leagues,
+    resolvedLeagueId,
+    needsTeam,
+    error,
+    loading,
+  } = useFootballState({
     leagueId,
     teamName,
     includeStandings: true,
   });
 
-  const currentLeague = leagues?.find((l) => l.id === leagueId) ?? null;
+  const currentLeague = leagues?.find((l) => l.id === resolvedLeagueId) ?? null;
   const channelUrl = currentLeague?.highlightsChannelUrl ?? null;
   const channelLabel = currentLeague?.highlightsChannelLabel ?? "Watch on YouTube";
   const supportsStandings = currentLeague?.supportsStandings !== false;
@@ -40,6 +49,20 @@ export default function FootballWidget5x3({
       el.scrollIntoView({ block: "center", behavior: "smooth" });
     }
   }, [standings, teamName]);
+
+  if (needsTeam) {
+    return (
+      <WidgetShell accent="amber">
+        <WidgetContent className="flex items-center">
+          <WidgetState
+            accent="amber"
+            title="Football"
+            message="Type a team to see its league."
+          />
+        </WidgetContent>
+      </WidgetShell>
+    );
+  }
 
   if (loading && !standings) {
     return (

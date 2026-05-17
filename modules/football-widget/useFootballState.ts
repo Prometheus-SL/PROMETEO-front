@@ -43,31 +43,55 @@ export function useFootballState({
   teamName: string;
   includeStandings: boolean;
 }) {
+  const isLeaguesMode = leagueId === "leagues";
+  const trimmedName = teamName.trim();
+  // In "leagues" mode a team name is required; without one we render an
+  // empty state and skip every fetch.
+  const needsTeam = isLeaguesMode && trimmedName.length === 0;
+
   const [snapshot, setSnapshot] = useState<FootballSnapshot | null>(null);
   const [featured, setFeatured] = useState<FootballFeatured | null>(null);
   const [standings, setStandings] = useState<FootballStandings | null>(null);
   const [leagues, setLeagues] = useState<FootballLeague[] | null>(null);
+  const [resolvedLeagueId, setResolvedLeagueId] = useState<string | null>(
+    isLeaguesMode ? null : leagueId,
+  );
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!needsTeam);
 
   const snapshotRef = useRef<FootballSnapshot | null>(null);
   const featuredRef = useRef<FootballFeatured | null>(null);
   const standingsRef = useRef<FootballStandings | null>(null);
   const leaguesRef = useRef<FootballLeague[] | null>(null);
+  const resolvedLeagueIdRef = useRef<string | null>(isLeaguesMode ? null : leagueId);
   const inFlightRef = useRef(false);
   const { registerAction, unregisterAction } = useSharedContext();
 
+  // The effective league id to query: the configured one outside "leagues"
+  // mode, or the auto-resolved one once a team name has been looked up.
+  const effectiveLeagueId = isLeaguesMode ? resolvedLeagueId : leagueId;
+
   const loadAll = useCallback(async () => {
+    if (needsTeam) return;
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     try {
       setError(null);
+
+      let activeLeagueId = isLeaguesMode ? resolvedLeagueIdRef.current : leagueId;
+      if (isLeaguesMode && !activeLeagueId) {
+        const resolved = await footballApi.resolveTeam(trimmedName);
+        activeLeagueId = resolved.leagueId;
+        resolvedLeagueIdRef.current = resolved.leagueId;
+        setResolvedLeagueId(resolved.leagueId);
+      }
+      if (!activeLeagueId) return;
+
       const tasks: Promise<void>[] = [];
-      const trimmedName = teamName.trim();
       if (trimmedName) {
         tasks.push(
           (async () => {
-            const next = await footballApi.getSnapshotByName(leagueId, trimmedName);
+            const next = await footballApi.getSnapshotByName(activeLeagueId, trimmedName);
             snapshotRef.current = next;
             setSnapshot(next);
           })(),
@@ -75,7 +99,7 @@ export function useFootballState({
       } else {
         tasks.push(
           (async () => {
-            const next = await footballApi.getFeatured(leagueId);
+            const next = await footballApi.getFeatured(activeLeagueId);
             featuredRef.current = next;
             setFeatured(next);
           })(),
@@ -84,7 +108,7 @@ export function useFootballState({
       if (includeStandings) {
         tasks.push(
           (async () => {
-            const next = await footballApi.getStandings(leagueId);
+            const next = await footballApi.getStandings(activeLeagueId);
             standingsRef.current = next;
             setStandings(next);
           })(),
@@ -98,8 +122,16 @@ export function useFootballState({
       setLoading(false);
       inFlightRef.current = false;
     }
-  }, [leagueId, teamName, includeStandings]);
+  }, [
+    needsTeam,
+    isLeaguesMode,
+    leagueId,
+    trimmedName,
+    includeStandings,
+  ]);
 
+  // Reset all derived state whenever the inputs change. In "leagues" mode the
+  // resolved league is cleared so the next load re-resolves from the new name.
   useEffect(() => {
     snapshotRef.current = null;
     featuredRef.current = null;
@@ -107,13 +139,16 @@ export function useFootballState({
     setSnapshot(null);
     setFeatured(null);
     setStandings(null);
-    setLoading(true);
+    resolvedLeagueIdRef.current = isLeaguesMode ? null : leagueId;
+    setResolvedLeagueId(isLeaguesMode ? null : leagueId);
     setError(null);
-  }, [leagueId, teamName, includeStandings]);
+    setLoading(!needsTeam);
+  }, [leagueId, teamName, includeStandings, isLeaguesMode, needsTeam]);
 
   useEffect(() => {
+    if (needsTeam) return;
     void loadAll();
-  }, [loadAll]);
+  }, [loadAll, needsTeam]);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,10 +168,11 @@ export function useFootballState({
   }, []);
 
   useEffect(() => {
+    if (needsTeam) return;
     const intervalMs = pollIntervalForSnapshot(snapshot);
     const id = window.setInterval(() => void loadAll(), intervalMs);
     return () => clearInterval(id);
-  }, [loadAll, snapshot]);
+  }, [loadAll, snapshot, needsTeam]);
 
   // When the tab regains visibility or the window regains focus, refetch
   // immediately. Browsers throttle setInterval aggressively in background
@@ -144,6 +180,7 @@ export function useFootballState({
   // without this the user can come back to the dashboard after a while
   // and see stale data until the next interval fires.
   useEffect(() => {
+    if (needsTeam) return;
     const onVisible = () => {
       if (document.visibilityState === "visible") {
         void loadAll();
@@ -158,13 +195,13 @@ export function useFootballState({
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onFocus);
     };
-  }, [loadAll]);
+  }, [loadAll, needsTeam]);
 
   useEffect(() => {
-    if (!includeStandings) return;
+    if (needsTeam || !includeStandings || !effectiveLeagueId) return;
     const id = window.setInterval(() => {
       void footballApi
-        .getStandings(leagueId)
+        .getStandings(effectiveLeagueId)
         .then((next) => {
           standingsRef.current = next;
           setStandings(next);
@@ -174,7 +211,7 @@ export function useFootballState({
         });
     }, STANDINGS_POLL_MS);
     return () => clearInterval(id);
-  }, [leagueId, includeStandings]);
+  }, [effectiveLeagueId, includeStandings, needsTeam]);
 
   useEffect(() => {
     const ids = [
@@ -184,6 +221,21 @@ export function useFootballState({
       "football-widget:refresh",
     ];
 
+    const ensureLeagueId = async (): Promise<string | null> => {
+      if (effectiveLeagueId) return effectiveLeagueId;
+      if (isLeaguesMode && trimmedName) {
+        return footballApi
+          .resolveTeam(trimmedName)
+          .then((r) => {
+            resolvedLeagueIdRef.current = r.leagueId;
+            setResolvedLeagueId(r.leagueId);
+            return r.leagueId;
+          })
+          .catch(() => null);
+      }
+      return null;
+    };
+
     registerAction({
       id: ids[0],
       widgetId: "football-widget",
@@ -191,8 +243,12 @@ export function useFootballState({
       description: "Read the favorite team's last result.",
       intentTags: ["football last result", "soccer last result"],
       run: async () => {
-        const trimmed = teamName.trim();
-        const s = snapshotRef.current ?? (trimmed ? await footballApi.getSnapshotByName(leagueId, trimmed).catch(() => null) : null);
+        const lid = await ensureLeagueId();
+        const s =
+          snapshotRef.current ??
+          (lid && trimmedName
+            ? await footballApi.getSnapshotByName(lid, trimmedName).catch(() => null)
+            : null);
         if (!s || !s.lastMatch) return { success: false, message: "No recent match found." };
         const m = s.lastMatch;
         return {
@@ -209,8 +265,12 @@ export function useFootballState({
       description: "Read the favorite team's next match.",
       intentTags: ["next football match", "next soccer match"],
       run: async () => {
-        const trimmed = teamName.trim();
-        const s = snapshotRef.current ?? (trimmed ? await footballApi.getSnapshotByName(leagueId, trimmed).catch(() => null) : null);
+        const lid = await ensureLeagueId();
+        const s =
+          snapshotRef.current ??
+          (lid && trimmedName
+            ? await footballApi.getSnapshotByName(lid, trimmedName).catch(() => null)
+            : null);
         if (!s || !s.nextMatch) return { success: false, message: "No upcoming match scheduled." };
         const n = s.nextMatch;
         const date = new Date(n.startTimestamp * 1000).toISOString();
@@ -228,10 +288,12 @@ export function useFootballState({
       description: "Read the top of the league standings.",
       intentTags: ["league standings", "football table"],
       run: async () => {
-        const t = standingsRef.current ?? (await footballApi.getStandings(leagueId).catch(() => null));
+        const lid = await ensureLeagueId();
+        if (!lid) return { success: false, message: "Standings unavailable." };
+        const t = standingsRef.current ?? (await footballApi.getStandings(lid).catch(() => null));
         if (!t || t.rows.length === 0) return { success: false, message: "Standings unavailable." };
         const top = t.rows.slice(0, 3).map((r) => `${r.position}. ${r.team.shortName} (${r.points})`).join("; ");
-        return { success: true, message: `Top of ${leagueId}: ${top}.` };
+        return { success: true, message: `Top of ${lid}: ${top}.` };
       },
     });
 
@@ -250,13 +312,22 @@ export function useFootballState({
     return () => {
       for (const id of ids) unregisterAction(id);
     };
-  }, [registerAction, unregisterAction, leagueId, teamName, loadAll]);
+  }, [
+    registerAction,
+    unregisterAction,
+    effectiveLeagueId,
+    isLeaguesMode,
+    trimmedName,
+    loadAll,
+  ]);
 
   return {
     snapshot,
     featured,
     standings,
     leagues,
+    resolvedLeagueId: effectiveLeagueId,
+    needsTeam,
     error,
     loading,
     refresh: loadAll,

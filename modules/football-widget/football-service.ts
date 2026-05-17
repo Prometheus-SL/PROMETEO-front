@@ -72,6 +72,11 @@ export interface FootballLeague {
   highlightsChannelLabel: string | null;
 }
 
+export interface FootballResolvedTeam {
+  leagueId: string;
+  team: FootballTeam;
+}
+
 const BASE = "/api/v1/integrations/football";
 
 export const footballApi = {
@@ -90,4 +95,8 @@ export const footballApi = {
     ),
   getFeatured: (leagueId: string) =>
     api.getData<FootballFeatured>(`${BASE}/leagues/${leagueId}/featured`),
+  resolveTeam: (name: string) =>
+    api.getData<FootballResolvedTeam>(
+      `${BASE}/resolve-team?name=${encodeURIComponent(name)}`,
+    ),
 };
