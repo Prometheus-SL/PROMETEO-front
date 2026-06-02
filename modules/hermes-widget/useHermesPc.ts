@@ -141,6 +141,24 @@ export function useHermesPc(config: HermesWidgetConfig) {
           void reload(true);
         }
       },
+      onAgentsStatus: (agents) => {
+        const connectedIds = new Set(agents.map((agent) => agent.agentId));
+        const currentAgentId = selectedAgentIdRef.current;
+
+        // Si el agente seleccionado ya estaba conectado antes de abrir el dashboard,
+        // refléjalo "online" de inmediato sin esperar al siguiente agent-data.
+        if (currentAgentId && connectedIds.has(currentAgentId)) {
+          setState((prev) => ({
+            ...prev,
+            agent: prev.agent ? { ...prev.agent, status: "online" } : prev.agent,
+          }));
+        }
+
+        // En modo auto, reconcilia la selección con la presencia real al (re)conectar.
+        if (mode !== "agent" && connectedIds.size > 0) {
+          void reload(true);
+        }
+      },
       onAgentConnected: ({ agentId }) => {
         if (mode !== "agent" || agentId === selectedAgentIdRef.current) {
           void reload(true);

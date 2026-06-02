@@ -23,6 +23,7 @@ import {
 } from "../grid-layout";
 import type { InstalledModule } from "../types";
 import { ModuleConfigModal } from "./ModuleConfigModal";
+import { WidgetErrorBoundary } from "./WidgetErrorBoundary";
 
 interface GridManagerProps {
   installed: InstalledModule[];
@@ -528,12 +529,14 @@ export function GridManager({
 
                     <div className="h-full w-full">
                       {Definition ? (
-                        <Definition
-                          config={moduleInstance.config}
-                          onConfigChange={(config) => {
-                            onUpdateConfig?.(id, config);
-                          }}
-                        />
+                        <WidgetErrorBoundary name={moduleInstance.meta.name}>
+                          <Definition
+                            config={moduleInstance.config}
+                            onConfigChange={(config) => {
+                              onUpdateConfig?.(id, config);
+                            }}
+                          />
+                        </WidgetErrorBoundary>
                       ) : (
                         <div className="grid h-full place-items-center text-sm text-zinc-500">
                           Loading...

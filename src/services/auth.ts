@@ -1,7 +1,8 @@
 import { ApiError, api, configureApi } from "@/lib/api";
 import {
     ACCESS_TOKEN_KEY,
-    REFRESH_TOKEN_KEY,
+    getRefreshToken,
+    setRefreshToken,
 } from "@/services/auth-storage";
 
 export type Tokens = {
@@ -123,34 +124,34 @@ export const authService = {
         return api.postData<AuthResponse>(
             "/auth/login",
             totpToken ? { username, password, totpToken } : { username, password },
-            { skipAuth: true }
+            // credentials: para recibir la cookie HttpOnly del refresh token.
+            { skipAuth: true, credentials: "include" }
         );
     },
     async register(payload: { username: string; email: string; password: string; name: string; surname: string; birthday: string; }) {
         return api.postData<{ user: AuthUser }>("/auth/register", payload, { skipAuth: true });
     },
     async refresh(): Promise<boolean> {
-        const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-        if (!refreshToken) return false;
-
         try {
+            // El refresh token viaja por la cookie HttpOnly (web); el de memoria es un
+            // fallback de misma sesión. `credentials: include` envía/recibe la cookie.
             const data = await api.postData<Tokens>(
                 "/auth/refresh",
-                { refreshToken },
-                { skipAuth: true, retryOn401: false }
+                { refreshToken: getRefreshToken() ?? undefined },
+                { skipAuth: true, retryOn401: false, credentials: "include" }
             );
             localStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
-            localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
+            setRefreshToken(data.refreshToken);
             return true;
         } catch {
             return false;
         }
     },
-    async logout(refreshToken?: string) {
+    async logout() {
         await api.postData<null>(
             "/auth/logout",
-            refreshToken ? { refreshToken } : {},
-            { retryOn401: false }
+            { refreshToken: getRefreshToken() ?? undefined },
+            { retryOn401: false, credentials: "include" }
         );
     },
     async generateQRCode() {

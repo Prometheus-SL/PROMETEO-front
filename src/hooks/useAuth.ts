@@ -7,13 +7,14 @@ import {
 } from "@/services/auth";
 import {
     ACCESS_TOKEN_KEY,
-    REFRESH_TOKEN_KEY,
     USER_KEY,
+    getRefreshToken,
+    setRefreshToken,
 } from "@/services/auth-storage";
 
 export function useAuth() {
     const [accessToken, setAccessToken] = useState<string | null>(() => localStorage.getItem(ACCESS_TOKEN_KEY));
-    const [refreshToken, setRefreshToken] = useState<string | null>(() => localStorage.getItem(REFRESH_TOKEN_KEY));
+    const [refreshToken, setRefreshTokenState] = useState<string | null>(() => getRefreshToken());
     const [user, setUser] = useState<AuthUser | null>(() => {
         const raw = localStorage.getItem(USER_KEY);
         return raw ? JSON.parse(raw) : null;
@@ -24,10 +25,10 @@ export function useAuth() {
 
     const persistSession = (tokens: Tokens, userData: AuthUser) => {
         localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
-        localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+        setRefreshToken(tokens.refreshToken); // memoria, no localStorage
         localStorage.setItem(USER_KEY, JSON.stringify(userData));
         setAccessToken(tokens.accessToken);
-        setRefreshToken(tokens.refreshToken);
+        setRefreshTokenState(tokens.refreshToken);
         setUser(userData);
     };
 
@@ -98,12 +99,12 @@ export function useAuth() {
     };
 
     const logout = () => {
-        void authService.logout(refreshToken || undefined);
+        void authService.logout();
         localStorage.removeItem(ACCESS_TOKEN_KEY);
-        localStorage.removeItem(REFRESH_TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
+        setRefreshToken(null); // limpia memoria (y cualquier resto en localStorage)
         setAccessToken(null);
-        setRefreshToken(null);
+        setRefreshTokenState(null);
         setUser(null);
         setTwoFactorRequired(false);
         window.location.replace("/login");

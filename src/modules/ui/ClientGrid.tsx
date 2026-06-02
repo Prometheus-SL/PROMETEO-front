@@ -11,6 +11,7 @@ import {
   type GridCell,
 } from "@/modules/grid-layout";
 import type { InstalledModule } from "@/modules/types";
+import { WidgetErrorBoundary } from "@/modules/ui/WidgetErrorBoundary";
 
 type ModuleDefinitionEntry = {
   Component: ComponentType<{
@@ -66,10 +67,12 @@ const ModuleSlot = memo(function ModuleSlot({
     >
       <div className="relative h-full w-full overflow-hidden rounded-lg bg-background shadow">
         {Definition ? (
-          <Definition
-            config={module.config}
-            onConfigChange={moduleId ? handleConfigChange : undefined}
-          />
+          <WidgetErrorBoundary name={module.meta.name}>
+            <Definition
+              config={module.config}
+              onConfigChange={moduleId ? handleConfigChange : undefined}
+            />
+          </WidgetErrorBoundary>
         ) : (
           <div className="grid h-full place-items-center text-sm text-muted-foreground">
             Loading module...

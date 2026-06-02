@@ -140,6 +140,14 @@ export type HermesMediaSnapshot = {
 
 export type HermesAgentDataSnapshot = HermesSnapshot | HermesMediaSnapshot;
 
+// Snapshot de presencia que el backend envía al identificarse el frontend (evento `agents-status`).
+export type HermesAgentPresence = {
+  agentId: string;
+  userId?: string;
+  connectedAt?: string;
+  mode?: string;
+};
+
 export type HermesCommandResult = {
   commandId?: string;
   agentId: string;
@@ -274,16 +282,20 @@ export function resolveAutoAgent(agents: HermesAgent[]): HermesAgent | null {
 
 export function connectHermesSocket(handlers: {
   onAgentData?: (snapshot: HermesAgentDataSnapshot) => void;
+  onAgentsStatus?: (agents: HermesAgentPresence[]) => void;
   onAgentConnected?: (payload: { agentId: string }) => void;
   onAgentDisconnected?: (payload: { agentId: string }) => void;
   onCommandResult?: (payload: HermesCommandResult) => void;
   onError?: (message: string) => void;
 }): Socket | null {
-  const token = localStorage.getItem(ACCESS_TOKEN_KEY);
-  if (!token) return null;
+  // Se lee fresco en cada uso: el access token se rota al refrescar (lib/api.ts),
+  // así que NO debe capturarse una sola vez o las reconexiones usarían un token caduco.
+  const getToken = () => localStorage.getItem(ACCESS_TOKEN_KEY);
+  if (!getToken()) return null;
 
   const socket = io(getSocketBaseUrl(), {
-    auth: { token },
+    // `auth` como función => socket.io la reevalúa en cada (re)conexión con el token actual.
+    auth: (cb) => cb({ token: getToken() ?? "" }),
     transports: ["websocket", "polling"],
     reconnection: true,
     reconnectionAttempts: Infinity,
@@ -292,12 +304,17 @@ export function connectHermesSocket(handlers: {
   socket.on("connect", () => {
     socket.emit("identify", {
       type: "frontend",
-      token,
+      token: getToken(),
     });
   });
 
   socket.on("agent-data", (payload: HermesAgentDataSnapshot) => {
     handlers.onAgentData?.(payload);
+  });
+
+  // Presencia inicial: el backend la envía al identificarse (también tras cada reconexión).
+  socket.on("agents-status", (payload: HermesAgentPresence[]) => {
+    handlers.onAgentsStatus?.(Array.isArray(payload) ? payload : []);
   });
 
   socket.on("agent-connected", (payload: { agentId: string }) => {
